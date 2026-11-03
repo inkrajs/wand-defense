@@ -6,7 +6,7 @@ export function createInitialState(): GameState {
     spawnRemainingMs: 0, rngState: 20261103, territory: {hp: 100, maxHp: 100, shield: 50, maxShield: 50, wallLevel: 1, shieldLevel: 1},
     coins: 0, xp: 0, playerLevel: 1, luck: 0,
     characters: [{id: "character-1", name: "初始角色", sequenceId: "fire-9",
-      level: 1, grade: "common", wandIds: ["wand-1"], mana: 100, maxMana: 100, manaRegen: 12}],
+      level: 1, xp: 0, grade: "common", wandIds: ["wand-1"], mana: 100, maxMana: 100, manaRegen: 12}],
     wands: [{id:"wand-1", name:"初始法杖", characterId:"character-1", level:1,
       grade:"common", width:3, height:3, placements:[{itemId:"spark-1",x:0,y:0,rotation:0}],cooldowns:{}}],
     items: {

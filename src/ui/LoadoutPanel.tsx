@@ -63,7 +63,7 @@ export function LoadoutPanel({ state, dispatch, mode, onModeChange, activeCharac
     <header className="loadout__header">
       <div><p className="loadout__eyebrow">LOADOUT · 整理构筑</p><PencilText as="h2" seed="loadout-heading">{mode === "wand" ? "法杖工坊" : "背包"}</PencilText><PencilText as="p" className="sr-only" seed="loadout-help">选择角色、法杖与物品，再点选空格放置或已装备物品移除。</PencilText></div>
       <div className="loadout__header-actions">
-        {character && <span className="loadout__mana">法力 {Math.floor(character.mana)} / {character.maxMana} · 经验 {state.xp}</span>}
+        {character && <span className="loadout__mana">法力 {Math.floor(character.mana)} / {character.maxMana} · 经验 {character.xp ?? 0}</span>}
         <Button variant={state.backpackOpen ? "primary" : "secondary"} onClick={() => send({ type: "setBackpack", open: !state.backpackOpen })}>{state.backpackOpen ? "返回游戏" : "打开背包"}</Button>
       </div>
     </header>

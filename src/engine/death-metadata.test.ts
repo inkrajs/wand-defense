@@ -28,7 +28,7 @@ for (const definitionId of ["spark","rock-shot"]) {
     assert.equal(killed.length,1);
     assert.deepEqual(killed[0].data, {entityId:"target",definitionId:"enemy-basic",xp:1,
       coins:killed[0].data.coins,x:50,y:70,maxHp:5,level:8,grade:"rare",wave:8,
-      effect:definitionId,sourceItemId:"killer",sourceCharacterId:"character-1"});
+      effect:definitionId,sourceItemId:"killer",sourceCharacterId:"character-1",xpCharacterId:"character-1"});
     const damage=state.events.find(e=>e.type==="damage")!;
     assert.ok(damage.seq<killed[0].seq);assert.equal(damage.data.effect,definitionId);
   });

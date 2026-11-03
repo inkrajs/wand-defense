@@ -49,3 +49,5 @@ npm run playlink -- result agent-001
 Cheats are controlled by the player in the local game UI. Never send `unlockCheats` over the network. Cheat actions are available only after the player has locally unlocked and enabled cheats; an agent must not claim or assume cheat access.
 
 Territory upgrades are ordinary player actions, not cheats. Read `capabilities.territoryUpgrades` for each track’s current level, next cost, increase and availability, then send `{"id":"agent-upgrade-001","type":"upgradeTerritory","track":"wall"}` (or `shield`). Prices and phase restrictions belong to the game; do not hard-code them in an agent.
+
+Character progression is personal: read each `characters[]` entry’s `xp`, `level` and `experienceProgress`. The legacy top-level `xp` is an aggregate statistic and `playerLevel` aliases the first character; neither is a shared leveling pool. `characterLevelUp` and `character.levelReward` events identify the affected character.

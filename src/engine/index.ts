@@ -1,4 +1,4 @@
-import type { ContentCatalog, GameEvent, GameState, Transition } from "../contracts";
+import type { CharacterInstance, ContentCatalog, GameEvent, GameState, Transition } from "../contracts";
 import { compileWand } from "../loadout";
 import { experienceThreshold } from "../content/progression";
 import { castSpell } from "./effects";
@@ -42,6 +42,7 @@ export function startBattle(state: GameState, _content: ContentCatalog): Transit
 }
 
 function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills): void {
+  const beneficiaries = new Set<CharacterInstance>();
   for (const entity of state.entities) {
     if (entity.hp > 0 || entity.kind !== "enemy") continue;
     const xp = Math.max(1, Math.round(entity.maxHp / 8));
@@ -51,18 +52,29 @@ function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills):
     state.coins += coins;
     const cause = pendingKills.get(entity.id);
     pendingKills.delete(entity.id);
+    // Projectiles retain their firing character even if their wand changes hands in flight.
+    const beneficiary = cause?.sourceCharacterId
+      ? state.characters.find(character => character.id === cause.sourceCharacterId) : undefined;
+    if (beneficiary) {
+      beneficiary.xp = (beneficiary.xp ?? 0) + xp;
+      beneficiaries.add(beneficiary);
+    }
     const level = typeof entity.level === "number" && Number.isFinite(entity.level) && entity.level >= 1
       ? entity.level : Math.max(1, Number.isFinite(state.wave) ? Math.floor(state.wave) : 1);
     emit("enemyKilled", { entityId: entity.id, definitionId: entity.definitionId, xp, coins,
       x: entity.x, y: entity.y, maxHp: entity.maxHp, level, grade: entity.grade ?? "common", wave: state.wave,
-      ...cause });
+      ...cause, ...(beneficiary ? { xpCharacterId: beneficiary.id } : {}) });
   }
   state.entities = state.entities.filter(entity => entity.hp > 0 && (entity.remainingMs === undefined || entity.remainingMs > 0));
-  // XP is cumulative; each threshold is crossed once even for multi-level boss kills.
-  while (state.xp >= experienceThreshold(state.playerLevel)) {
-    state.playerLevel++;
-    emit("playerLevelUp", { level: state.playerLevel });
+  // Each character owns a cumulative pool. The team tally never drives upgrades.
+  for (const character of beneficiaries) {
+    while ((character.xp ?? 0) >= experienceThreshold(character.level)) {
+      const previousLevel = character.level;
+      character.level++;
+      emit("characterLevelUp", { characterId: character.id, level: character.level, previousLevel });
+    }
   }
+  state.playerLevel = state.characters[0]?.level ?? 1;
 }
 
 /** Pure simulation: no timers, transport, reward UI or hidden second runtime. */

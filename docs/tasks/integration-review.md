@@ -199,3 +199,13 @@
 实际独立仅运行floor-blood.test.ts，4/4通过。另内联窄验：kill→water冲洗、water→kill不逆序冲洗、重复快照不重放、缓存200条恢复96条/effect限80；真实remote territory命令从缺旧等级checkpoint成功、扣费/上限增长与事件metadata一致、重复id无变化、恢复checkpoint后仍幂等、非法track拒绝/私有字段解析移除及能力投影正确，均通过。BloodDecals.css经PostCSS解析通过。未全仓、未重做领域测试、未改UI或截图；其他结论保持。
 
 最终版本补审通过：live超过96条现按当前opacity×强度系数排序保留，平分时保留较新项，再恢复原绘制顺序；排序只操作新数组，不修改旧memory或玩法。旧厚重boss痕迹不会仅因出生早而被删，淡/弱优先淘汰，资源上限仍96；已实际阅读新增old-epic保留断言。capabilities.territoryUpgrades直接复用同一getTerritoryUpgrade纯函数给wall/shield费用、收益、等级与allowed，不依赖catalog/随机源，不复制价格规则；失败reason是固定枚举。新增territory-integration.test.ts实际阅读确认覆盖remote扣费/保损伤、同id仅通知一次、checkpoint恢复/restart等级重置、费用/收益投影与非法track。根报告最新两文件5/5通过，本轮为最终差异代码复读，未重复执行或冒称独立5/5；原独立窄验结论保持。
+
+## 独立角色经验根接线短审（2026-11-04）
+
+结论：Sol短审通过，无新增阻塞。仅审contracts、initial/recruit、runtime构造/赠品事件消费及projection接线；经验领域规则与UI经验环分别由原battle/UI Sol验收，不重做其全套。
+
+- constructor先克隆checkpoint，再在任何外部snapshot/订阅/战斗前调用normalizeCharacterProgression；迁移不产生升级事件或赠品，不修改调用者存档。legacy shared XP仅迁入首角色；其他缺xp角色按原等级下限保留进度，当前原level1角色为0，不复制共享75。已存在xp不再次迁移，playerLevel明确仅首角色等级alias。initial与新招募均level1/xp0，restart继续走initial。
+- tick只消费本次stepBattle返回transition.events中的characterLevelUp，逐级校验characterId/安全整数level后按原轮换发物品并记录character.levelReward，不再比较首角色playerLevel差，也不扫描checkpoint累积events。因此次要角色独立升级同样获赠，历史事件不会刷新重发；giveItem与新事件仍在统一tick通知前完成，checkpoint保存最终state和既有回执。
+- flat xp保留累计统计、playerLevel保留首角色alias，同时投影明确experienceMode=perCharacter；每角色显式xp与共用getExperienceProgress结果，level/XP/进度采用同一权威数据。characterLevelUp、character.levelReward及xpCharacterId走事件白名单，未扩张任意内部payload或未知定义披露。
+
+独立仅运行runtime/character-progression.test.ts，3/3通过。另内联窄验构造不改输入checkpoint、battle状态携带旧characterLevelUp后实际tick也不重发赠品、xpCharacterId公开且私有字段剔除、个人进度投影一致，通过。未全仓/视觉验收、未改UI，其他结论保持。

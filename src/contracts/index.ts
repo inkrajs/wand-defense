@@ -42,6 +42,8 @@ export interface WandInstance extends Growth {
 }
 export interface CharacterInstance extends Growth {
   id: Id; name: string; sequenceId: Id; wandIds: Id[];
+  /** Cumulative personal experience; absent only in legacy checkpoints. */
+  xp?: number;
   mana: number; maxMana: number; manaRegen: number;
 }
 export interface CombatEntity {
@@ -70,7 +72,10 @@ export interface GameState {
   gameTimeMs: number; speed: GameSpeed; paused: boolean; backpackOpen: boolean;
   wave: number; waveSpawnRemaining: number; spawnRemainingMs: number; rngState: number;
   territory: { hp: number; maxHp: number; shield?: number; maxShield?: number; wallLevel?: number; shieldLevel?: number };
-  coins: number; xp: number; playerLevel: number; luck: number;
+  coins: number;
+  /** Legacy aggregate XP and first-character level alias; not shared progression. */
+  xp: number; playerLevel: number;
+  luck: number;
   runBonuses?: { attackPercent: number };
   characters: CharacterInstance[]; wands: WandInstance[]; items: Record<Id, ItemInstance>;
   backpack: Id[]; entities: CombatEntity[]; rewards: RewardOption[];

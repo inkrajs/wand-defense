@@ -43,7 +43,7 @@ export function Battlefield({ state, activeCharacterId, onCharacterSelect }: Pro
             <button type="button" className={`battlefield__hero${character.id === activeCharacterId ? " is-selected" : ""}`} key={character.id}
               aria-label={`选择角色：${character.name}，法力 ${character.mana} / ${character.maxMana}`} aria-pressed={character.id === activeCharacterId}
               title={`${character.name} · 法力 ${character.mana} / ${character.maxMana}`} onClick={() => onCharacterSelect(character.id)}>
-              {character.id === activeCharacterId && <Progress className="battlefield__xp" shape="circular" diameter={96} thickness={3} value={getExperienceProgress(state.xp, state.playerLevel).value} max={getExperienceProgress(state.xp, state.playerLevel).max} aria-label="本局经验" seed="experience-ring" {...ringOptions("var(--inkra-success-pigment)")} />}
+              <Progress className="battlefield__xp" shape="circular" diameter={96} thickness={3} value={getExperienceProgress(character.xp ?? 0, character.level).value} max={getExperienceProgress(character.xp ?? 0, character.level).max} aria-label={`${character.name}经验`} seed={`experience-ring-${character.id}`} {...ringOptions("var(--inkra-success-pigment)")} />
               <Progress className="battlefield__mana" shape="circular" diameter={76} thickness={3} value={character.mana} max={Math.max(1, character.maxMana)} aria-label={`${character.name} 法力`} seed={`mana-${character.id}`} {...ringOptions("var(--inkra-info-pigment)")} />
               <PencilSurface as="span" className="battlefield__hero-wash" variant="selection" radius={12} seed={`hero-selection-${character.id}`} aria-hidden="true" />
               <span aria-hidden="true" className="battlefield__hero-mark">♙</span>

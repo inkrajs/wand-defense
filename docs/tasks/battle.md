@@ -169,3 +169,31 @@ transition内创建临时pendingKills映射：真正的damage事件在HP扣除�
 Sol实码检查：伤害时点、emit次数与seq、死亡收益公式、LCG调用次数、清波和法力恢复均保持；没有修改projectiles命中逻辑、UI或战斗平衡。非玩家来源或legacy预死实体仍产生无伪造effect/source的死亡事件。
 
 实际运行death-metadata.test.ts 5项（spark/rock-shot真实致死来源各1、多来源同一步唯一killer、legacy预死默认/不继承历史damage与LCG一次、普通/三档boss等级品级且LCG无新增）和既有index.test.ts 12项，共17/17通过。定向strict TypeScript及范围diff-check通过，未重复全仓。血迹浓度/停留/风格由根按事件元数据决定；未实现所谓盐弹，仍使用既有rock-shot岩弹。完成后停止编辑交根统一集成，不提交推送。
+
+## 角色独立经验与等级（2026-11-04，完成）
+
+用户确认每角色独立累计xp/level/经验环。本节取代此前全队xp升级规则；state.xp仅保留全队累计击杀经验统计，state.playerLevel仅首角色level兼容alias，不再驱动共享升级。小域更改由Sol负责人直接实现，无新子任务，无模型失败恢复。
+
+### 引擎经验归属
+
+settleDeaths使用本transition真实致死pending cause.sourceCharacterId匹配当前仍在队伍的合法角色；只有该角色获得本次敌人xp。同一角色所有法杖均归该角色，飞行弹体使用发射时保存的sourceCharacterId，之后更换法杖持有者不转移已发弹体经验。无来源、已移除角色来源、legacy预死实体不会把经验塞给当前选择/当前持杖角色或其他角色。
+
+enemyKilled保留所有血迹/掉落元数据及xp/coins，只有实际受益角色时附xpCharacterId。每个角色的累计xp逐级对照既有experienceThreshold曲线；跨多级时逐级发characterLevelUp {characterId,level,previousLevel}，不再发playerLevelUp。事件在该次死亡统一结算中产生，runtime可按每条个人升级事件发原每级赠品。没有修改伤害时点、弹体、金币概率、LCG调用、清波奖励或回满法力。
+
+### 迁移API与边界
+
+src/content/progression.ts导出normalizeCharacterProgression(state: GameState): void，原地归一化，runtimeconstructor由根调用。只迁移xp===undefined的角色：
+
+- 首角色继承max(旧state.xp,自身旧level的累计下限)；有限负旧xp按0处理，旧level至少1。
+- 其他缺xp角色只继承自身已有level累计下限，不复制共享池；新一级角色为0。
+- 用累计曲线逆函数直接上推迁移角色level，不回放历史升级事件或赠品。已有xp角色保留其xp/level，不重新承接共享数据。
+- 最后刷新首角色playerLevel兼容alias，不改state.xp统计。不写事件/rewards，重复调用不再迁移。
+
+引擎以runtime已归一化的个人状态为输入；不在每次step重新执行旧共享池迁移。CharacterInstance.xp可选字段、new/recruit xp=0、runtime个人升级赠品、存档迁移调用、公开投影和UI经验环均由根/界面负责人对接，本模块未改这些文件，也未改用户当前存档。
+
+### 实际验证与Sol检查
+
+新character-progression.test.ts 4项：双角色不同击杀各获20/60累计xp并逐级升至2/3；同角色两杖真实发射后整体转交，经验仍归发射角色；无owner/已移除owner不分配个人经验且大额共享统计不触发升级；暂停/背包冻结经验与事件。
+新progression-migration.test.ts 3项：首角色一次承接旧共享xp、其他角色只取等级下限、已有个人池不被复制；迁移重入幂等且无事件/奖励；旧等级下限及20/60/120等阈值边界。既有death metadata精确断言仅补实际xpCharacterId。
+
+已运行上述7项+既有death5/index12，共24/24通过。定向strict TypeScript与范围diff-check通过，未重复全仓或验收UI。Sol实读经验受益Set、逐级事件、发射来源追踪、无owner路径与迁移调用边界，确认只有个人累计值驱动角色level，不以兼容统计凑等级。没有提交/推送，停止编辑交根统一集成。

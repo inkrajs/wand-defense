@@ -2,6 +2,7 @@ import type { CommandResult, ContentCatalog, GameEvent, GameState } from '../con
 import { remoteCommandTypes, sanitizeResult } from './protocol';
 import { gradeOrder } from '../content/grades';
 import { getTerritoryUpgrade } from '../content/territory';
+import { getExperienceProgress } from '../content/progression';
 
 /** Only known definitions are exported. Catalog construction stays in the authoritative game. */
 export function projectContent(state: GameState, catalog?: ContentCatalog) {
@@ -37,7 +38,8 @@ export function projectState(state: GameState) {
     gameTimeMs:state.gameTimeMs,speed:state.speed,paused:state.paused,backpackOpen:state.backpackOpen,wave:state.wave,
     territory:{...state.territory},coins:state.coins,xp:state.xp,playerLevel:state.playerLevel,luck:state.luck,
     runBonuses:{attackPercent:state.runBonuses?.attackPercent ?? 0},
-    characters:state.characters.map(c=>({...structuredClone(c),sequenceId:state.knowledge.sequenceIds.includes(c.sequenceId)?c.sequenceId:undefined})),
+    experienceMode:'perCharacter' as const,
+    characters:state.characters.map(c=>({...structuredClone(c),xp:c.xp ?? 0,experienceProgress:getExperienceProgress(c.xp ?? 0,c.level),sequenceId:state.knowledge.sequenceIds.includes(c.sequenceId)?c.sequenceId:undefined})),
     wands:state.wands.map(w=>({...structuredClone(w),placements:w.placements.filter(p=>!!items[p.itemId]).map(p=>({...p})),
       cooldowns:Object.fromEntries(Object.entries(w.cooldowns).filter(([id])=>!!items[id]))})),
     items,backpack:state.backpack.filter(id=>!!items[id]),
@@ -62,9 +64,9 @@ const publicEventTypes = new Set(['waveStarted','waveCleared','enemyKilled','ter
   'reward.offered','pause.changed','backpack.changed','cheats.unlocked','cheats.changed','cheat.executed',
   'damage','heal','spawn','despawn','playerLevelUp','player.levelReward','enemyAttacked','territoryAttacked','bossSpawned','enemySpawned',
   'loadout.placed','loadout.removed','loadout.merged','loadout.equipped','game.restarted','wandUnequipped','speed.changed',
-  'projectileSpawned','projectileExpired','itemsMerged','territoryUpgraded']);
-const numericFields = new Set(['wave','amount','damage','hp','maxHp','coins','xp','level','cost','increase','x','y','originX','originY','targetX','targetY','territoryHp','territoryShield','shieldAbsorbed','hpDamage','bossTier','speed']);
-const idFields = new Set(['itemId','wandId','characterId','entityId','targetId','sourceItemId','targetItemId','projectileId','rewardId','commandId','sourceCharacterId','sourceEntityId','enemyId','outputItemId','fromCharacterId','gameId']);
+  'projectileSpawned','projectileExpired','itemsMerged','territoryUpgraded','characterLevelUp','character.levelReward']);
+const numericFields = new Set(['wave','amount','damage','hp','maxHp','coins','xp','level','previousLevel','cost','increase','x','y','originX','originY','targetX','targetY','territoryHp','territoryShield','shieldAbsorbed','hpDamage','bossTier','speed']);
+const idFields = new Set(['itemId','wandId','characterId','xpCharacterId','entityId','targetId','sourceItemId','targetItemId','projectileId','rewardId','commandId','sourceCharacterId','sourceEntityId','enemyId','outputItemId','fromCharacterId','gameId']);
 export function projectEvents(state: GameState, events: GameEvent[]): GameEvent[] {
   const known = new Set([...state.knowledge.spellIds,...state.knowledge.arcanaIds,...state.knowledge.recipeIds,...state.knowledge.sequenceIds]);
   return events.map(event=>{

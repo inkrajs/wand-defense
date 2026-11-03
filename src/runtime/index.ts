@@ -1,6 +1,7 @@
 import type { Command, CommandResult, ContentCatalog, GameEvent, GameState, Id, RuntimePort } from "../contracts";
 import { demoContent } from "../content/demo";
 import { createWaveRewards } from "../content/rewards";
+import { normalizeCharacterProgression } from "../content/progression";
 import { startBattle, stepBattle } from "../engine";
 import { applyLoadoutCommand } from "../loadout";
 import { createInitialState } from "./initial";
@@ -22,6 +23,7 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
   let state = checkpoint ? structuredClone(checkpoint.state) : createInitialState();
   // Older tab checkpoints predate speed controls.
   if (!GAME_SPEEDS.includes(state.speed)) state.speed = 1;
+  normalizeCharacterProgression(state);
   let pausedBeforeBackpack = checkpoint?.pausedBeforeBackpack ?? false;
   let disposed = false;
   const listeners = new Set<(s: GameState, e: GameEvent[]) => void>();
@@ -130,7 +132,7 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
           const characterId = "character-" + index, wandId = "wand-" + (state.wands.length + 1);
           const sequenceId = index === 2 ? "wood-9" : "metal-9";
           state.characters.push({id: characterId, name: "同行者 " + index, sequenceId,
-            level:1,grade:reward.grade ?? "common",wandIds:[wandId],mana:100,maxMana:100,manaRegen:12});
+            level:1,xp:0,grade:reward.grade ?? "common",wandIds:[wandId],mana:100,maxMana:100,manaRegen:12});
           state.wands.push({id:wandId,name:"同行法杖",characterId,level:1,grade:"common",
             width:3,height:3,placements:[],cooldowns:{}});
           if (!state.knowledge.sequenceIds.includes(sequenceId)) state.knowledge.sequenceIds.push(sequenceId);
@@ -198,12 +200,14 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
       if (disposed || !Number.isFinite(dtMs) || dtMs <= 0 || state.phase !== "battle" || state.paused || state.backpackOpen) return;
       const afterSeq = state.nextEventSeq - 1;
       const oldRevision = state.revision;
-      const oldLevel = state.playerLevel;
-      state = stepBattle(state, Math.min(dtMs, 250) * state.speed, content).state;
-      for (let level = oldLevel + 1; level <= state.playerLevel; level++) {
+      const transition = stepBattle(state, Math.min(dtMs, 250) * state.speed, content);
+      state = transition.state;
+      for (const event of transition.events.filter(event => event.type === "characterLevelUp")) {
+        const { characterId, level } = event.data;
+        if (typeof level !== "number" || !Number.isSafeInteger(level) || level < 2 || typeof characterId !== "string") continue;
         const candidates = ["amplify", "regrowth", "double"];
         const definitionId = candidates[(level - 2) % candidates.length];
-        if (giveItem(definitionId)) emit("player.levelReward", {level, definitionId});
+        if (giveItem(definitionId)) emit("character.levelReward", {characterId, level, definitionId});
       }
       if (state.phase === "reward" && state.rewards.length === 0) prepareRewards();
       if (state.revision !== oldRevision || state.nextEventSeq - 1 !== afterSeq) notify(afterSeq);
