@@ -13,14 +13,15 @@ import { advanceEnemies, beginWave } from "./waves";
 import { advanceTerritoryRecovery } from "./territoryRecovery";
 import { grantEnemyLoot } from "./loot";
 import { grantCoinIncome } from "../content/economy";
+import { advanceConstructs } from "./constructs";
 
 export const BATTLE_STEP_MS = 50;
 type Emit = (type: string, data: Record<string, unknown>) => void;
 type KillCause = { effect?: string; sourceItemId?: string; sourceCharacterId?: string; sourceLuck?: number };
 type PendingKills = Map<string, KillCause>;
 
-function transition(source: GameState, run: (state: GameState, emit: Emit, pendingKills: PendingKills) => void): Transition {
-  const state = structuredClone(source);
+function transition(source: GameState, run: (state: GameState, emit: Emit, pendingKills: PendingKills) => void, owned = false): Transition {
+  const state = owned ? source : structuredClone(source);
   const events: GameEvent[] = [];
   const pendingKills: PendingKills = new Map();
   const emit: Emit = (type, data) => {
@@ -92,6 +93,15 @@ function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills, 
 
 /** Pure simulation: no timers, transport, reward UI or hidden second runtime. */
 export function stepBattle(state: GameState, dtMs: number, content: ContentCatalog): Transition {
+  return advanceBattle(state,dtMs,content,false);
+}
+
+/** Internal runtime path: the caller exclusively owns state and publishes only cloned snapshots. */
+export function advanceOwnedBattle(state: GameState, dtMs: number, content: ContentCatalog): Transition {
+  return advanceBattle(state,dtMs,content,true);
+}
+
+function advanceBattle(state: GameState, dtMs: number, content: ContentCatalog, owned: boolean): Transition {
   if (state.phase !== "battle" || state.paused || state.backpackOpen || !Number.isFinite(dtMs) || dtMs <= 0) {
     return { state, events: [] };
   }
@@ -107,7 +117,7 @@ export function stepBattle(state: GameState, dtMs: number, content: ContentCatal
       if (next.territory.hp <= 0) {
         next.territory.hp = 0;
         next.phase = "defeat";
-        next.entities = next.entities.filter(entity => entity.kind !== "projectile" && entity.kind !== "beam" && entity.kind !== "chain" && entity.kind !== "area");
+        next.entities = next.entities.filter(entity => entity.kind === "enemy");
         emit("defeat", { wave: next.wave });
         break;
       }
@@ -120,6 +130,7 @@ export function stepBattle(state: GameState, dtMs: number, content: ContentCatal
       advanceBeams(next, step, emit);
       advanceChains(next, step, emit);
       advanceAreaEffects(next, step, emit, areasAtEntry);
+      advanceConstructs(next,step,emit);
       settleDeaths(next, emit, pendingKills, content);
       for (const character of next.characters) {
         const view = getCharacterStats(next,character.id,content);
@@ -132,9 +143,13 @@ export function stepBattle(state: GameState, dtMs: number, content: ContentCatal
           }
           const compiled = compileWand(next, wand.id, content);
           for (const spell of compiled?.spells ?? []) {
+            if(spell.effect === "building") continue;
+            const constructCost=spell.effect === "summon"?(spell.construct?.coinCost??0):0;
+            if(!Number.isSafeInteger(constructCost) || constructCost < 0 || next.coins < constructCost)continue;
             if ((wand.cooldowns[spell.itemId] ?? 0) > 0 || character.mana < spell.manaCost) continue;
             if (castSpell(next, character.id, { ...spell, definitionId: spell.id, casts: spell.copies }, content, emit)) {
               character.mana = Math.max(0, character.mana - spell.manaCost);
+              next.coins-=constructCost;
               wand.cooldowns[spell.itemId] = Math.max(BATTLE_STEP_MS, spell.cooldownMs);
             }
           }
@@ -148,9 +163,10 @@ export function stepBattle(state: GameState, dtMs: number, content: ContentCatal
           if (view) character.mana = view.final.maxMana;
         }
         next.phase = "reward";
-        next.entities = [];
+        next.entities = next.entities.filter(entity=>entity.faction === "player" && (entity.kind === "summon" || entity.kind === "building")
+          && entity.hp > 0 && (entity.remainingMs??0)>0);
         emit("waveCleared", { wave: next.wave, coins });
       }
     }
-  });
+  },owned);
 }

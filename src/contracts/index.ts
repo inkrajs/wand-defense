@@ -34,16 +34,25 @@ export interface EnemyStatus {
   slow?: { multiplier: number; remainingMs: number };
   burns?: BurnStatus[];
 }
+/** Stateful summoned allies and placed structures; all durations use simulation time. */
+export interface ConstructSpec {
+  hp:number; durationMs:number; attackIntervalMs:number; maxAlive:number;
+  attackMode:"contact"|"projectile"; behavior:"attack"|"heal"|"shield";
+  moveSpeed?:number; projectileSpeed?:number; coinCost?:number;
+  bodySize?:MonsterBodySize; placement?:"caster"|"target";
+}
 export interface SpellDefinition extends Growth {
   id: Id; name: string; element: Element; shape: Cell[]; asset: AssetRef;
   effect: EffectType; power: number; manaCost: number; cooldownMs: number;
   range: number; durationMs?: number; hp?: number; speed?: number;
   summonBehavior?: "attack" | "heal";
+  construct?: ConstructSpec;
   impact?: ProjectileImpact; beam?: BeamSpec; area?: AreaSpec; onHit?: OnHitSpec;
 }
 export interface ArcanaDefinition extends Growth {
   id: Id; name: string; shape: Cell[]; asset: AssetRef;
-  modifier: "amplify" | "double" | "split" | "focus" | "haste" | "efficiency" | "reach" | "velocity" | "area"; value: number;
+  modifier: "amplify" | "double" | "split" | "focus" | "haste" | "efficiency" | "reach" | "velocity" | "area"
+    | "pierce" | "slow" | "burn" | "knockback" | "duration" | "capacity" | "precision"; value: number;
 }
 export interface RecipeDefinition {
   id: Id; name: string; inputs: Id[]; output: Id; requireAdjacency: boolean;
@@ -84,7 +93,7 @@ export interface GearDefinition extends Growth {
 }
 export interface SupplyDefinition extends Growth {
   id:Id;name:string;shape:Cell[];asset:AssetRef;
-  effect:{type:"territoryHeal"|"territoryShield"|"partyMana";value:number};
+  effect:{type:"territoryHeal"|"territoryShield"|"partyMana"|"territoryRestore"|"partyManaPercent"|"cooldownAdvance"|"territoryHealPercent"|"territoryShieldPercent";value:number};
 }
 export interface SupplyInstance extends Growth {id:Id;definitionId:Id}
 export interface GearInstance extends Growth {
@@ -113,6 +122,10 @@ export interface CombatEntity {
   level?: number; grade?: Grade;
   bodySize?:MonsterBodySize;
   onHit?: OnHitSpec;
+  construct?:ConstructSpec;
+  /** True emission origin for construct projectiles; character/item still own damage and XP. */
+  sourceEntityId?:Id;
+  armor?:number; regenerationPerSecond?:number;
   /** Bounded active enemy conditions; absent on older checkpoints. */
   status?: EnemyStatus;
   faction: "enemy" | "player"; x: number; y: number; hp: number; maxHp: number;
@@ -188,6 +201,7 @@ export interface GameState {
 }
 export type Command =
   | { id: Id; type: "startWave" }
+  | { id:Id; type:"deployConstruct"; characterId:Id; itemId:Id; x:number; y:number }
   | { id: Id; type: "restart" }
   | { id: Id; type: "setPaused"; paused: boolean }
   | { id: Id; type: "setSpeed"; speed: GameSpeed }

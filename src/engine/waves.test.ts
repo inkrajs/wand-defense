@@ -130,12 +130,14 @@ test('unlocked ordinary species rotate in catalog order and apply their full spa
   assert.equal(moss.cooldownMs, Math.max(400, 995 * spawn.cooldownMultiplier));
   assert.equal(getMonsterSize(moss).id, 'small');
 
-  const late = spawnAt(battleState(201), 2).enemy;
-  assert.equal(late.definitionId, 'enemy-sand-beetle');
-  assert.equal(late.cooldownMs, 480, 'the high-wave 400 ms floor is multiplied for slow species');
+  const slowDefinition = getUnlockedMinionDefinitions(201).find(definition => definition.spawn!.cooldownMultiplier > 1)!;
+  const late = spawnWaveSummary(201, 12345).spawned.find(entry => entry.enemy.definitionId === slowDefinition.id)!.enemy;
+  assert.equal(late.cooldownMs, 400 * slowDefinition.spawn!.cooldownMultiplier,
+    'the high-wave 400 ms floor is multiplied for the actual slow species');
+  assert.ok(late.cooldownMs > 400);
 });
 
-test('wave 28 contains all seven unlocked minions with definition-sized entries and deterministic replay', () => {
+test('wave 28 contains all unlocked minions with definition-sized entries and deterministic replay', () => {
   const seed = 987654321;
   const first = spawnWaveSummary(28, seed);
   const replay = spawnWaveSummary(28, seed);

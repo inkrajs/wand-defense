@@ -64,6 +64,51 @@ export const gearDefinitions: Readonly<Record<string, GearDefinition>> = Object.
     asset: asset("spring-pendant", "提升法力上限与回复", "#68a5a0"),
     statBonuses: { maxMana: 20, manaRegen: 1 }, level: 1, grade: "common",
   }),
+  "ember-circlet": freezeGear({
+    id: "ember-circlet", name: "余烬冠环", slot: "head", shape: [cell(0, 0)],
+    asset: asset("ember-circlet", "提升火系强度与暴击伤害", "#c57952"),
+    statBonuses: { critMultiplier: 0.2, elementBonuses: { fire: 0.12 } }, level: 1, grade: "common",
+  }),
+  "frost-lens": freezeGear({
+    id: "frost-lens", name: "霜晶目镜", slot: "head", shape: [cell(0, 0)],
+    asset: asset("frost-lens", "提升精准、法力上限与水系强度", "#6ba9bf"),
+    statBonuses: { accuracy: 0.04, maxMana: 12, elementBonuses: { water: 0.08 } }, level: 1, grade: "common",
+  }),
+  "sage-crown": freezeGear({
+    id: "sage-crown", name: "贤者冠冕", slot: "head", shape: [cell(0, 0)],
+    asset: asset("sage-crown", "提升法力回复与木系强度", "#759b68"),
+    statBonuses: { manaRegen: 0.8, elementBonuses: { wood: 0.08 } }, level: 1, grade: "common",
+  }),
+  "windweave-mantle": freezeGear({
+    id: "windweave-mantle", name: "风织法衣", slot: "body", shape: [cell(0, 0)],
+    asset: asset("windweave-mantle", "提升施法频率、飞弹速度与风系强度", "#67a69d"),
+    statBonuses: { castSpeedPercent: 4, projectileSpeedPercent: 8, elementBonuses: { wind: 0.05 } }, level: 1, grade: "common",
+  }),
+  "heartwood-vest": freezeGear({
+    id: "heartwood-vest", name: "心木护衣", slot: "body", shape: [cell(0, 0)],
+    asset: asset("heartwood-vest", "提升攻击、法力上限与土系强度", "#9a8060"),
+    statBonuses: { attack: 2.5, maxMana: 12, elementBonuses: { earth: 0.05 } }, level: 1, grade: "common",
+  }),
+  "gale-greaves": freezeGear({
+    id: "gale-greaves", name: "疾风胫甲", slot: "feet", shape: [cell(0, 0)],
+    asset: asset("gale-greaves", "提升射程与飞弹速度", "#739ca4"),
+    statBonuses: { range: 1.5, projectileSpeedPercent: 15 }, level: 1, grade: "common",
+  }),
+  "tracker-boots": freezeGear({
+    id: "tracker-boots", name: "寻迹短靴", slot: "feet", shape: [cell(0, 0)],
+    asset: asset("tracker-boots", "提升精准与幸运", "#998b64"),
+    statBonuses: { accuracy: 0.03, luck: 2 }, level: 1, grade: "common",
+  }),
+  "fortune-knot": freezeGear({
+    id: "fortune-knot", name: "丰收结绳", slot: "accessory", shape: [cell(0, 0)],
+    asset: asset("fortune-knot", "提升幸运与金币采集", "#b1944d"),
+    statBonuses: { luck: 3, gatheringPercent: 3 }, level: 1, grade: "common",
+  }),
+  "starfall-signet": freezeGear({
+    id: "starfall-signet", name: "星陨印戒", slot: "accessory", shape: [cell(0, 0)],
+    asset: asset("starfall-signet", "提升暴击与雷系强度", "#8177b3"),
+    statBonuses: { critChance: 0.025, critMultiplier: 0.3, elementBonuses: { lightning: 0.08 } }, level: 1, grade: "common",
+  }),
 });
 
 function validGrade(value: unknown): value is Grade {

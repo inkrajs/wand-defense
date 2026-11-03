@@ -34,10 +34,12 @@ export function applyContactDamage(state:GameState, source: CombatEntity, target
   }
   const baseDamage = Number.isFinite(source.damage) ? Math.max(0, source.damage) : 0;
   const amount = Math.min(COMBAT_ROLL_LIMITS.maxDamage,baseDamage * (critical ? critMultiplier : 1));
-  applyResolvedDamage(target, amount, { ...(source.kind === "beam" ? {beamId: source.id} : source.kind === "area" ? {areaId: source.id}
-    : source.kind === "chain" ? {chainId: source.id} : {projectileId: source.id}),
+  const resolved = applyResolvedDamage(target, amount, { ...(source.kind === "beam" ? {beamId: source.id} : source.kind === "area" ? {areaId: source.id}
+    : source.kind === "chain" ? {chainId: source.id} : source.kind === "summon" || source.kind === "building"
+      ? { sourceEntityId: source.id, sourceKind: source.kind } : {projectileId: source.id}),
     targetId: target.id, sourceCharacterId: source.sourceCharacterId, sourceItemId: source.sourceItemId,
+    ...(source.sourceEntityId ? { sourceEntityId: source.sourceEntityId } : {}),
     amount, critical, sourceLuck:bounded(source.attackRoll?.sourceLuck,0,0,COMBAT_ROLL_LIMITS.maxLuck),
     effect: source.definitionId }, emit);
-  if (amount > 0 && target.hp > 0 && source.onHit) applyOnHitEffects(state, source, target, emit);
+  if (resolved > 0 && target.hp > 0 && source.onHit) applyOnHitEffects(state, source, target, emit);
 }

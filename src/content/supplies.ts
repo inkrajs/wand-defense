@@ -28,6 +28,31 @@ export const supplyDefinitions: Readonly<Record<string, SupplyDefinition>> = Obj
     asset: asset("mana-potion", "恢复全队法力", "#7793d0"),
     effect: { type: "partyMana", value: 50 }, level: 1, grade: "common",
   }),
+  "restoration-elixir": freezeSupply({
+    id: "restoration-elixir", name: "复元灵剂", shape: [cell(0, 0), cell(1, 0), cell(0, 1)],
+    asset: asset("restoration-elixir", "同时恢复领地生命与护盾", "#7cae8a"),
+    effect: { type: "territoryRestore", value: 25 }, level: 1, grade: "common",
+  }),
+  "mana-surge": freezeSupply({
+    id: "mana-surge", name: "法力涌剂", shape: [cell(0, 0), cell(1, 0)],
+    asset: asset("mana-surge", "按比例恢复全队法力", "#738fe0"),
+    effect: { type: "partyManaPercent", value: 25 }, level: 1, grade: "common",
+  }),
+  "hourglass-dust": freezeSupply({
+    id: "hourglass-dust", name: "时砂", shape: [cell(0, 0)],
+    asset: asset("hourglass-dust", "推进全队法杖冷却", "#bd9162"),
+    effect: { type: "cooldownAdvance", value: 1000 }, level: 1, grade: "common",
+  }),
+  "vitality-essence": freezeSupply({
+    id: "vitality-essence", name: "生命精华", shape: [cell(0, 0), cell(0, 1)],
+    asset: asset("vitality-essence", "按比例恢复领地生命", "#d66f69"),
+    effect: { type: "territoryHealPercent", value: 25 }, level: 1, grade: "common",
+  }),
+  "aegis-essence": freezeSupply({
+    id: "aegis-essence", name: "护盾精华", shape: [cell(0, 0), cell(1, 0), cell(1, 1)],
+    asset: asset("aegis-essence", "按比例恢复领地护盾", "#669fb5"),
+    effect: { type: "territoryShieldPercent", value: 25 }, level: 1, grade: "common",
+  }),
 });
 
 function validGrade(value: unknown): value is Grade {

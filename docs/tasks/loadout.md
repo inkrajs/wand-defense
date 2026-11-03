@@ -142,3 +142,17 @@ root实际落OnHitSpec后，仅compile.ts新增onHit/slow/burn三层显式克隆
 `getGatheringStats(state,content?) -> {base,equipment,run,total,multiplier}`：当前characters数组即上场队伍，读唯一有效角色的权威base/equipment，run全队只加一次，不乘角色数。
 `grantCoinIncome(state,baseAmount,content?) -> {baseAmount,amount,bonusAmount,gatheringPercent,remainder}`：唯一正收入入口，仅mutate coins和coinIncomeRemainder，不emit/统计/RNG。计算floor(base*(1+total/100)+carry)，浮点极近整数按小epsilon纠偏；余数0..1保存。余额已有小数保留；非正/非有限或溢出收入no-op，不用它处理支出。只有真实正入账才算队伍加成，没有新增tick扫描/计时器。
 Sol读码自审数值边界/属性复用/归属与运行路径通过；新经济5项及characters10/gear-supplies8回归共23/23，定向strict TS、范围diff通过。验证多角色run只一次、未装备/错owner不算、装卸真实生效、1币+10%十次实得11、JSON保存恢复carry、无采集收入一致/小数余额保留、NaN/负数/零/溢出不动状态，统计/事件/随机源未被helper修改。首轮2项旧精确对象断言因新增默认gathering=0未更新，已按新契约修正并通过最终23项。root接怪物/清波/领取收入和publicClone白名单；源gear.ts无publicClone函数，已告知root其域同步。无实际当前局操作、无本模块提交。
+
+## 百种内容扩充：奥术/装备/道具（2026-11-04，本模块集成中）
+用户/root授权在既有共享checkout并行扩充合计>=100类内容，不是每类100；不再次赠送当前用户存档，不改UI/engine/root runtime/contracts/demo，不提交推送。共享union由root审核落盘。
+原生子任务实际派发并恢复健康运行，未切用户模型、未发生provider失败：
+- `01a1a191-5f08-70c3-8fd8-bb8a32ac61da`，GPT-6 Luna/native，独占content/gear.ts、new expanded-gear.test.ts。新增9件总18：余烬冠环/霜晶目镜/贤者冠冕/风织法衣/心木护衣/疾风胫甲/寻迹短靴/丰收结绳/星陨印戒；4部位，元素、暴伤、幸运、采集、法力、弹速等差异词条。子任务3/3与strict/diff通过；Sol实际读实现与测试，工厂grade比、深隔离、真实equip→stats→compile已验收通过。
+- `01a1a191-5bd1-73e3-98ef-89589ef54990`，GPT-6 Luna/native，独占content/supplies.ts、runtime/supplies.ts、new expanded-supplies.test.ts。新增5件总8，Restore同时补hp/shield、final.maxMana百分比、剩余CD推进、maxHp/maxShield百分比。实现已落，Sol初审机制通过，要求合并原/百分比共用逻辑并补门禁/不可变断言，等待最终验收。
+Sol本人：expandedArcana.ts、compile/grade-scaling、新advanced-modifiers.ts/test、旧gear-supplies.test.ts数量预期和本记录。新增7奥术总18：pierce/slow/burn/knockback/duration/capacity/precision；复用已有engine结构，不另造战斗效果。只四边相邻，每来源一次；先穿透结构后容量，组合不依赖placements顺序；不适用/已封顶不冒称applied，穿透不覆盖其他impact。品质缩放slow增量最低.1，duration增量倍率，其他7类正数按gradePower比增强。impact/beam普通区域目标8、全战场field64；持续beam/field/vortex<=5s，不拉长瞬时strike/ring/eruption。
+root后来明确要求construct接入，覆盖早先不扩方案：clone numeric construct，attack行为吃final攻击及onHit/precision，heal/shield行为不加攻击；pierce只projectile；duration可延长construct.durationMs至30s，capacity提高construct.maxAlive至8；construct.hp与旧spell.hp统一乘实例/定义grade比及元素倍率。Battlelead已ACK factory读compiled spec，不重复scale；真实construct cast链由其engine整合后验收。
+调用：正常reward池遍历catalog.arcana→领取入bag→place/compile→引擎消费snapshot；gear/supply正常掉落遍历catalog定义，发现loot旧3种effect白名单会漏新增5种并导致TS2345，已告知Battle并由其实际扩全8。魔法描述Record及新法术recipes由Battle内容单writer持有，中文7条已发；UI图标keys已发送UIlead，不争写。
+已实际验证：新arcana6+旧compile7+新gear3合跑16/16；其他旧modifiers/expanded/onHit合计9项先前通过；新增普通reward池→真实claim库存逐7奥术用例1/1通过；旧gear-supplies更新数量/形状预期8/8通过。strict TS(新arcana+gear测试导入链)、拥有文件diff通过。新增beam用例首次预期1299ms错误，engine新spawn当步不扣时钟，改为1300后1/1通过，未改engine规则。当前无全仓build/全套测试、无视觉验收、无当前存档操作。
+
+### 百种内容本模块最终 Sol 验收通过
+数据Luna已完成6项新道具测试+旧supplies5项=11/11、strict/diff。Sol逐段复读最终code：原/百分比三个资源case已共用校验/消费逻辑；百分比base(0,100]且品质后cap100；Restore分别clamp两资源、任一有收益才消费；CD遍历全wand(含null owner及detached ledger)，有限非负预验证，NaN/负数/总量溢出整笔拒绝；不推进时钟、不发伤害、不碰统计。新增5效果参数矩阵确认running/HP0拒绝、一次revision/一事件、仅目标supply删除、原state不变及进度/金币/知识/布局保留。Sol目标/分层/复用/可扩展性/正确性验收通过；两个native子任务文件ownership均已回收。
+最终实跑新arcana7+新supplies6+旧supplies5合跑18/18通过；含所有新增正常奖励领取与真实弹体/状态/beam路径。gear新3、目录旧8、compiler旧7及modifiers/expanded/onHit旧9均先前已通过。最终strict TS包含new arcana/gear/supplies、旧gear-supplies/旧supplies导入链，通过。旧目录测试曾在子任务初跑报9/3旧数量不符，Sol已改18/8后8/8通过；没有隐藏失败。范围diff检查通过，无全仓测试/构建/视觉验收。根持demo/完整content计数、部署runtime/UI/agent接线与实际construct cast集成；本模块18奥术/18装备/8道具实现及编译接口可整合。未再次给用户存档赠品，未提交推送。

@@ -74,9 +74,51 @@ export const expandedArcana: Record<string, ArcanaDefinition> = {
     level: 1,
     grade: "common",
   },
+  pierce: {
+    id: "pierce", name: "穿透", shape: [cell(0, 0), cell(0, 1)],
+    asset: { key: "arcana.pierce", label: "穿透", color: "#b5c6cf" },
+    modifier: "pierce", value: 1, level: 1, grade: "common",
+  },
+  slow: {
+    id: "slow", name: "迟缓", shape: [cell(0, 0)],
+    asset: { key: "arcana.slow", label: "迟缓", color: "#7eb6d3" },
+    modifier: "slow", value: 0.75, level: 1, grade: "common",
+  },
+  burn: {
+    id: "burn", name: "灼烧", shape: [cell(0, 0), cell(1, 0)],
+    asset: { key: "arcana.burn", label: "灼烧", color: "#d88562" },
+    modifier: "burn", value: 0.2, level: 1, grade: "common",
+  },
+  knockback: {
+    id: "knockback", name: "击退", shape: [cell(0, 0)],
+    asset: { key: "arcana.knockback", label: "击退", color: "#96b4a4" },
+    modifier: "knockback", value: 3, level: 1, grade: "common",
+  },
+  duration: {
+    id: "duration", name: "延时", shape: [cell(0, 0), cell(1, 0)],
+    asset: { key: "arcana.duration", label: "延时", color: "#aa92c5" },
+    modifier: "duration", value: 1.3, level: 1, grade: "common",
+  },
+  capacity: {
+    id: "capacity", name: "扩容", shape: [cell(0, 0), cell(1, 0), cell(0, 1)],
+    asset: { key: "arcana.capacity", label: "扩容", color: "#d0ac62" },
+    modifier: "capacity", value: 2, level: 1, grade: "common",
+  },
+  precision: {
+    id: "precision", name: "精准", shape: [cell(0, 0)],
+    asset: { key: "arcana.precision", label: "精准", color: "#a9c76a" },
+    modifier: "precision", value: 0.1, level: 1, grade: "common",
+  },
 };
 
 export const expandedArcanaDescriptions: Record<string, string> = {
+  pierce: "相邻的普通或穿透飞弹额外穿透1个目标，最多8个；不覆盖溅射、连锁或领域效果。",
+  slow: "相邻攻击法术命中后使敌人移动速度变为75%，持续1.5秒；已有更强迟缓保留。",
+  burn: "相邻攻击法术命中后施加灼烧，每0.5秒造成法术威力20%的伤害，持续3秒；同一来源刷新。",
+  knockback: "相邻攻击法术命中后沿攻击方向额外击退3距离，单次最多12。",
+  duration: "相邻光束、持续领域和旋涡的持续时间增加30%，最多5秒；召唤物与建筑最多30秒；不改变伤害间隔。",
+  capacity: "相邻已有多目标法术的目标容量增加2，通常最多8个；全战场领域最多64个；召唤物与建筑的同源存续上限增加2，最多8个。",
+  precision: "相邻攻击法术命中率增加10个百分点，最高100%。",
   haste: "与法术四边相邻时，冷却时间减少15%。",
   efficiency: "与法术四边相邻时，法力消耗减少20%。",
   reach: "与法术四边相邻时，射程增加25%。",

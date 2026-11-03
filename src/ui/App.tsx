@@ -1,11 +1,11 @@
 import { PanelBackdrop } from "./PanelBackdrop";
 import { getCharacterPresentationIcon } from "./characterPresentationIcons";
 import { RunSummary } from "./RunSummary";
-import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
 import { Button, PencilIcon, PencilLine, PencilSurface, PencilText, type PencilIconPath } from "@inkra/react";
 import { GAME_SPEEDS, type Command, type CommandResult, type GameState, type RuntimePort } from "../contracts";
 import { Battlefield } from "./Battlefield";
-import { CharacterPage } from "./CharacterPage";
+import { ConstructDeployment } from "./ConstructDeployment";
 import { readUiSession, writeUiSession, type CharacterTab, type InventoryCategory } from "./uiSession";
 import { InventoryDock } from "./InventoryDock";
 import { WandBoard } from "./WandBoard";
@@ -16,11 +16,14 @@ import { useCastFlashes } from "./wandMiniatureEvents";
 import { localProgress } from "./progressOptions";
 import { RewardChoices } from "./RewardChoices";
 import { getRewardRefreshQuote } from "../runtime/rewardRefresh";
-import { MenuPages, type MenuPage } from "./MenuPages";
-import { TerritoryPanel } from "./TerritoryPanel";
-import { TalentPanel } from "./TalentPanel";
+import type { MenuPage } from "./MenuPages";
 import type { TerritoryUpgradeTrack } from "../content/territory";
 import "./App.css";
+
+const CharacterPage = lazy(() => import("./CharacterPage").then(module => ({ default: module.CharacterPage })));
+const MenuPages = lazy(() => import("./MenuPages").then(module => ({ default: module.MenuPages })));
+const TerritoryPanel = lazy(() => import("./TerritoryPanel").then(module => ({ default: module.TerritoryPanel })));
+const TalentPanel = lazy(() => import("./TalentPanel").then(module => ({ default: module.TalentPanel })));
 
 function HudToggle({ className, open, children }: { className: string; open: boolean; children: ReactNode }) {
   return <span className={`game-hud-toggle ${className}`} data-open={open}><PencilSurface as="span" className="game-hud-toggle__wash" variant="selection" seed={`${className}-selection`} aria-hidden="true" />{children}</span>;
@@ -60,6 +63,7 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
   const [activeCharacterId, setActiveCharacterId] = useState(() => initialUi?.activeCharacterId ?? state.characters[0]?.id ?? "");
   const [characterTab, setCharacterTab] = useState<CharacterTab>(initialUi?.characterTab ?? "overview");
   const [menuPage, setMenuPage] = useState<MenuPage | null>(null);
+  const [menuMounted, setMenuMounted] = useState(false);
   const pausedBeforeMenu = useRef(false);
   const pendingPauseRestore = useRef<boolean | null>(null);
   const runId = useRef(state.id);
@@ -68,6 +72,17 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
   const menuEntry = useRef<"menu" | "character">("menu");
   const loadoutRef = useRef<HTMLDivElement>(null);
   const backpackButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    try {
+      const preferences = JSON.parse(window.localStorage.getItem("wand-defense.preferences.v1") ?? "null");
+      document.documentElement.dataset.gameReduceMotion = String(preferences?.reduceMotion === true);
+      document.documentElement.dataset.gameTextEffects = String(preferences?.textEffects !== false);
+    } catch {
+      document.documentElement.dataset.gameReduceMotion = "false";
+      document.documentElement.dataset.gameTextEffects = "true";
+    }
+  }, []);
 
   const wasOpen = useRef(false);
   useEffect(() => {
@@ -118,11 +133,17 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
   }, [uiRunId, state.id, characterIds, activeCharacterId, characterOpen, territoryOpen, talentOpen, inventoryCategory, characterTab]);
   function dispatch(command: Command): CommandResult {
     const result = runtime.dispatch(command);
-    setMessage(result.status === "rejected" ? (result.message || result.code || "操作未能执行") : "");
+    const deploymentErrors: Record<string, string> = {
+      CONSTRUCT_UNAVAILABLE: "该法术暂时无法部署", CONSTRUCT_NOT_READY: "法术尚未冷却或未装备",
+      INSUFFICIENT_RESOURCES: "法力或金币不足", INVALID_POSITION: "请选择战场内的位置",
+      DEPLOY_REQUIRES_PAUSE: "请先暂停战斗",
+    };
+    setMessage(result.status === "rejected" ? (result.message || (command.type === "deployConstruct" && result.code ? deploymentErrors[result.code] : undefined) || result.code || "操作未能执行") : "");
     return result;
   }
   const send = (command: Omit<Extract<Command, { type: "startWave" }>, "id"> | Omit<Extract<Command, { type: "setPaused" }>, "id"> | Omit<Extract<Command, { type: "setBackpack" }>, "id"> | Omit<Extract<Command, { type: "claimReward" }>, "id"> | Omit<Extract<Command, { type: "refreshRewards" }>, "id"> | Omit<Extract<Command, { type: "unlockCheats" }>, "id"> | Omit<Extract<Command, { type: "setCheats" }>, "id"> | Omit<Extract<Command, { type: "cheat" }>, "id"> | Omit<Extract<Command, { type: "setSpeed" }>, "id">) => dispatch({ ...command, id: commandId() } as Command);
   function openMenu(page: MenuPage = "menu") {
+    setMenuMounted(true);
     setTerritoryOpen(false);
     setTalentOpen(false);
     const current = runtime.getState();
@@ -151,6 +172,7 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
   const phaseLabel = { ready: "准备中", battle: "战斗中", reward: "选择奖励", defeat: "领地失守" }[state.phase];
   return <main className={`game-shell game-shell--${state.phase}`} style={{ "--game-vitals-height": localProgress ? "20px" : "28px", "--game-hero-mini-space": "0px", "--game-board-space": state.phase === "battle" ? `${wandBoardHeight * .2}px` : "0px", "--wand-height": `${wandBoardHeight}px`, "--ready-wand-height": `${readyWandHeight}px` } as CSSProperties} aria-label="无尽巫师游戏画面">
     <div className={`game-scene${state.backpackOpen ? " game-scene--inventory" : ""}`} inert={menuPage !== null}><Battlefield state={state} flashes={castFlashes} activeCharacterId={territoryOpen || talentOpen ? "" : activeCharacter?.id ?? ""} hideActiveMini={state.phase === "ready" && !territoryOpen && !talentOpen} onCharacterSelect={characterId => { setActiveCharacterId(characterId); setTerritoryOpen(false); setTalentOpen(false); }} />
+    <ConstructDeployment state={state} characterId={activeCharacter?.id ?? ""} runtime={runtime} dispatch={dispatch} enabled={menuPage === null && !state.backpackOpen && !characterOpen && !territoryOpen && !talentOpen} />
     {!characterOpen && !territoryOpen && !talentOpen && menuPage === null && <WaveProgress state={state} />}
     <header className="game-header" aria-label="游戏状态">
       <div className="game-coins" aria-label={`金币 ${state.coins}`}><PencilIcon paths={coinPaths} sourceSize={24} size={32} seed="coin" decorative /><PencilText seed="coin-count">{String(state.coins)}</PencilText></div><div className="game-meta"><PencilText seed="wave-status">{`第 ${state.wave} 波 · ${phaseLabel}`}</PencilText></div>
@@ -171,9 +193,9 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
     {message && <p className="game-message" role="alert">{message}</p>}
 
     <div className={`game-workbench game-workbench--${state.phase}${state.backpackOpen || characterOpen || territoryOpen || talentOpen || state.phase === "reward" || state.phase === "battle" ? " is-obscured" : ""}`} style={state.phase === "ready" ? { top: wandBoardHeight > 0 ? "calc(var(--ready-center) - 28px)" : "var(--ready-center)" } : undefined} inert={state.phase === "battle" || state.phase === "reward" || state.backpackOpen || characterOpen || territoryOpen || talentOpen}><WandBoard state={state} flashes={castFlashes} dispatch={dispatch} activeCharacterId={activeCharacter?.id ?? ""} onHeightChange={setWandBoardHeight} /></div>
-    {characterOpen && !territoryOpen && <section id="character-panel" className="game-character-stage" aria-label="角色详情"><div className="game-character-stage__content"><PanelBackdrop wide><CharacterPage state={state} dispatch={dispatch} activeCharacterId={activeCharacter?.id ?? ""} showLoadout={loadoutVisible} loadoutCategory={inventoryCategory === "items" || inventoryCategory === "equipment" ? inventoryCategory : undefined} tab={characterTab} onTabChange={setCharacterTab} /></PanelBackdrop></div></section>}
-    {talentOpen && menuPage === null && <section id="talent-panel" className="game-territory-stage" aria-label="天赋"><PanelBackdrop><TalentPanel state={state} /></PanelBackdrop></section>}
-    {territoryOpen && menuPage === null && <section className="game-territory-stage" aria-label="领地管理"><PanelBackdrop><TerritoryPanel state={state} onUpgrade={(track: TerritoryUpgradeTrack) => dispatch({ id: commandId(), type: "upgradeTerritory", track })} onRepair={(track: TerritoryUpgradeTrack) => dispatch({ id: commandId(), type: "repairTerritory", track })} onUpgradeRecovery={(track: TerritoryUpgradeTrack) => dispatch({ id: commandId(), type: "upgradeTerritoryRecovery", track })} /></PanelBackdrop></section>}
+    {characterOpen && !territoryOpen && <section id="character-panel" className="game-character-stage" aria-label="角色详情"><div className="game-character-stage__content"><PanelBackdrop wide><Suspense fallback={<span role="status">正在加载角色…</span>}><CharacterPage state={state} dispatch={dispatch} activeCharacterId={activeCharacter?.id ?? ""} showLoadout={loadoutVisible} loadoutCategory={inventoryCategory === "items" || inventoryCategory === "equipment" ? inventoryCategory : undefined} tab={characterTab} onTabChange={setCharacterTab} /></Suspense></PanelBackdrop></div></section>}
+    {talentOpen && menuPage === null && <section id="talent-panel" className="game-territory-stage" aria-label="天赋"><PanelBackdrop><Suspense fallback={<span role="status">正在加载天赋…</span>}><TalentPanel state={state} /></Suspense></PanelBackdrop></section>}
+    {territoryOpen && menuPage === null && <section className="game-territory-stage" aria-label="领地管理"><PanelBackdrop><Suspense fallback={<span role="status">正在加载领地…</span>}><TerritoryPanel state={state} onUpgrade={(track: TerritoryUpgradeTrack) => dispatch({ id: commandId(), type: "upgradeTerritory", track })} onRepair={(track: TerritoryUpgradeTrack) => dispatch({ id: commandId(), type: "repairTerritory", track })} onUpgradeRecovery={(track: TerritoryUpgradeTrack) => dispatch({ id: commandId(), type: "upgradeTerritoryRecovery", track })} /></Suspense></PanelBackdrop></section>}
     {state.phase === "ready" && !characterOpen && !territoryOpen && !talentOpen && <div className="game-center-stage" style={state.phase === "ready" ? { top: readyWandHeight > 0 ? "min(calc(var(--ready-center) + var(--ready-wand-height) / 2 - 16px), calc(100% - var(--game-hud-inset) - 48px))" : "min(calc(var(--ready-center) - 22px), calc(100% - var(--game-hud-inset) - 48px))" } : undefined}><div className="game-center-stage__content">
       {state.phase === "ready" && <Button style={{ minHeight: 44 }} onClick={() => send({type:"startWave"})}>{state.wave === 0 ? "开始游戏" : "开始下一波"}</Button>}
 
@@ -185,6 +207,6 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
       <PencilLine className="game-inventory__separator" seed="inventory-separator" aria-hidden="true" />
       <div className="game-inventory__content"><InventoryDock key={state.id} category={inventoryCategory} activeCharacterId={activeCharacter?.id ?? ""} state={state} dispatch={dispatch} showWands={!characterOpen && !territoryOpen && !talentOpen} showLoadout={loadoutVisible} onCategoryChange={category => { setInventoryCategory(category); if (category === "equipment" || category === "items") { setTerritoryOpen(false); setTalentOpen(false); setCharacterOpen(true); } else if (category === "spells") { setCharacterOpen(false); setTalentOpen(false); } }} onWandAreaHeightChange={setInventoryWandAreaHeight} /></div>
     </div>
-    <MenuPages restart={restart} dispatch={dispatch} page={menuPage} navigate={setMenuPage} close={closeMenu} agentPanel={agentPanel} state={state} unlock={() => send({type:"unlockCheats"})} toggleCheats={() => send({type:"setCheats", enabled:!state.cheats.enabled})} heal={() => send({type:"cheat", action:"heal"})} />
+    {menuMounted && <Suspense fallback={<span role="status">正在加载菜单…</span>}><MenuPages restart={restart} dispatch={dispatch} page={menuPage} navigate={setMenuPage} close={closeMenu} agentPanel={agentPanel} state={state} unlock={() => send({type:"unlockCheats"})} toggleCheats={() => send({type:"setCheats", enabled:!state.cheats.enabled})} heal={() => send({type:"cheat", action:"heal"})} /></Suspense>}
   </main>;
 }

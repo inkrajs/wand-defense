@@ -10,7 +10,7 @@ import { enrichMagicReward } from "../content/magicDescriptions";
 import { discoverAvailableRecipes } from "../content/recipeKnowledge";
 import { normalizeCharacterProgression } from "../content/progression";
 import { createCharacterBaseStats, getCharacterStats, normalizeCharacterStats } from "../content/characters";
-import { startBattle, stepBattle } from "../engine";
+import { BATTLE_STEP_MS, startBattle, stepBattle, advanceOwnedBattle } from "../engine";
 import { applyLoadoutCommand } from "../loadout";
 import { createInitialState } from "./initial";
 import { GAME_SPEEDS } from "../contracts";
@@ -21,6 +21,8 @@ import { addRunStatistic, accumulateBattleStatistics, restoreRunStatistics } fro
 import { createClaimedReward, restoreRewardHistory, snapshotRewardOption } from "./rewardHistory";
 import { getRewardRefreshQuote, normalizeRewardRefresh } from "./rewardRefresh";
 import { grantCoinIncome } from "../content/economy";
+import { compileWand } from "../loadout";
+import { castSpell } from "../engine/effects";
 
 export interface RuntimeCheckpoint {
   checkpointVersion: 1;
@@ -159,6 +161,31 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
         pausedBeforeBackpack = false;
         state = startBattle(state, content).state;
         state.rewardRefresh = normalizeRewardRefresh(state.rewardRefresh, state.wave);
+        return;
+      }
+      case "deployConstruct": {
+        if(state.phase === "defeat" || state.territory.hp <= 0) return "CONSTRUCT_UNAVAILABLE";
+        if(state.phase === "battle" && !state.paused) return "DEPLOY_REQUIRES_PAUSE";
+        if(!Number.isFinite(command.x) || !Number.isFinite(command.y) || command.x < 0 || command.x > 100 || command.y < 0 || command.y > 100)
+          return "INVALID_POSITION";
+        const character=state.characters.find(value=>value.id === command.characterId);
+        const item=Object.hasOwn(state.items,command.itemId)?state.items[command.itemId]:undefined;
+        if(!character || item?.kind !== "spell" || !state.knowledge.spellIds.includes(item.definitionId)) return "CONSTRUCT_UNAVAILABLE";
+        const wand=state.wands.find(value=>value.characterId === character.id && character.wandIds.includes(value.id)
+          && value.placements.some(placement=>placement.itemId === item.id));
+        if(!wand || (wand.cooldowns[item.id]??0)>0) return "CONSTRUCT_NOT_READY";
+        const spell=compileWand(state,wand.id,content)?.spells.find(value=>value.itemId === item.id);
+        if(!spell?.construct || (spell.effect !== "summon" && spell.effect !== "building")) return "CONSTRUCT_UNAVAILABLE";
+        const cost=spell.construct.coinCost??0;
+        if(!Number.isSafeInteger(cost) || cost < 0 || !Number.isFinite(state.coins) || state.coins < cost
+          || !Number.isFinite(spell.manaCost) || spell.manaCost < 0 || !Number.isFinite(character.mana) || character.mana < spell.manaCost
+          || !Number.isFinite(spell.cooldownMs) || spell.cooldownMs < 0) return "INSUFFICIENT_RESOURCES";
+        if(!castSpell(state,character.id,{...spell,definitionId:spell.id,casts:spell.copies,position:{x:command.x,y:command.y}},content,emit))
+          return "CONSTRUCT_UNAVAILABLE";
+        character.mana=Math.max(0,character.mana-spell.manaCost);
+        wand.cooldowns[item.id]=Math.max(BATTLE_STEP_MS,spell.cooldownMs);
+        state.coins-=cost;
+        emit("construct.deployed",{characterId:character.id,sourceItemId:item.id,wandId:wand.id,definitionId:spell.id,x:command.x,y:command.y,cost});
         return;
       }
       case "setSpeed":
@@ -390,7 +417,10 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
       const afterSeq = state.nextEventSeq - 1;
       const oldRevision = state.revision;
       const coinsBefore = state.coins;
-      const transition = stepBattle(state, Math.min(dtMs, 250) * state.speed, content);
+      // The bundled catalog has no caller callbacks/getters. Custom catalogs keep
+      // the pure transactional boundary, including their original throw behavior.
+      const advance = content === demoContent ? advanceOwnedBattle : stepBattle;
+      const transition = advance(state, Math.min(dtMs, 250) * state.speed, content);
       state = transition.state;
       state.runStatistics = accumulateBattleStatistics(state.runStatistics!, transition.events, Math.max(0, state.coins - coinsBefore));
       for (const event of transition.events.filter(event => event.type === "characterLevelUp")) {

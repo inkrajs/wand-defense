@@ -510,3 +510,38 @@ Sol helper实际6/6过，覆盖免费十波边界、跨波与同波、free优先
 另按根要求只读确认已有掉落接线：engine/index.settleDeaths在enemyKilled后直接grantEnemyLoot，真实gear/supply写入对应registry、更新knowledge并emit lootGranted，非UI假物品。普通gear为8%+总幸运×.001，上限30%；supply独立4%；首次空gear且无gear知识保首件，3boss最低rare/epic/legendary且保gear（gear池空才保supply），每kill最多1gear+1supply。幸运不参与品级权重抽样，金币掉落本身为25%+每幸运点1百分点、上限80%。没有为回答“是否已有”重复写掉落系统。
 
 最终领域源码释放：rewardRefresh.ts/test纯策略6/6，内容randomRewards.ts/test新增luck六档1/2/3/4/6/8、采集六档5/8/10/15/20/25且13/13通过。Sol实际读新增metadata/值、全部grade取值循环、同语义跨grade/value去重、cooldown封顶只排cooldown而保luck/采集、有限池7项和默认seed复现，完成非Sol内容验收。当前联合定向strict唯一阻断仍为构筑域characters.ts104同步新属性switch未完成，已如实告根且不反复跑或越界修；helper独立strict在新属性之前真实通过，不能误报当前整仓已过。根继续刷新原子事务/幂等/存档、金币入口与投影/UI，构筑Sol继续采集stats/economy/符，本域不代宣称这些跨域接线已完成。没有改用户存档、共享契约、依赖、commit或push。
+
+## 百项目录、召唤建筑与高负载（2026-11-04，功能冻结／owned-step配对验证完成）
+
+用户明确授权召唤/建筑进入当前demo，覆盖此前独立feature不合主线限制。复用三个健康native：engine Luna `01a1a240-16cd-7392-be82-9400fc3c5fec` 独占新constructs.ts/test；content Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4` 独占expandedSpells.ts、配方/介绍/monsters及对应tests；原perf Luna `01a1a240-1411-7642-8951-44f5de00abbc` 仅新忽略battle-expansion-perf目录。Sol持effects、projectiles真实origin、waves敌攻构造/保留/regen、damage/targets护甲与来源及construct-integration.test.ts。根持contracts、engine/index、runtime/index、demo与部署，Loadout持arcana/gear/supplies/characters，UI另域；没有动.local/pages-clean-check或提交/推送。独立feature仅只读查设计，未合并旧契约/旧扣血代码。
+
+功能目录新增15法术（9种真实旧机制组合、3召唤、3建筑）、8怪物。48法术、39配方+9基础完整DAG，18怪物（15普通3首领），新怪实际armor 1/3/6和regen 5/12并有不同体型/HP/速度/攻击间隔/移动模式，波28可见全部普通。根最终目录脚本实际为48法术/18奥术/18装备/8道具/18怪物共110，加2个法杖模板共112；初始3×3不在模板目录，不把它或不同品级重复计作新类型。根demo接统一导出，普通奖励目录与已有掉落允许全部新定义可达；root/Loadout新增5道具在loot allowlist已实际纳入，不用类型断言绕过过滤。
+
+ConstructSpec公共契约由根确认落地，手动deployConstruct在准备、奖励和已暂停战斗中可用，坐标0..100任意合法点，不限制角色射程圆；无敌或无伤友也可预部署。自动只召唤、建筑不自动花费。编译power为实际攻击/恢复量，HP/寿命/同源容量来自compiled.construct并不在factory二次缩放；duration≤30s，capacity同源≤8，全场32/percast8，预算可用前缀截断、0容量无事件/不收费。费用由根成功调用后一次扣蓝/金币/冷却。存活构造跨波保HP和TTL，准备/奖励/暂停冻结；失败清理，作弊复活重打该波。敌接触构造时停步优先攻击，不同时打领地，构造死亡不发敌人XP/掉落；已发射弹在构造死亡后继续真实飞行，未发射延迟分支源死取消。
+
+攻击/治疗/护盾复用现有纯模拟与伤害来源，构造有真实HP/移动目标/攻击间隔；近战卫士攻击范围修为3，不能隔26单位砍。轻量constructSpawned与每cast一次spellCast替代携全实体的spawn；TTL constructExpired与敌攻constructDestroyed分开。Sol实际审出并修正Infinity目标查询被nearbyEnemies归0、copies超预算全拒、最后非整50ms寿命丢攻击、巨实体事件克隆、source origin回角色、护甲全挡仍触onHit等问题。armor减免后的正伤才施状态，regen只作用仍活敌且不超maxHP，暂停无恢复。
+
+实际验收：构造模块10/10+strict，内容四suite29/29，卫士范围修正后内容7/7；主Sol真实construct-integration最终7/7涵盖9新攻击+3召唤逐项damage/source、3建筑远点部署/一次费用/命令幂等/跨波、compiled duration/capacity/slow/precision与HP/power完整透传、敌优先打塔不领奖、源死弹续飞仍原角色XP、regen/armor/status。初次两个manual fixture漏knowledge而正确拒绝，补合法已知定义后通过，未放宽runtime。旧actor7/cache5通过。根首轮全仓5个旧目录断言失配，其中4个本域已改为真实目录/解锁配置而保逐种比率/重放/15种非boss击杀XP与loot，定向19/19；根另修preview动态道具目录。根报告部署/catalog4项、真实UI炮台与strict已过，未由本域冒称视觉验收。
+
+性能仍需有效混合证据。作者首稿仅6seed且9.05s失败被Sol拒绝；修成100真实弹、20s全active，但30placement全spark、无area/beam/chain/status，仍不满足多技能原任务，不据此改大缓存。已要求同source混合pierce/splash/chain/beam/field/ring/vortex/onHit/split/double/summon并实际事件断言、真实1full+1events订阅。候选仅根index transition内lazy敌idMap与本域projectiles同cast立即分支复用排序目标，延迟分支重查；只有同source控制、完整状态/事件等价及有界前后时间数据通过才保留。未把无效/窄fixture、减少敌/伤害或DEV数值报作性能改善。
+
+最终混合A/B位于.local/work/battle-expansion-perf-2026-11-04/mixed/，同源仅control恢复根Map前index快照及移除即时target复用，optimized保两小候选。×10合成敌生命在17.55s清波，被20s active门禁拦下而未计作收益；最终×30仅为合成压力预设（生产怪物数值不改），60敌+100真实种子弹、领地50k存活储备、3角色6杖/30装杖44背包、1full+1events，四例均20,000ms全active，1x400/5x80次，结束仍battle/29活敌。不是把清波后noop混入均值，也未减少敌数或伤害伪优化。
+
+主Sol直接读四个最终JSON，same-speed完整stateDigest/eventDigest与所有事件、个人XP、掉落和弹体过期严格一致：共9236事件，5167伤害、935新弹、150链段、44光束、104区域、1161状态、18构造，31真实击杀、8掉落、16弹到期且13弹存活；命中状态/穿透/溅射/field/ring/vortex/split/double/summon均实际活动。1x control mean3.783/p50 3.692/p95 4.721ms，候选4.354/4.040/6.537更慢；5x control7.297/6.663/10.535，候选6.927/6.553/9.344仅小幅快。各条件单例且不一致，未通过性能收益门禁，不能报生产FPS改善或保留额外复杂性。
+
+据根约定，Sol已精确撤projectiles即时target复用几行，保留所有构造物真实origin/来源/弹体存续功能；根owner负责撤index Map候选，不恢复整文件覆盖功能。撤后主Sol构造集成7+原cache碰撞5共12/12通过、范围diff通过。根此前已报告生产build与全仓519/519通过，UI真实炮台任意点部署与资源亦过。三个native作者均健康完成/归档，无模型切换；不再跑矩阵。截至该轮的交付为功能与有效混合等价压力验证，上述两个局部性能候选未获稳定收益而回退；后续owned-step结果见下段，已有上轮通知优化不受影响。所有本域源码/测试释放，用户视觉和PWA/首屏最终验收由根/UI持有，未代宣称已接受。
+
+
+后续根owner保留的性能改动为owned-step：公开`stepBattle`仍先克隆，`advanceOwnedBattle`与其共用同一推进算法，只让内置`demoContent`运行时推进独占的权威状态，省去引擎入口重复的整状态`structuredClone`；自定义目录继续pure路径。对外getState、checkpoint、通知与回执仍克隆隔离。未重新引入敌id Map或即时projectile目标复用，也未增加第二套模拟或跨tick缓存。
+
+实际JSON证据位于`.local/work/owned-step-perf/results/{pure,owned}/measure-speed{1,5}.json`。复用前述混合fixture，60敌、100真实种子弹、3角色6杖/30装杖44背包和1full+1events订阅，合成敌HP×30、领地50k仅作压力与存活储备；生产数值未改。四例均完整20,000ms且结束仍battle，1x为400次有效tick、5x为80次有效tick。每例9236事件，含5167伤害、935新弹、150链段、44光束、104区域、1161状态和18构造；same-speed的stateDigest及eventDigest均完全相同。
+
+| Node runtime.tick(50)耗时（ms） | pure平均 / p50 / p95 / 最大 | owned平均 / p50 / p95 / 最大 |
+| --- | --- | --- |
+| 1x（400次） | 3.976 / 3.807 / 5.157 / 8.843 | 3.096 / 2.906 / 4.504 / 9.336 |
+| 5x（80次） | 7.198 / 6.781 / 9.616 / 11.998 | 6.032 / 5.735 / 8.060 / 12.433 |
+
+该次配对中平均耗时分别减少22.2%和16.2%，p95分别减少12.7%和16.2%；最大单次耗时没有改善。每条件仅一次运行，结论限定为此Node混合模拟窗口的平均与p95改善；包含实际runtime通知订阅开销，未测浏览器渲染、React、布局或网络，不代表浏览器FPS提升。按根owner决定保留owned-step，源码冻结，不再扩测矩阵。本段更新仅复核已有四份JSON并补文档，没有新测量；整个应用的最终回归与发布由根负责。
+
+
+订阅数准确性更正：直接核对混合runner只有一次`runtime.subscribe`与一次`runtime.subscribeEvents`，上述本轮混合及owned-step测量均为1full+1events；此前记录的1full+2events为转述误差，非新增测量。根已将runner纳入版本控制为`scripts/measure-combat.mjs`，默认加载仓库`src`、measure模式20秒，输出至`.local/combat-measurement`；可在仓库根目录用`SPEED=1 node --import tsx scripts/measure-combat.mjs`（或`SPEED=5`）复用。早一轮通知优化的独立3full对1full+2events记录不属于本轮混合fixture，保留其原记录。

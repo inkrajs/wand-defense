@@ -1,8 +1,9 @@
-import type { AreaSpec, AttackRollStats, BeamSpec, ContentCatalog, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
+import type { AreaSpec, AttackRollStats, BeamSpec, ConstructSpec, ContentCatalog, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
 import { spawnProjectiles } from "./projectiles";
 import { spawnBeams } from "./beams";
 import { spawnAreaEffects } from "./areaEffects";
 import { spawnChains } from "./chains";
+import { spawnConstructs } from "./constructs";
 
 export interface CastSpec {
   itemId: string;
@@ -20,6 +21,8 @@ export interface CastSpec {
   beam?: BeamSpec;
   area?: AreaSpec;
   onHit?: OnHitSpec;
+  construct?: ConstructSpec;
+  position?: { x: number; y: number };
 }
 
 type Emit = (type: string, data: Record<string, unknown>) => void;
@@ -49,6 +52,10 @@ export function castSpell(
   const casts = Math.max(1, Math.floor(spec.casts));
   const amount = Math.max(0, spec.power);
   const onHit = spec.onHit ?? spell.onHit;
+  if (spell.effect === "summon" || spell.effect === "building") {
+    const construct = spec.construct ?? spell.construct;
+    return construct ? spawnConstructs(state, characterId, { ...spec, kind: spell.effect, construct, onHit }, emit) : false;
+  }
   if (spell.effect === "chain") {
     const impact = spec.impact ?? spell.impact;
     return impact?.type === "chain" ? spawnChains(state, characterId, { ...spec, impact, onHit }, emit) : false;

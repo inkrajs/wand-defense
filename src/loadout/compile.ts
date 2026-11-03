@@ -2,6 +2,7 @@ import type { AttackRollStats, ContentCatalog, GameState, SpellDefinition } from
 import { getCharacterStats } from '../content/characters';
 import { areAdjacent, placementCells } from './geometry';
 import { gradedArcanaValue, gradeStrengthRatio } from './grade-scaling';
+import { applyAdvancedModifiers, isAdvancedModifier } from './advanced-modifiers';
 
 /** Numeric fields already include arcana and the owner's current sequence. */
 export interface CompiledSpell extends SpellDefinition {
@@ -38,7 +39,9 @@ export function compileWand(
     const item = state.items[placement.itemId];
     const definition = item?.kind === 'spell' ? content.spells[item.definitionId] : undefined;
     if (!definition) return [];
-    const isAttack = definition.effect === 'projectile' || definition.effect === 'beam' || definition.effect === 'area' || definition.effect === 'chain';
+    const isConstruct = definition.effect === 'summon' || definition.effect === 'building';
+    const isAttack = definition.effect === 'projectile' || definition.effect === 'beam' || definition.effect === 'area' || definition.effect === 'chain'
+      || (isConstruct && definition.construct?.behavior === 'attack');
     const spell: CompiledSpell = {
       ...definition,
       grade: item.grade, level: item.level,
@@ -55,6 +58,7 @@ export function compileWand(
       ...(definition.impact ? { impact: { ...definition.impact } } : {}),
       ...(definition.beam ? { beam: { ...definition.beam } } : {}),
       ...(definition.area ? { area: { ...definition.area } } : {}),
+      ...(definition.construct ? { construct: { ...definition.construct } } : {}),
       ...(definition.onHit ? { onHit: {
         ...definition.onHit,
         ...(definition.onHit.slow ? { slow: { ...definition.onHit.slow } } : {}),
@@ -73,6 +77,7 @@ export function compileWand(
     for (const modifier of modifiers) {
       if (!areAdjacent(cells, modifier.cells)) continue;
       if (appliedModifierItems.has(modifier.itemId)) continue;
+      if (isAdvancedModifier(modifier.definition.modifier)) continue;
       if (modifier.definition.modifier === 'velocity' && spell.effect !== 'projectile') continue;
       if (modifier.definition.modifier === 'area'
         && !spell.beam
@@ -104,13 +109,15 @@ export function compileWand(
           break;
       }
     }
+    applyAdvancedModifiers(spell, modifiers.filter(modifier => areAdjacent(cells, modifier.cells)));
     spell.copies=Math.min(64,spell.burstCount*spell.splitCount);
     const elementBonus = final.elementBonuses[spell.element] ?? 0;
     const multiplier = Number.isFinite(elementBonus) ? Math.max(0, 1 + elementBonus) : 1;
     spell.power *= multiplier;
     if ((spell.effect === 'summon' || spell.effect === 'building') && spell.hp !== undefined) {
-      spell.hp *= multiplier;
+      spell.hp *= multiplier * gradeStrengthRatio(item.grade, definition.grade);
     }
+    if (isConstruct && spell.construct) spell.construct.hp *= multiplier * gradeStrengthRatio(item.grade, definition.grade);
     return [spell];
   });
   return { wandId: wand.id, characterId: character.id, spells };

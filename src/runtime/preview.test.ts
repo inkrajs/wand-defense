@@ -99,8 +99,8 @@ test("all supported preview items are filled once without resetting progression 
   runtime.dispatch({id:'preview:user-all-magic-20261104-03:unlock',type:'unlockCheats'});
   const before=runtime.getState(),report=fillAuthorizedInventory(runtime,demoContent)!;
   assert.equal(report.status,'executed');assert.equal(report.spellKinds,Object.keys(demoContent.spells).length);assert.equal(report.arcanaKinds,Object.keys(demoContent.arcana).length);
-  assert.equal(report.gearKinds,Object.keys(demoContent.gear??{}).length);assert.equal(report.itemKinds,3);
-  assert.equal(report.grantedGear,Object.keys(demoContent.gear??{}).length);assert.equal(report.grantedSupplies,3);
+  assert.equal(report.gearKinds,Object.keys(demoContent.gear??{}).length);assert.equal(report.itemKinds,Object.keys(demoContent.items??{}).length);
+  assert.equal(report.grantedGear,Object.keys(demoContent.gear??{}).length);assert.equal(report.grantedSupplies,Object.keys(demoContent.items??{}).length);
   assert.equal(report.granted,Object.keys(demoContent.spells).length+Object.keys(demoContent.arcana).length-2);assert.equal(report.grantedWands,2);
   assert.equal(report.preservedLayouts,true);assert.equal(report.preservedCoins,true);
   const after=runtime.getState();assert.equal(after.id,before.id);assert.equal(after.wave,before.wave);

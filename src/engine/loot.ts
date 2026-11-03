@@ -28,7 +28,8 @@ const MINIMUM_BOSS_GRADE: Record<string, Grade> = {
   'boss-apex': 'legendary',
 };
 const GEAR_SLOTS = ['head', 'body', 'feet', 'accessory'] as const;
-const SUPPLY_EFFECTS = ['territoryHeal', 'territoryShield', 'partyMana'] as const;
+const SUPPLY_EFFECTS = ['territoryHeal', 'territoryShield', 'partyMana', 'territoryRestore',
+  'partyManaPercent', 'cooldownAdvance', 'territoryHealPercent', 'territoryShieldPercent'] as const;
 
 function isGrade(value: unknown): value is Grade {
   return typeof value === 'string' && gradeOrder.includes(value as Grade) && Number.isFinite(gradePower[value as Grade]);

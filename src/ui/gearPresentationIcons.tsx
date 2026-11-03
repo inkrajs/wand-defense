@@ -13,7 +13,11 @@ export type GearPresentationId =
   | "farwatch-boots"
   | "copper-ring"
   | "spring-pendant"
-  | "gatherer-charm";
+  | "gatherer-charm"
+  | "ember-circlet" | "frost-lens" | "sage-crown"
+  | "windweave-mantle" | "heartwood-vest"
+  | "gale-greaves" | "tracker-boots"
+  | "fortune-knot" | "starfall-signet";
 
 export type GearPresentationVariant = "outline" | "filled";
 
@@ -129,6 +133,42 @@ const paths = {
       wash("M10 8c1-1 3-1 4 0l-2 2Z", runePigment),
     ],
   },
+  "ember-circlet": {
+    paths: [stroke("M3 17c3-6 15-7 18 0l-2 4H5l-2-4Z"), stroke("M7 14c0-3 2-5 5-6 3 1 5 3 5 6m-9 5h8"), stroke("M12 8c-2-2-1-4 1-6 0 2 3 3 2 6")],
+    filledPaths: [wash("M4 17c4-5 12-5 16 0l-2 3H6Z", material("ember-circlet")), wash("M11 8c-2-2-1-4 1-6 0 2 3 3 2 6-1-1-2-1-3 0Z", metalPigment)],
+  },
+  "frost-lens": {
+    paths: [stroke("M3 8h18l-2 8c-.5 2-2 3-4 3-2 0-3-1-3-3 0 2-1 3-3 3s-3.5-1-4-3L3 8Z"), stroke("M12 12v4m-6-5 3 1m9-1-3 1m-4-5 2 2-2 2-2-2Z")],
+    filledPaths: [wash("M5 10h5l1 6c0 1-1 2-2 2s-2-.5-2.5-2L5 10Zm9 0h5l-1.5 6c-.5 1.5-1.5 2-2.5 2s-2-1-2-2Z", material("frost-lens")), wash("M11 7l1-2 2 2-2 2Z", runePigment)],
+  },
+  "sage-crown": {
+    paths: [stroke("M3 18 5 7l5 5 2-8 3 8 5-5 1 11H3Z"), stroke("M5 21h14M8 17c0-2 1-3 3-4m5 4c0-2-1-3-3-4m-1-6c-2-1-2-3 0-5 2 2 2 4 0 5Z")],
+    filledPaths: [wash("M4 17 6 9l4 4 2-7 3 7 4-4 1 8Z", material("sage-crown")), wash("M11 7c-2-2-1-4 1-5 2 2 3 4 1 5Z", runePigment)],
+  },
+  "windweave-mantle": {
+    paths: [stroke("M8 4c1 3 2 4 4 4s3-1 4-4l5 4-3 5 2 8H4l2-8-3-5 5-4Z"), stroke("M8 5c1 3 2 4 4 4s3-1 4-4m-7 8 3 3 3-3m-3 3v5M2 12l2-1m16 1 2-1")],
+    filledPaths: [wash("M8 6c1 2 2 3 4 3s3-1 4-3l4 3-3 5 2 6H5l2-6-3-5Z", material("windweave-mantle")), wash("M8 13l4 4 4-4-1 5H9Z", runePigment)],
+  },
+  "heartwood-vest": {
+    paths: [stroke("M7 3h4l1 3 1-3h4l4 5-3 3 1 10H5l1-10-3-3 4-5Z"), stroke("M8 5 7 9l3 3-1 7h6l-1-7 3-3-1-4m-5 0v6m-3 2 3-2 3 2")],
+    filledPaths: [wash("M7 5h3l2 4 2-4h3l3 4-3 3 1 7H6l1-7-3-3Z", material("heartwood-vest")), wash("M12 10 9 13l3 2 3-2Z", runePigment)],
+  },
+  "gale-greaves": {
+    paths: [stroke("M6 3h5l1 9-2 3-1 6H3v-3l3-4V3Zm7 0h5l1 11 3 4v3h-6l-1-6-2-3 0-9Z"), stroke("M5 7h5m3 0h5M2 10l2-1m15 2 3-1m-18 5 3-1")],
+    filledPaths: [wash("M7 4h3l1 8-2 4-1 4H4v-2l3-4Zm7 0h3l1 10 3 4v2h-4l-1-5-2-4Z", material("gale-greaves")), wash("M2 10l3-1-2 3Zm17 2 3-2-1 4Z", runePigment)],
+  },
+  "tracker-boots": {
+    paths: [stroke("M7 3h6v8l2 4 6 2v4H4v-3l3-4V3Z"), stroke("M9 6h3m-3 3h3m-3 3 4 4-5 1 4 1"), stroke("M3 8 1 10m3 2-2 2m3 2-2 2")],
+    filledPaths: [wash("M8 4h4v7l3 5 5 2v2H5v-1l3-4Z", material("tracker-boots")), wash("M2 9l3 2-3 2Zm2 6 3 2-3 2Z", runePigment)],
+  },
+  "fortune-knot": {
+    paths: [stroke("M12 4c-6 0-8 5-4 8-4 3-2 8 4 8m0-16c6 0 8 5 4 8 4 3 2 8-4 8Z"), stroke("M8 12h8m-4-4v8m-8-7 3 3-3 3m16-6-3 3 3 3")],
+    filledPaths: [wash("M12 5c-5 0-6 4-2 7-4 3-3 7 2 7-3-3-3-4 0-7-3-3-3-4 0-7Z", material("fortune-knot")), wash("M12 5c5 0 6 4 2 7 4 3 3 7-2 7 3-3 3-4 0-7 3-3 3-4 0-7Z", metalPigment)],
+  },
+  "starfall-signet": {
+    paths: [stroke("M5 14c0-4 3-7 7-7s7 3 7 7-3 7-7 7-7-3-7-7Z"), stroke("M12 2 14 7l5 1-4 3 1 5-4-3-4 3 1-5-4-3 5-1Z"), stroke("M8 14c0-2 2-4 4-4s4 2 4 4-2 4-4 4-4-2-4-4Z")],
+    filledPaths: [wash("M7 14c0-3 2-5 5-5s5 2 5 5-2 5-5 5-5-2-5-5Z", material("starfall-signet")), wash("M12 3 14 8l5 1-4 3 1 4-4-2-4 2 1-4-4-3 5-1Z", metalPigment)],
+  },
 } as const satisfies Record<GearPresentationId, { paths: readonly PencilIconPath[]; filledPaths: readonly PencilIconPath[] }>;
 
 function makeDefinition(id: GearPresentationId): GearPresentationIconDefinition {
@@ -145,6 +185,15 @@ const presentationDefinitions: Readonly<Record<GearPresentationId, GearPresentat
   "copper-ring": makeDefinition("copper-ring"),
   "spring-pendant": makeDefinition("spring-pendant"),
   "gatherer-charm": makeDefinition("gatherer-charm"),
+  "ember-circlet": makeDefinition("ember-circlet"),
+  "frost-lens": makeDefinition("frost-lens"),
+  "sage-crown": makeDefinition("sage-crown"),
+  "windweave-mantle": makeDefinition("windweave-mantle"),
+  "heartwood-vest": makeDefinition("heartwood-vest"),
+  "gale-greaves": makeDefinition("gale-greaves"),
+  "tracker-boots": makeDefinition("tracker-boots"),
+  "fortune-knot": makeDefinition("fortune-knot"),
+  "starfall-signet": makeDefinition("starfall-signet"),
 });
 
 export function getGearPresentationIcon(definitionId: string): GearPresentationIconDefinition | undefined {

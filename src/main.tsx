@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import "@inkra/react/styles.css";
+import "./ui/fonts.css";
 import "./ui/icon-buttons.css";
 import { App } from "./ui/App";
 import { createGameRuntime } from "./runtime";

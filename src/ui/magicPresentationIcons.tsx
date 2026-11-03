@@ -4,6 +4,7 @@ import type { Cell } from "../contracts";
 import { demoContent } from "../content/demo";
 import { fireEarthArtwork } from "./magic-artwork/fire-earth";
 import { otherArtwork } from "./magic-artwork/other-arcana";
+import { contentExpansionArtwork } from "./magic-artwork/content-expansions";
 import type { MagicArtwork } from "./magic-artwork/types";
 import { waterWoodArtwork } from "./magic-artwork/water-wood";
 
@@ -144,6 +145,7 @@ const originalDefinitions: Readonly<Record<string, MagicPresentationIconDefiniti
 });
 
 const artworkCatalog: Readonly<Record<string, MagicArtwork>> = Object.freeze({
+  ...contentExpansionArtwork,
   ...fireEarthArtwork,
   ...waterWoodArtwork,
   ...otherArtwork,
@@ -181,7 +183,7 @@ const definitions: Readonly<Record<string, MagicPresentationIconDefinition>> = O
 });
 
 const aliases: Readonly<Record<string, MagicPresentationId>> = { "thunder-arrow": "lightning-bolt" };
-const supportsNativeShapeViewport = import.meta.env.INKRA_LOCAL === true;
+const supportsNativeShapeViewport = import.meta.env?.INKRA_LOCAL === true;
 
 export function getMagicPresentationDefinition(definitionId: string): MagicPresentationIconDefinition | undefined {
   const id = aliases[definitionId] ?? definitionId;

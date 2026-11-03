@@ -5,15 +5,17 @@ import { areaSpellDefinitions } from "./areaSpells";
 import { fieldSpellDefinitions } from "./fieldSpells";
 import { expandedArcana } from "./expandedArcana";
 import { magicRecipeDefinitions } from "./magicRecipes";
+import { expandedSpellDefinitions } from "./expandedSpells";
 
 const asset = (key: string, label: string, color: string) => ({ key, label, color });
 const cell = (x: number, y: number) => ({ x, y });
 
-/** Small but playable content set used by the prototype and UI fixture. */
+/** Playable catalog shared by the runtime, compiler, UI and knowledge-filtered protocol. */
 export const demoContent: ContentCatalog = {
   gear: gearDefinitions,
   items: supplyDefinitions,
   spells: {
+    ...expandedSpellDefinitions,
     spark: {
       id: "spark", name: "火花", element: "fire", shape: [cell(0, 0)],
       asset: asset("spell.spark", "火花", "#ff9f43"), effect: "projectile",

@@ -17,8 +17,10 @@ module's task file. Design snapshots retain confirmed/draft distinctions.
 This is an Inkra consumer; do not alter Inkra library repositories.
 For interface work also read docs/ui-guidelines.md. Use the installed public
 Inkra components and typography; keep the user's latest layout decisions.
-Current main excludes summons/buildings; those live only on the separate
-feature/summons-buildings checkout and must not be merged without user direction.
+The user authorized summons/buildings in the current demo on 2026-11-04.
+Reuse the old feature/summons-buildings prototype selectively; do not overwrite
+current contracts or merge stale branches wholesale. The current shared runtime
+remains authoritative for manual deployment, resources, combat and persistence.
 
 ## Mandatory UI feedback baseline
 Never show generic operation notices by default: no success/completed/submitted

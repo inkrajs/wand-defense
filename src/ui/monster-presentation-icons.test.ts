@@ -13,6 +13,8 @@ test("monster icon lookup resolves the registered creature and boss IDs", () => 
     "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat",
     "enemy-sand-beetle", "enemy-crystal-crab", "enemy-basic",
     "boss-minor", "boss-major", "boss-apex",
+    "enemy-iron-guard", "enemy-mire-regenerator", "enemy-ember-brute", "enemy-clockwork-scout",
+    "enemy-glacier-shell", "enemy-void-wisp", "enemy-ancient-ent", "enemy-storm-mantis",
   ]) {
     assert.ok(getMonsterPresentationIcon(definitionId, "known-id"), definitionId);
   }

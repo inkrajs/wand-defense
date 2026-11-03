@@ -13,7 +13,7 @@ test("monster size presets map each body size to the agreed pixels and hit radiu
   ]);
 });
 
-test("seven minions and three bosses keep stable names, asset keys, colors and sizes", () => {
+test("fifteen minions and three bosses keep stable names, asset keys, colors and sizes", () => {
   assert.deepEqual(Object.values(monsterDefinitions).map(({ id, name, bodySize, asset }) => [id, name, bodySize, asset.key, asset.color]), [
     ["enemy-basic", "灰泥怪", "normal", "monster.basic", "#8b8178"],
     ["enemy-moss", "苔团", "small", "monster.moss", "#65a85b"],
@@ -22,6 +22,14 @@ test("seven minions and three bosses keep stable names, asset keys, colors and s
     ["enemy-shadow-bat", "影蝠", "small", "monster.shadow-bat", "#a784d9"],
     ["enemy-sand-beetle", "砂甲虫", "large", "monster.sand-beetle", "#c5a05d"],
     ["enemy-crystal-crab", "晶蟹", "normal", "monster.crystal-crab", "#8e9fe8"],
+    ["enemy-iron-guard", "铸铁卫", "normal", "monster.iron-guard", "#647d91"],
+    ["enemy-mire-regenerator", "沼泽再生体", "large", "monster.mire-regenerator", "#4e8061"],
+    ["enemy-ember-brute", "熔火蛮兽", "large", "monster.ember-brute", "#c65c3d"],
+    ["enemy-clockwork-scout", "机巧斥候", "small", "monster.clockwork-scout", "#d5b34a"],
+    ["enemy-glacier-shell", "冰川重甲", "huge", "monster.glacier-shell", "#78b9d4"],
+    ["enemy-void-wisp", "虚空游魂", "small", "monster.void-wisp", "#583f78"],
+    ["enemy-ancient-ent", "古树巨像", "colossal", "monster.ancient-ent", "#587454"],
+    ["enemy-storm-mantis", "雷螳", "normal", "monster.storm-mantis", "#948a55"],
     ["boss-minor", "小型首领", "large", "monster.boss.minor", "#c77d53"],
     ["boss-major", "大型首领", "huge", "monster.boss.major", "#a57ad2"],
     ["boss-apex", "顶级首领", "colossal", "monster.boss.apex", "#e3a743"],
@@ -45,10 +53,20 @@ test("minion spawn tuning preserves basic parity and the unlock-wave progression
     ["enemy-shadow-bat", 6, 0.7, 1, 1.4, 0.9, "huntCharacter"],
     ["enemy-sand-beetle", 8, 1.8, 1.3, 0.7, 1.2, "straight"],
     ["enemy-crystal-crab", 10, 1.4, 1.15, 0.85, 1, undefined],
+    ["enemy-iron-guard", 12, 1.6, 1, 0.78, 1.1, undefined, 3, undefined],
+    ["enemy-mire-regenerator", 14, 1.9, 0.9, 0.75, 1.2, "straight", undefined, 5],
+    ["enemy-ember-brute", 16, 2.2, 1.7, 0.9, 0.85, undefined, 1, undefined],
+    ["enemy-clockwork-scout", 18, 0.65, 1, 1.7, 0.65, "huntCharacter", undefined, undefined],
+    ["enemy-glacier-shell", 20, 3, 1.4, 0.42, 1.5, "straight", 6, undefined],
+    ["enemy-void-wisp", 22, 0.45, 0.9, 1.8, 0.75, "huntCharacter", undefined, undefined],
+    ["enemy-ancient-ent", 24, 4, 2, 0.35, 1.7, "straight", undefined, 12],
+    ["enemy-storm-mantis", 26, 1, 1.6, 1.3, 0.55, "huntCharacter", undefined, undefined],
   ] as const;
-  for (const [id, unlockWave, hpMultiplier, damageMultiplier, speedMultiplier, cooldownMultiplier, movementMode] of tuning) {
+  for (const [id, unlockWave, hpMultiplier, damageMultiplier, speedMultiplier, cooldownMultiplier, movementMode, armor, regenerationPerSecond] of tuning) {
     assert.deepEqual(monsterDefinitions[id].spawn, {
       unlockWave, hpMultiplier, damageMultiplier, speedMultiplier, cooldownMultiplier, movementMode,
+      ...(armor !== undefined ? { armor } : {}),
+      ...(regenerationPerSecond !== undefined ? { regenerationPerSecond } : {}),
     });
   }
   const expected: Record<string, readonly string[]> = {
@@ -60,6 +78,15 @@ test("minion spawn tuning preserves basic parity and the unlock-wave progression
     "6": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat"],
     "8": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle"],
     "10": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab"],
+    "12": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab", "enemy-iron-guard"],
+    "14": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab", "enemy-iron-guard", "enemy-mire-regenerator"],
+    "16": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab", "enemy-iron-guard", "enemy-mire-regenerator", "enemy-ember-brute"],
+    "18": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab", "enemy-iron-guard", "enemy-mire-regenerator", "enemy-ember-brute", "enemy-clockwork-scout"],
+    "20": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab", "enemy-iron-guard", "enemy-mire-regenerator", "enemy-ember-brute", "enemy-clockwork-scout", "enemy-glacier-shell"],
+    "22": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab", "enemy-iron-guard", "enemy-mire-regenerator", "enemy-ember-brute", "enemy-clockwork-scout", "enemy-glacier-shell", "enemy-void-wisp"],
+    "24": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab", "enemy-iron-guard", "enemy-mire-regenerator", "enemy-ember-brute", "enemy-clockwork-scout", "enemy-glacier-shell", "enemy-void-wisp", "enemy-ancient-ent"],
+    "26": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab", "enemy-iron-guard", "enemy-mire-regenerator", "enemy-ember-brute", "enemy-clockwork-scout", "enemy-glacier-shell", "enemy-void-wisp", "enemy-ancient-ent", "enemy-storm-mantis"],
+    "28": ["enemy-basic", "enemy-moss", "enemy-ember", "enemy-frost-moth", "enemy-shadow-bat", "enemy-sand-beetle", "enemy-crystal-crab", "enemy-iron-guard", "enemy-mire-regenerator", "enemy-ember-brute", "enemy-clockwork-scout", "enemy-glacier-shell", "enemy-void-wisp", "enemy-ancient-ent", "enemy-storm-mantis"],
   };
   for (const [wave, ids] of Object.entries(expected)) {
     const definitions = getUnlockedMinionDefinitions(Number(wave));
@@ -72,6 +99,9 @@ test("minion spawn tuning preserves basic parity and the unlock-wave progression
   for (const [id, unlockWave] of [
     ["enemy-basic", 1], ["enemy-moss", 2], ["enemy-ember", 3], ["enemy-frost-moth", 4],
     ["enemy-shadow-bat", 6], ["enemy-sand-beetle", 8], ["enemy-crystal-crab", 10],
+    ["enemy-iron-guard", 12], ["enemy-mire-regenerator", 14], ["enemy-ember-brute", 16],
+    ["enemy-clockwork-scout", 18], ["enemy-glacier-shell", 20], ["enemy-void-wisp", 22],
+    ["enemy-ancient-ent", 24], ["enemy-storm-mantis", 26],
   ] as const) {
     assert.equal(monsterDefinitions[id].spawn?.unlockWave, unlockWave);
   }

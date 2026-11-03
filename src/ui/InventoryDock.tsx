@@ -15,6 +15,7 @@ import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresenta
 import { enrichMagicReward } from "../content/magicDescriptions";
 import { demoContent } from "../content/demo";
 import { getGearPresentationIcon, GearPresentationIcon } from "./gearPresentationIcons";
+import { getSupplyPresentationIcon, SupplyPresentationIcon } from "./supplyPresentationIcons";
 import "./InventoryDock.css";
 
 type InventoryGridHandle = { cancelDrag(): void };
@@ -398,6 +399,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     ...(localGrid ? { getItemAppearance: getGameItemAppearance } : {}),
     renderItem: (item: DockItem, renderState: InventoryItemRenderState & { combineTarget?: boolean }) => {
       const iconDefinition = magicIcon(item);
+      const supplyIcon = item.kind === "supply" ? getSupplyPresentationIcon(item.definitionId) : undefined;
       if (item.kind === "wand") {
         const wand = state.wands.find(entry => entry.id === item.wandId);
         if (!wand) return null;
@@ -411,7 +413,9 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
       const icon = item.kind === "gear"
         ? <GearSlotIcon slot={item.slot} definitionId={item.definitionId} size={24} seed={`gear-${item.definitionId ?? item.slot}`} />
         : item.kind === "supply"
-          ? <PencilIcon paths={[{ d: "M9 3h6v3l2 2v12H7V8l2-2V3ZM8 11h8M10 15h4", mode: "stroke" }]} size={24} sourceSize={24} seed="supply-bottle" decorative />
+          ? supplyIcon
+            ? <SupplyPresentationIcon definitionId={item.definitionId} size={GRID_CELL_SIZE * Math.max(1, ...supplyIcon.shape.map(cell => Math.max(cell.x + 1, cell.y + 1)))} rotation={renderState.rotation} seed={`supply-${item.definitionId}`} />
+            : <AssetImage asset={resolveAsset(definitionFor(item)?.asset, { label: item.label ?? item.id, icon: "◇" })} />
           : iconDefinition
             ? <MagicPresentationIcon definitionId={item.definitionId} size={GRID_CELL_SIZE * Math.max(1, ...iconDefinition.shape.map(cell => Math.max(cell.x + 1, cell.y + 1)))} rotation={renderState.rotation} seed={`inventory-${item.definitionId}`} />
             : <AssetImage asset={resolveAsset(definitionFor(item)?.asset, { label: item.label ?? item.id, icon: item.kind === "spell" ? "✦" : "◇" })} />;

@@ -1,4 +1,5 @@
 import type { ArcanaDefinition, ContentCatalog, RewardOption, SpellDefinition } from "../contracts";
+import { expandedArcanaDescriptions } from "./expandedArcana";
 
 const reservedDefinitionIds = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -12,6 +13,13 @@ const arcanaDescriptions: Readonly<Record<ArcanaDefinition["modifier"], string>>
   reach: "增加相邻法术的射程。",
   velocity: "提高相邻飞弹的飞行速度。",
   area: "扩大相邻法术的区域、溅射与连锁范围，并加宽光束。",
+  pierce: expandedArcanaDescriptions.pierce,
+  slow: expandedArcanaDescriptions.slow,
+  burn: expandedArcanaDescriptions.burn,
+  knockback: expandedArcanaDescriptions.knockback,
+  duration: expandedArcanaDescriptions.duration,
+  capacity: expandedArcanaDescriptions.capacity,
+  precision: expandedArcanaDescriptions.precision,
 });
 
 /** Returns a detached reward and describes only the current owned definition's behavior. */
@@ -73,6 +81,21 @@ function describeSpellBehavior(spell: SpellDefinition, content: ContentCatalog):
     }
     case "shield":
       return "为领地增加护盾。";
+    case "summon": {
+      const construct = spell.construct;
+      if (!construct) return undefined;
+      const behavior = construct.behavior === "heal" ? "治疗附近友军"
+        : construct.attackMode === "projectile" ? "发射弹体攻击敌人" : "近战攻击敌人";
+      return `召唤${spell.name}，${behavior}，持续${formatSeconds(construct.durationMs)}秒。`;
+    }
+    case "building": {
+      const construct = spell.construct;
+      if (!construct) return undefined;
+      const cost = Number.isFinite(construct.coinCost) && construct.coinCost! > 0 ? `（${construct.coinCost}金币）` : "";
+      const behavior = construct.behavior === "heal" ? "治疗附近友军"
+        : construct.attackMode === "projectile" ? "远程攻击敌人" : "近战攻击敌人";
+      return `部署${spell.name}${cost}，持续${formatSeconds(construct.durationMs)}秒${behavior}。`;
+    }
     default:
       return undefined;
   }

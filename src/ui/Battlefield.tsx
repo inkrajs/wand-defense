@@ -4,6 +4,7 @@ import { Progress } from "@inkra/react/display";
 import { getExperienceProgress } from "../content/progression";
 import { MonsterPresentationIcon, getMonsterPresentationIcon } from "./monsterPresentationIcons";
 import { CharacterPresentationIcon } from "./characterPresentationIcons";
+import { ConstructPresentationIcon, hasConstructPresentationIcon } from "./ConstructPresentationIcon";
 import { demoContent } from "../content/demo";
 import { getCharacterStats } from "../content/characters";
 import { getCharacterAnchors } from "../content/characterAnchors";
@@ -50,29 +51,32 @@ const UnitHealth = memo(function UnitHealth({ health, label, id }: { health: num
 const BattlefieldUnit = memo(function BattlefieldUnit({ entity, attackEventSeq, resolution }: { entity: CombatEntity; attackEventSeq?: number; resolution: number }) {
   const x = Number.isFinite(entity.x) ? entity.x : 50;
   const y = Number.isFinite(entity.y) ? entity.y : 0;
-  const left = entity.kind === "enemy" ? x : Math.max(2, Math.min(98, x));
-  const top = entity.kind === "enemy" ? y : Math.max(3, Math.min(88, y));
+  const left = entity.kind === "enemy" || entity.kind === "summon" || entity.kind === "building" ? x : Math.max(2, Math.min(98, x));
+  const top = entity.kind === "enemy" || entity.kind === "summon" || entity.kind === "building" ? y : Math.max(3, Math.min(88, y));
   const health = ratio(entity.hp, entity.maxHp) * 100;
   const asset = resolveEntityAsset(entity);
-  const pixels = entity.kind === "enemy" ? getMonsterSize(entity).pixels : 32;
+  const pixels = entity.kind === "enemy" ? getMonsterSize(entity).pixels : entity.kind === "summon" || entity.kind === "building" ? 36 : 32;
+  const construct = entity.kind === "summon" || entity.kind === "building";
+  const label = construct ? demoContent.spells[entity.definitionId]?.name ?? asset.label : asset.label;
+  const remainingSeconds = construct && entity.remainingMs !== undefined ? Math.ceil(Math.max(0, entity.remainingMs) / 1000) : undefined;
   const slowed = hasVisibleSlow(entity);
   const burning = hasVisibleBurn(entity);
   const statusLabel = [slowed ? "迟缓" : "", burning ? "燃烧" : ""].filter(Boolean).join("、");
   return <div className={`battlefield__unit battlefield__unit--${entity.kind} battlefield__unit--${entity.faction}`}
     data-status-slow={slowed || undefined} data-status-burn={burning || undefined}
     style={{ left: `${left}%`, top: `${top}%`, "--unit-monster-size": `${pixels}px`, "--unit-health-width": `${entity.kind === "enemy" ? Math.max(34, pixels * 1.25) : 34}px` } as React.CSSProperties}
-    aria-label={`${asset.label}${statusLabel ? `，${statusLabel}中` : ""}，生命 ${entity.hp} / ${entity.maxHp}`}>
+    aria-label={`${label}${statusLabel ? `，${statusLabel}中` : ""}，生命 ${entity.hp} / ${entity.maxHp}${remainingSeconds === undefined ? "" : `，剩余 ${remainingSeconds} 秒`}`}>
     <span key={attackEventSeq ?? "idle"} className="battlefield__unit-mark" data-attacked={attackEventSeq === undefined ? undefined : "true"} aria-hidden="true">
       {slowed && <MagicEffectArt resolution={resolution} className="battlefield__status-frost" kind="field" seed="enemy-status-slow" width={pixels * 1.42} height={pixels * 1.42} color="var(--inkra-info-pigment)" />}
       {burning && <>
         <MagicEffectArt resolution={resolution} className="battlefield__status-spark battlefield__status-spark--one" kind="ember" seed="enemy-status-burn-a" width={Math.max(10, pixels * .38)} height={Math.max(12, pixels * .46)} color="var(--inkra-warning-pigment)" />
         <MagicEffectArt resolution={resolution} className="battlefield__status-spark battlefield__status-spark--two" kind="ember" seed="enemy-status-burn-b" width={Math.max(8, pixels * .3)} height={Math.max(10, pixels * .38)} color="var(--inkra-danger-pigment)" />
       </>}
-      <span className={`battlefield__unit-mark-icon${slowed ? " is-slowed" : ""}`}>{entity.kind === "enemy" && getMonsterPresentationIcon(entity.definitionId, entity.id) ? <MonsterPresentationIcon definitionId={entity.definitionId} entityId={entity.id} size={pixels} /> : <AssetImage asset={asset} />}</span>
+      <span className={`battlefield__unit-mark-icon${slowed ? " is-slowed" : ""}`}>{entity.kind === "enemy" && getMonsterPresentationIcon(entity.definitionId, entity.id) ? <MonsterPresentationIcon definitionId={entity.definitionId} entityId={entity.id} size={pixels} /> : (entity.kind === "summon" || entity.kind === "building") && hasConstructPresentationIcon(entity.definitionId) ? <ConstructPresentationIcon definitionId={entity.definitionId} entityId={entity.id} size={pixels} /> : <AssetImage asset={asset} />}</span>
     </span>
-    <UnitHealth health={health} label={asset.label} id={entity.id} />
+    <UnitHealth health={health} label={label} id={entity.id} />
   </div>;
-}, (a, b) => a.attackEventSeq === b.attackEventSeq && a.resolution === b.resolution && a.entity.id === b.entity.id && a.entity.kind === b.entity.kind && a.entity.faction === b.entity.faction && a.entity.definitionId === b.entity.definitionId && a.entity.bodySize === b.entity.bodySize && a.entity.x === b.entity.x && a.entity.y === b.entity.y && a.entity.hp === b.entity.hp && a.entity.maxHp === b.entity.maxHp && visibleStatusKey(a.entity) === visibleStatusKey(b.entity));
+}, (a, b) => a.attackEventSeq === b.attackEventSeq && a.resolution === b.resolution && a.entity.id === b.entity.id && a.entity.kind === b.entity.kind && a.entity.faction === b.entity.faction && a.entity.definitionId === b.entity.definitionId && a.entity.bodySize === b.entity.bodySize && a.entity.x === b.entity.x && a.entity.y === b.entity.y && a.entity.hp === b.entity.hp && a.entity.maxHp === b.entity.maxHp && ((a.entity.kind !== "summon" && a.entity.kind !== "building") || Math.ceil((a.entity.remainingMs ?? 0) / 1000) === Math.ceil((b.entity.remainingMs ?? 0) / 1000)) && visibleStatusKey(a.entity) === visibleStatusKey(b.entity));
 
 /** Read-only battlefield projection. World coordinates are expressed on a 0–100 field. */
 type Props = { state: GameState; flashes: CastFlashLookup; activeCharacterId: string; hideActiveMini?: boolean; onCharacterSelect: (characterId: string) => void };

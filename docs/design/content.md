@@ -1,5 +1,214 @@
 # 无尽巫师内容数据
 
+<!-- implemented-catalog:start -->
+
+## 当前已实现内容目录（2026-11-04）
+
+以下从实际定义生成，优先于后文的历史草案。共 **112 种**：法术 48、奥术 18、装备 18、道具 8、怪物 18、额外法杖模板 2；另有 39 条合成配方。初始 3×3 法杖是初始实例，不重复计入模板数。
+
+数值是当前原型的基础定义，不是平衡定案；实例品质、角色成长、装备、奖励、途径和相邻奥术会改变实际效果。空间使用 0～100 战场坐标，时间参数以毫秒计。定义全表仅供开发；普通 Agent 与游戏手册继续按玩家已知信息过滤。更新本段：`node --import tsx scripts/update-content-doc.mjs`。
+
+### 法术
+
+| ID / 名称 | 属性 / 类型 | 占格 | 力量 / 法力 / 冷却 / 射程 | 实际行为 |
+| --- | --- | --- | --- | --- |
+| piercing-gale / 穿风刃 | wind / projectile | 0,0; 1,0; 2,0 | 14 / 8 / 1000 / 30 | 发射穿风刃沿直线穿透目标，最多命中4个敌人；命中时击退敌人。 |
+| glacial-lance / 冰棱贯刺 | water / projectile | 0,0; 1,0; 2,0 | 16 / 9 / 1250 / 32 | 发射冰棱贯刺沿直线穿透目标，最多命中3个敌人，冲洗命中处附近血迹；命中后敌人移动速度变为65%，持续1.6秒。 |
+| ember-comet / 烬星 | fire / projectile | 0,0; 1,0; 0,1; 1,1 | 20 / 14 / 1800 / 30 | 发射烬星攻击目标，命中后伤害周围敌人，最多6个；灼烧每0.6秒造成威力20%伤害，持续1.8秒。 |
+| solar-storm / 日耀风暴 | fire / area | 0,0; 1,0; 2,0; 0,1; 1,1; 2,1; 0,2; 1,2; 2,2 | 5 / 40 / 8000 / 100 | 日耀风暴覆盖屏内全域，持续周期伤害敌人；灼烧每0.6秒造成威力15%伤害，持续1.2秒。 |
+| tidal-prison / 潮汐囚笼 | water / area | 0,0; 1,0; 0,1; 1,1 | 5 / 18 / 3000 / 32 | 潮汐囚笼覆盖区域，持续周期伤害附近敌人；命中后敌人移动速度变为50%，持续0.8秒。 |
+| cinder-ring / 余烬之环 | fire / area | 0,0; 1,0; 0,1; 1,1 | 6 / 22 / 3500 / 22 | 以角色为中心扩散余烬之环，命中周围敌人；灼烧每0.6秒造成威力15%伤害，持续1.2秒。 |
+| repulse-wave / 震退波 | wind / area | 0,0; 1,0; 0,1; 1,1 | 6 / 20 / 3000 / 20 | 以角色为中心扩散震退波，命中周围敌人；命中时击退敌人。 |
+| prism-ray / 棱镜光束 | light / beam | 0,0; 1,0; 2,0 | 7 / 16 / 2800 / 36 | 棱镜光束沿固定方向持续脉冲攻击线内敌人；命中后敌人移动速度变为80%，持续0.9秒。 |
+| storm-spear / 风暴之矛 | lightning / chain | 0,0; 1,0; 2,0 | 18 / 15 / 2000 / 34 | 立即命中目标，再向附近敌人逐跳传导，每跳伤害乘以0.82，最多命中8个目标。 |
+| ember-familiar / 烬火灵 | fire / summon | 0,0; 1,0 | 8 / 12 / 2400 / 30 | 召唤烬火灵，发射弹体攻击敌人，持续10秒；灼烧每0.6秒造成威力20%伤害，持续1.2秒。 |
+| frost-wisp / 霜缕灵 | water / summon | 0,0; 0,1 | 7 / 11 / 2200 / 30 | 召唤霜缕灵，发射弹体攻击敌人，持续10秒；命中后敌人移动速度变为75%，持续1.2秒。 |
+| thorn-guardian / 荆棘卫士 | wood / summon | 0,0; 1,0; 0,1; 1,1 | 14 / 16 / 3200 / 3 | 召唤荆棘卫士，近战攻击敌人，持续14秒。 |
+| ember-turret / 烬火炮台 | fire / building | 0,0; 1,0; 0,1; 1,1 | 10 / 14 / 3000 / 34 | 部署烬火炮台（6金币），持续16秒远程攻击敌人；灼烧每0.6秒造成威力15%伤害，持续1.2秒。 |
+| frost-pylon / 霜纹塔 | water / building | 0,0; 1,0; 0,1; 1,1 | 8 / 14 / 3200 / 32 | 部署霜纹塔（8金币），持续18秒远程攻击敌人；命中后敌人移动速度变为80%，持续1秒。 |
+| restorative-totem / 复苏图腾 | wood / building | 0,0; 1,0; 2,0; 0,1; 1,1; 2,1; 0,2; 1,2; 2,2 | 6 / 18 / 4000 / 24 | 部署复苏图腾（10金币），持续20秒治疗附近友军。 |
+| spark / 火花 | fire / projectile | 0,0 | 10 / 4 / 700 / 24 | 发射火花攻击目标，命中后造成伤害。 |
+| fireball / 火球 | fire / projectile | 0,0; 1,0 | 25 / 10 / 1100 / 30 | 火球飞行中逐渐加速，接触目标后造成伤害；灼烧每0.6秒造成威力20%伤害，持续2.4秒。 |
+| regrowth / 回春 | wood / heal | 0,0; 1,0; 0,1 | 18 / 12 / 3200 / 20 | 恢复领地生命。 |
+| metal-needle / 金针 | metal / projectile | 0,0; 1,0; 2,0 | 16 / 7 / 850 / 28 | 发射金针攻击目标，命中后造成伤害。 |
+| water-bolt / 水弹 | water / projectile | 0,0; 0,1 | 8 / 3 / 600 / 26 | 发射水弹攻击目标，冲洗命中处附近血迹；命中后敌人移动速度变为75%，持续1.2秒。 |
+| lightning-bolt / 雷矢 | lightning / projectile | 0,0; 1,0; 1,1 | 22 / 9 / 1300 / 36 | 发射雷矢攻击目标，命中后造成伤害。 |
+| wind-blade / 风刃 | wind / projectile | 0,0; 1,0 | 6 / 2 / 350 / 22 | 发射风刃攻击目标，命中后造成伤害；命中时击退敌人。 |
+| rock-shot / 岩弹 | earth / projectile | 0,0; 1,0; 0,1; 1,1 | 36 / 12 / 1800 / 30 | 发射岩弹攻击目标，命中后造成伤害。 |
+| flame-lance / 炎矛 | fire / projectile | 0,0; 1,0; 2,0 | 20 / 9 / 1300 / 35 | 发射炎矛沿直线穿透目标，最多命中3个敌人。 |
+| cinder-burst / 熔爆 | fire / projectile | 0,0; 1,0; 0,1; 1,1 | 30 / 14 / 1800 / 30 | 发射熔爆攻击目标，命中后伤害周围敌人，最多6个。 |
+| thorn-shot / 荆刺 | wood / projectile | 0,0; 1,0 | 7 / 2 / 300 / 25 | 发射荆刺攻击目标，命中后造成伤害。 |
+| renewal / 生息 | wood / heal | 0,0; 1,0; 0,1 | 30 / 15 / 4200 / 20 | 以较高法力消耗恢复更多领地生命。 |
+| tidal-orb / 潮涌 | water / projectile | 0,0; 1,0; 0,1; 1,1 | 24 / 12 / 1700 / 32 | 潮涌命中后伤害周围目标，并冲洗附近血迹。 |
+| stone-spike / 岩刺 | earth / projectile | 0,0; 1,0; 2,0 | 28 / 11 / 1500 / 34 | 发射岩刺沿直线穿透目标，最多命中2个敌人。 |
+| iron-disc / 飞刃 | metal / projectile | 0,0; 1,0; 1,1 | 18 / 8 / 1100 / 32 | 发射飞刃沿直线穿透目标，最多命中3个敌人。 |
+| gale-burst / 风爆 | wind / projectile | 0,0; 1,0; 0,1; 1,1 | 15 / 10 / 1200 / 28 | 发射风爆攻击目标，命中后伤害周围敌人，最多7个。 |
+| arc-chain / 电弧 | lightning / chain | 0,0; 1,0; 1,1 | 18 / 12 / 1600 / 32 | 立即命中目标，再向附近敌人逐跳传导，每跳伤害乘以0.7，最多命中3个目标。 |
+| light-arrow / 光矢 | light / projectile | 0,0; 1,0 | 9 / 3 / 400 / 38 | 发射光矢攻击目标，命中后造成伤害。 |
+| dark-orb / 暗蚀 | dark / projectile | 0,0; 1,0; 0,1; 1,1 | 32 / 16 / 2000 / 30 | 发射暗蚀攻击目标，命中后伤害周围敌人，最多5个。 |
+| ward / 光盾 | light / shield | 0,0; 1,0 | 25 / 12 / 3500 / 20 | 为领地增加护盾。 |
+| solar-ray / 光束 | light / beam | 0,0; 1,0; 2,0 | 5 / 12 / 2200 / 38 | 光束沿固定方向持续脉冲攻击线内敌人。 |
+| ember-ray / 炎流 | fire / beam | 0,0; 1,0; 2,0; 1,1 | 8 / 18 / 3200 / 30 | 炎流沿固定方向持续脉冲攻击线内敌人；灼烧每0.6秒造成威力15%伤害，持续1.8秒。 |
+| void-ray / 幽光 | dark / beam | 0,0; 1,0; 0,1; 1,1 | 18 / 20 / 4000 / 34 | 幽光沿固定方向持续脉冲攻击线内敌人。 |
+| spark-hop / 跳电 | lightning / chain | 0,0; 1,0 | 8 / 4 / 650 / 26 | 立即命中目标，再向附近敌人逐跳传导，每跳伤害乘以0.6，最多命中3个目标。 |
+| thunder-chain / 雷链 | lightning / chain | 0,0; 1,0; 2,0; 1,1 | 20 / 14 / 1800 / 36 | 立即命中目标，再向附近敌人逐跳传导，每跳伤害乘以0.85，最多命中4个目标。 |
+| storm-net / 雷网 | lightning / chain | 0,0; 1,0; 0,1; 1,1 | 12 / 16 / 2100 / 30 | 立即命中目标，再向附近敌人逐跳传导，每跳伤害乘以0.8，最多命中6个目标。 |
+| thunder-strike / 落雷 | lightning / area | 0,0; 1,0; 1,1 | 24 / 12 / 1800 / 36 | 落雷锁定地面位置，延迟后落下攻击范围内敌人。 |
+| frost-ring / 冰环 | water / area | 0,0; 1,0; 0,1; 1,1 | 12 / 14 / 2200 / 18 | 以角色为中心扩散冰环，命中周围敌人；命中后敌人移动速度变为50%，持续1.8秒。 |
+| earth-spikes / 地刺 | earth / area | 0,0; 1,0; 2,0 | 30 / 15 / 2600 / 32 | 地刺预兆后从地面刺出，攻击范围内敌人。 |
+| fire-field-bolt / 火场弹 | fire / projectile | 0,0; 1,0; 0,1; 1,1 | 6 / 12 / 2400 / 30 | 发射火场弹，命中后展开持续领域，周期伤害附近敌人。 |
+| thunder-field-bolt / 雷场弹 | lightning / projectile | 0,0; 1,0; 0,1; 1,1 | 7 / 14 / 2600 / 34 | 发射雷场弹，命中或飞抵射程后展开持续领域，周期伤害附近敌人。 |
+| thunderstorm / 雷暴 | lightning / area | 0,0; 1,0; 2,0; 0,1; 1,1; 2,1; 0,2; 1,2; 2,2 | 8 / 45 / 8000 / 100 | 雷暴覆盖屏内全域，持续周期伤害敌人。 |
+| moving-storm / 风暴 | wind / area | 1,0; 0,1; 1,1; 2,1; 1,2 | 6 / 24 / 5000 / 12 | 风暴移动牵引周围敌人，持续造成周期伤害。 |
+
+### 召唤与建筑参数
+
+| 名称 | 生命 / 存续 / 间隔 / 同源上限 | 行为 / 攻击方式 | 移动 / 弹速 / 金币 |
+| --- | --- | --- | --- |
+| 烬火灵 | 22 / 10000 / 1000 / 3 | attack / projectile | 10 / 65 / 0 |
+| 霜缕灵 | 20 / 10000 / 1100 / 3 | attack / projectile | 11 / 70 / 0 |
+| 荆棘卫士 | 55 / 14000 / 1200 / 2 | attack / contact | 8 / — / 0 |
+| 烬火炮台 | 65 / 16000 / 1200 / 3 | attack / projectile | 0 / 72 / 6 |
+| 霜纹塔 | 75 / 18000 / 1400 / 3 | attack / projectile | 0 / 68 / 8 |
+| 复苏图腾 | 90 / 20000 / 1600 / 2 | heal / contact | 0 / — / 10 |
+
+### 奥术
+
+| ID / 名称 | 修饰 / 基础值 | 占格 | 效果 |
+| --- | --- | --- | --- |
+| amplify / 增幅 | amplify / 1.5 | 0,0 | 增强相邻法术的力量。 |
+| double / 双重 | double / 2 | 0,0; 1,0 | 相邻攻击法术分2次连发；治疗与护盾效果重复生效。 |
+| split / 分裂 | split / 2 | 0,0; 0,1 | 相邻飞弹、光束与雷链同时分支，区域法术可展开多个落点或环。 |
+| focus / 聚焦 | focus / 1.25 | 0,0; 1,0; 2,0 | 增强相邻法术的力量与射程。 |
+| haste / 迅捷 | haste / 0.85 | 0,0 | 缩短相邻法术的冷却时间。 |
+| efficiency / 节能 | efficiency / 0.8 | 0,0 | 降低相邻法术的法力消耗。 |
+| reach / 延展 | reach / 1.25 | 0,0; 1,0 | 增加相邻法术的射程。 |
+| velocity / 疾行 | velocity / 1.3 | 0,0; 0,1 | 提高相邻飞弹的飞行速度。 |
+| area / 广域 | area / 1.3 | 0,0; 1,0; 0,1 | 扩大相邻法术的区域、溅射与连锁范围，并加宽光束。 |
+| quadruple / 四发 | double / 4 | 0,0; 1,0; 0,1; 1,1 | 相邻攻击法术分4次连发；治疗与护盾效果重复生效。 |
+| sextuple / 六发 | double / 6 | 0,0; 1,0; 2,0; 0,1; 1,1; 2,1 | 相邻攻击法术分6次连发；治疗与护盾效果重复生效。 |
+| pierce / 穿透 | pierce / 1 | 0,0; 0,1 | 相邻的普通或穿透飞弹额外穿透1个目标，最多8个；不覆盖溅射、连锁或领域效果。 |
+| slow / 迟缓 | slow / 0.75 | 0,0 | 相邻攻击法术命中后使敌人移动速度变为75%，持续1.5秒；已有更强迟缓保留。 |
+| burn / 灼烧 | burn / 0.2 | 0,0; 1,0 | 相邻攻击法术命中后施加灼烧，每0.5秒造成法术威力20%的伤害，持续3秒；同一来源刷新。 |
+| knockback / 击退 | knockback / 3 | 0,0 | 相邻攻击法术命中后沿攻击方向额外击退3距离，单次最多12。 |
+| duration / 延时 | duration / 1.3 | 0,0; 1,0 | 相邻光束、持续领域和旋涡的持续时间增加30%，最多5秒；召唤物与建筑最多30秒；不改变伤害间隔。 |
+| capacity / 扩容 | capacity / 2 | 0,0; 1,0; 0,1 | 相邻已有多目标法术的目标容量增加2，通常最多8个；全战场领域最多64个；召唤物与建筑的同源存续上限增加2，最多8个。 |
+| precision / 精准 | precision / 0.1 | 0,0 | 相邻攻击法术命中率增加10个百分点，最高100%。 |
+
+### 装备（每件一格）
+
+| ID / 名称 | 槽位 | 基础加成 |
+| --- | --- | --- |
+| apprentice-hat / 学徒帽 | head | {"maxMana":15,"manaRegen":0.5} |
+| astrologer-hood / 占星兜帽 | head | {"critChance":0.03,"maxMana":10} |
+| rune-robe / 魔纹袍 | body | {"manaRegen":1,"maxMana":10} |
+| heartguard-armor / 护心甲 | body | {"attack":3,"accuracy":0.03} |
+| swift-boots / 轻行靴 | feet | {"castSpeedPercent":5,"projectileSpeedPercent":10} |
+| farwatch-boots / 远望靴 | feet | {"range":3,"accuracy":0.02} |
+| copper-ring / 铜戒 | accessory | {"attack":2,"critChance":0.02} |
+| gatherer-charm / 采集符 | accessory | {"gatheringPercent":10} |
+| spring-pendant / 灵泉坠 | accessory | {"maxMana":20,"manaRegen":1} |
+| ember-circlet / 余烬冠环 | head | {"critMultiplier":0.2,"elementBonuses":{"fire":0.12}} |
+| frost-lens / 霜晶目镜 | head | {"accuracy":0.04,"maxMana":12,"elementBonuses":{"water":0.08}} |
+| sage-crown / 贤者冠冕 | head | {"manaRegen":0.8,"elementBonuses":{"wood":0.08}} |
+| windweave-mantle / 风织法衣 | body | {"castSpeedPercent":4,"projectileSpeedPercent":8,"elementBonuses":{"wind":0.05}} |
+| heartwood-vest / 心木护衣 | body | {"attack":2.5,"maxMana":12,"elementBonuses":{"earth":0.05}} |
+| gale-greaves / 疾风胫甲 | feet | {"range":1.5,"projectileSpeedPercent":15} |
+| tracker-boots / 寻迹短靴 | feet | {"accuracy":0.03,"luck":2} |
+| fortune-knot / 丰收结绳 | accessory | {"luck":3,"gatheringPercent":3} |
+| starfall-signet / 星陨印戒 | accessory | {"critChance":0.025,"critMultiplier":0.3,"elementBonuses":{"lightning":0.08}} |
+
+### 道具
+
+| ID / 名称 | 基础效果 | 占格 |
+| --- | --- | --- |
+| health-potion / 生命药水 | {"type":"territoryHeal","value":40} | 0,0 |
+| shield-potion / 护盾药水 | {"type":"territoryShield","value":30} | 0,0; 1,0 |
+| mana-potion / 法力药水 | {"type":"partyMana","value":50} | 0,0; 0,1 |
+| restoration-elixir / 复元灵剂 | {"type":"territoryRestore","value":25} | 0,0; 1,0; 0,1 |
+| mana-surge / 法力涌剂 | {"type":"partyManaPercent","value":25} | 0,0; 1,0 |
+| hourglass-dust / 时砂 | {"type":"cooldownAdvance","value":1000} | 0,0 |
+| vitality-essence / 生命精华 | {"type":"territoryHealPercent","value":25} | 0,0; 0,1 |
+| aegis-essence / 护盾精华 | {"type":"territoryShieldPercent","value":25} | 0,0; 1,0; 1,1 |
+
+### 怪物
+
+| ID / 名称 | 尺寸 | 出生参数 |
+| --- | --- | --- |
+| enemy-basic / 灰泥怪 | normal | {"unlockWave":1,"hpMultiplier":1,"damageMultiplier":1,"speedMultiplier":1,"cooldownMultiplier":1} |
+| enemy-moss / 苔团 | small | {"unlockWave":2,"hpMultiplier":0.8,"damageMultiplier":0.8,"speedMultiplier":0.9,"cooldownMultiplier":1.1,"movementMode":"straight"} |
+| enemy-ember / 焰灵 | small | {"unlockWave":3,"hpMultiplier":0.75,"damageMultiplier":1.2,"speedMultiplier":1.2,"cooldownMultiplier":0.9,"movementMode":"huntCharacter"} |
+| enemy-frost-moth / 霜蛾 | small | {"unlockWave":4,"hpMultiplier":0.65,"damageMultiplier":0.8,"speedMultiplier":1.35,"cooldownMultiplier":1.1,"movementMode":"huntCharacter"} |
+| enemy-shadow-bat / 影蝠 | small | {"unlockWave":6,"hpMultiplier":0.7,"damageMultiplier":1,"speedMultiplier":1.4,"cooldownMultiplier":0.9,"movementMode":"huntCharacter"} |
+| enemy-sand-beetle / 砂甲虫 | large | {"unlockWave":8,"hpMultiplier":1.8,"damageMultiplier":1.3,"speedMultiplier":0.7,"cooldownMultiplier":1.2,"movementMode":"straight"} |
+| enemy-crystal-crab / 晶蟹 | normal | {"unlockWave":10,"hpMultiplier":1.4,"damageMultiplier":1.15,"speedMultiplier":0.85,"cooldownMultiplier":1} |
+| enemy-iron-guard / 铸铁卫 | normal | {"unlockWave":12,"hpMultiplier":1.6,"damageMultiplier":1,"speedMultiplier":0.78,"cooldownMultiplier":1.1,"armor":3} |
+| enemy-mire-regenerator / 沼泽再生体 | large | {"unlockWave":14,"hpMultiplier":1.9,"damageMultiplier":0.9,"speedMultiplier":0.75,"cooldownMultiplier":1.2,"movementMode":"straight","regenerationPerSecond":5} |
+| enemy-ember-brute / 熔火蛮兽 | large | {"unlockWave":16,"hpMultiplier":2.2,"damageMultiplier":1.7,"speedMultiplier":0.9,"cooldownMultiplier":0.85,"armor":1} |
+| enemy-clockwork-scout / 机巧斥候 | small | {"unlockWave":18,"hpMultiplier":0.65,"damageMultiplier":1,"speedMultiplier":1.7,"cooldownMultiplier":0.65,"movementMode":"huntCharacter"} |
+| enemy-glacier-shell / 冰川重甲 | huge | {"unlockWave":20,"hpMultiplier":3,"damageMultiplier":1.4,"speedMultiplier":0.42,"cooldownMultiplier":1.5,"movementMode":"straight","armor":6} |
+| enemy-void-wisp / 虚空游魂 | small | {"unlockWave":22,"hpMultiplier":0.45,"damageMultiplier":0.9,"speedMultiplier":1.8,"cooldownMultiplier":0.75,"movementMode":"huntCharacter"} |
+| enemy-ancient-ent / 古树巨像 | colossal | {"unlockWave":24,"hpMultiplier":4,"damageMultiplier":2,"speedMultiplier":0.35,"cooldownMultiplier":1.7,"movementMode":"straight","regenerationPerSecond":12} |
+| enemy-storm-mantis / 雷螳 | normal | {"unlockWave":26,"hpMultiplier":1,"damageMultiplier":1.6,"speedMultiplier":1.3,"cooldownMultiplier":0.55,"movementMode":"huntCharacter"} |
+| boss-minor / 小型首领 | large | — |
+| boss-major / 大型首领 | huge | — |
+| boss-apex / 顶级首领 | colossal | — |
+
+普通怪参数表示解锁波次、基础生命/伤害/速度/冷却的倍率，以及追踪/直行、护甲与恢复；Boss 使用实际波次计划的三档强化，缺省出生参数不代表无法出生。
+
+### 额外法杖模板
+
+| ID | 定义 |
+| --- | --- |
+| wand-4x4 | {"name":"扩展法杖","width":4,"height":4,"level":1,"grade":"common"} |
+| wand-5x5 | {"name":"大型法杖","width":5,"height":5,"level":1,"grade":"common"} |
+
+### 合成配方
+
+| 名称 | 材料 → 产物 | 邻接 |
+| --- | --- | --- |
+| 火球 | spark + amplify → fireball | 是 |
+| 炎矛 | fireball + reach → flame-lance | 是 |
+| 熔爆 | fireball + area → cinder-burst | 是 |
+| 荆刺 | regrowth + metal-needle → thorn-shot | 是 |
+| 生息 | regrowth + amplify → renewal | 是 |
+| 潮涌 | water-bolt + area → tidal-orb | 是 |
+| 岩刺 | rock-shot + reach → stone-spike | 是 |
+| 飞刃 | metal-needle + wind-blade → iron-disc | 是 |
+| 风爆 | wind-blade + area → gale-burst | 是 |
+| 电弧 | lightning-bolt + double → arc-chain | 是 |
+| 光盾 | light-arrow + regrowth → ward | 是 |
+| 光束 | light-arrow + focus → solar-ray | 是 |
+| 炎流 | flame-lance + focus → ember-ray | 是 |
+| 幽光 | dark-orb + focus → void-ray | 是 |
+| 跳电 | lightning-bolt + efficiency → spark-hop | 是 |
+| 雷链 | arc-chain + amplify → thunder-chain | 是 |
+| 雷网 | arc-chain + area → storm-net | 是 |
+| 落雷 | lightning-bolt + focus → thunder-strike | 是 |
+| 冰环 | water-bolt + wind-blade → frost-ring | 是 |
+| 地刺 | stone-spike + area → earth-spikes | 是 |
+| 火场弹 | cinder-burst + efficiency → fire-field-bolt | 是 |
+| 雷场弹 | storm-net + focus → thunder-field-bolt | 是 |
+| 雷暴 | thunder-field-bolt + area + double → thunderstorm | 是 |
+| 风暴 | gale-burst + area → moving-storm | 是 |
+| 穿风刃 | iron-disc + reach → piercing-gale | 是 |
+| 冰棱贯刺 | water-bolt + amplify → glacial-lance | 是 |
+| 烬星 | cinder-burst + amplify → ember-comet | 是 |
+| 日耀风暴 | thunderstorm + ember-comet → solar-storm | 是 |
+| 潮汐囚笼 | thunder-field-bolt + water-bolt → tidal-prison | 是 |
+| 余烬之环 | ember-comet + area → cinder-ring | 是 |
+| 震退波 | frost-ring + piercing-gale → repulse-wave | 是 |
+| 棱镜光束 | solar-ray + precision → prism-ray | 是 |
+| 风暴之矛 | thunder-chain + pierce → storm-spear | 是 |
+| 烬火灵 | spark + cinder-burst → ember-familiar | 是 |
+| 霜缕灵 | frost-ring + amplify → frost-wisp | 是 |
+| 荆棘卫士 | thorn-shot + capacity → thorn-guardian | 是 |
+| 烬火炮台 | ember-comet + capacity → ember-turret | 是 |
+| 霜纹塔 | frost-ring + focus → frost-pylon | 是 |
+| 复苏图腾 | regrowth + duration → restorative-totem | 是 |
+
+<!-- implemented-catalog:end -->
+
 来源快照：https://chatgpt.com/space/page_4f94cd71ed3481918fa01a8892c34e2d（2026-11-03）；草案和待定状态保留。
 当前一期范围优先见 ../demo-scope.md。
 
@@ -1052,3 +1261,22 @@ rewardRefresh.ts只做纯规范化与报价，不修改状态或随机序列。�
 幸运奖励提高实际击杀金币和装备掉落概率，不提高奖励或装备的品级抽样概率。采集奖励增加本局全队金币收入，覆盖怪物金币、清波金币和金币奖励；同类相加，全队奖励只计一次。
 
 采集符ID为`gatherer-charm`，饰品槽、1格（原点单格），1级白板定义提供`gatheringPercent: 10`。其他品级沿用装备统一缩放`目标品级gradePower / 定义品级gradePower`，对应上表10%／12.5%／15%／20%／26%／34%；不另套奖励卡的六档数值。只有角色实际装备的采集符参与全队采集，背包装备不生效。全队基础、装备和本局奖励的合计及正收入小数余量规则见机制文档本次最新确认节。
+
+## 百项目录与构造物进入试玩（2026-11-04）
+
+用户本次授权将召唤与建筑接入当前demo，替代此前只在独立feature开发的范围限制；其他历史草案状态保留。实际目录为48法术、18奥术、18装备、8道具、18怪物及2个法杖模板，共112项；法术由9基础与39条真实配方覆盖，不将不同品级当成新条目。
+
+新增九个攻击组合为穿风刃、冰棱贯刺、烬星、日耀风暴、潮汐囚笼、余烬之环、震退波、棱光束、风暴之矛，分别实际组合已有穿透、溅射、逐跳雷链、光束、持续领域/扩散环、击退/迟缓/灼烧机制；不是仅换名换色。具体集中在expandedSpells.ts。
+
+| ID | 名称/类型 | 模板HP | 寿命 | 攻击或恢复间隔 | 同源上限 | 额外金币费 |
+|---|---|---|---|---|---|---|
+| ember-familiar | 烬火灵/召唤远程灼烧 | 22 | 10秒 | 1000ms | 3 | 0 |
+| frost-wisp | 霜缕灵/召唤远程迟缓 | 20 | 10秒 | 1100ms | 3 | 0 |
+| thorn-guardian | 荆棘卫士/召唤近战 | 55 | 14秒 | 1200ms | 2 | 0 |
+| ember-turret | 烬火炮台/远程灼烧建筑 | 65 | 16秒 | 1200ms | 3 | 6 |
+| frost-pylon | 霜纹塔/远程迟缓建筑 | 75 | 18秒 | 1400ms | 3 | 8 |
+| restorative-totem | 复苏图腾/治疗建筑 | 90 | 20秒 | 1600ms | 2 | 10 |
+
+构造物有真实HP、目标、攻击/恢复及寿命。表中为白板模板值，HP与攻击参数读取实际编译结果，不在生成时重复乘品质/元素；延时与扩容奥术可分别提升存续时间和同源容量，执行上限30秒、同源8、全场32、每次最多8。建筑可在合法场内坐标任意预放，不以攻击射程限制部署点；生命、费用、暂停、跨波与失败规则见机制文档本批确认节。
+
+怪物新增铸铁卫、沼泽再生体、熔火蛮兽、机巧斥候、冰川重甲、虚空游魂、古树巨像、雷螳，依次在12/14/16/18/20/22/24/26波解锁。铸铁卫/熔火蛮兽/冰川重甲分别有3/1/6护甲；沼泽再生体/古树巨像每秒恢复5/12生命，仍活时才恢复且不超上限。其余速度、生命、攻频、直行/追角色与体型颜色亦有实际差异，均沿monsters.ts单一定义；不声称额外免疫、远程或分裂能力。

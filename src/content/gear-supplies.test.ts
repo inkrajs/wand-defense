@@ -5,12 +5,12 @@ import { gradePower } from "./grades";
 import { createGearFromDefinition, gearDefinitions } from "./gear";
 import { createSupplyFromDefinition, supplyDefinitions } from "./supplies";
 
-test("gear catalog retains two items per slot plus the single-cell gatherer accessory", () => {
+test("gear catalog exposes eighteen single-cell items across four slots", () => {
   const definitions = Object.values(gearDefinitions);
-  assert.equal(definitions.length, 9);
+  assert.equal(definitions.length, 18);
   const slots: Record<string, number> = {};
   for (const definition of definitions) slots[definition.slot] = (slots[definition.slot] ?? 0) + 1;
-  assert.deepEqual(slots, { head: 2, body: 2, feet: 2, accessory: 3 });
+  assert.deepEqual(slots, { head: 5, body: 4, feet: 4, accessory: 5 });
   for (const definition of definitions) {
     assert.equal(definition.level, 1);
     assert.equal(definition.grade, "common");
@@ -21,16 +21,21 @@ test("gear catalog retains two items per slot plus the single-cell gatherer acce
   }
 });
 
-test("the three supply definitions expose only territory or party mana effects", () => {
+test("eight supplies retain the original effects and add restoration, percentages and cooldown advancement", () => {
   assert.deepEqual(Object.values(supplyDefinitions).map(({ id, name, effect }) => [id, name, effect]), [
     ["health-potion", "生命药水", { type: "territoryHeal", value: 40 }],
     ["shield-potion", "护盾药水", { type: "territoryShield", value: 30 }],
     ["mana-potion", "法力药水", { type: "partyMana", value: 50 }],
+    ["restoration-elixir", "复元灵剂", { type: "territoryRestore", value: 25 }],
+    ["mana-surge", "法力涌剂", { type: "partyManaPercent", value: 25 }],
+    ["hourglass-dust", "时砂", { type: "cooldownAdvance", value: 1000 }],
+    ["vitality-essence", "生命精华", { type: "territoryHealPercent", value: 25 }],
+    ["aegis-essence", "护盾精华", { type: "territoryShieldPercent", value: 25 }],
   ]);
   for (const definition of Object.values(supplyDefinitions)) {
     assert.equal(definition.level, 1);
     assert.equal(definition.grade, "common");
-    assert.ok(definition.shape.length >= 1 && definition.shape.length <= 2);
+    assert.ok(definition.shape.length >= 1 && definition.shape.length <= 3);
     assert.equal(definition.asset.key, `item.${definition.id}`);
     assert.ok(definition.asset.label.length > 0);
     assert.doesNotMatch(definition.asset.label, /\d/);

@@ -1,0 +1,111 @@
+{
+  "method": "Cold isolated Chrome contexts, service workers blocked, same source-derived text corpus; original stack vs symbol subset. No screenshots.",
+  "fontSubset": {
+    "bytes": 5908,
+    "cssSourceBytes": 13095,
+    "originalOutlinesPreserved": true,
+    "license": "SIL OFL 1.1 included in CSS and font name table"
+  },
+  "network": {
+    "firstScreenFontBytesBefore": 1569516,
+    "firstScreenFontBytesAfter": 1569516,
+    "fullCoverageFontBytesBefore": 12093524,
+    "fullCoverageFontBytesAfter": 1738904,
+    "savedFontBytes": 10354620
+  },
+  "coverageBefore": {
+    "chinese": {
+      "characters": 675,
+      "fonts": [
+        {
+          "familyName": "Xiaolai SC",
+          "postScriptName": "XiaolaiSC",
+          "isCustomFont": true,
+          "glyphCount": 675
+        }
+      ]
+    },
+    "symbols": {
+      "characters": 40,
+      "fonts": [
+        {
+          "familyName": "STIX Two Math",
+          "postScriptName": "STIXTwoMath-Regular",
+          "isCustomFont": false,
+          "glyphCount": 4
+        },
+        {
+          "familyName": "Xiaolai SC",
+          "postScriptName": "XiaolaiSC",
+          "isCustomFont": true,
+          "glyphCount": 36
+        }
+      ]
+    },
+    "latin": {
+      "characters": 94,
+      "fonts": [
+        {
+          "familyName": "Xiaolai SC",
+          "postScriptName": "XiaolaiSC",
+          "isCustomFont": true,
+          "glyphCount": 93
+        }
+      ]
+    }
+  },
+  "coverageAfter": {
+    "chinese": {
+      "characters": 675,
+      "fonts": [
+        {
+          "familyName": "Xiaolai SC",
+          "postScriptName": "XiaolaiSC",
+          "isCustomFont": true,
+          "glyphCount": 675
+        }
+      ]
+    },
+    "symbols": {
+      "characters": 40,
+      "fonts": [
+        {
+          "familyName": "Wand Defense Symbols",
+          "postScriptName": "WandDefenseSymbols-Regular",
+          "isCustomFont": true,
+          "glyphCount": 14
+        },
+        {
+          "familyName": "STIX Two Math",
+          "postScriptName": "STIXTwoMath-Regular",
+          "isCustomFont": false,
+          "glyphCount": 4
+        },
+        {
+          "familyName": "Xiaolai SC",
+          "postScriptName": "XiaolaiSC",
+          "isCustomFont": true,
+          "glyphCount": 22
+        }
+      ]
+    },
+    "latin": {
+      "characters": 94,
+      "fonts": [
+        {
+          "familyName": "Xiaolai SC",
+          "postScriptName": "XiaolaiSC",
+          "isCustomFont": true,
+          "glyphCount": 93
+        }
+      ]
+    }
+  },
+  "existingSystemSymbols": "⟐⬙⬟⬢",
+  "notes": [
+    "The 13,095-byte uncompressed CSS is an additional initial stylesheet cost, not included in font-request totals.",
+    "Full Inkra fonts remain available on demand; the extended font asset name is unchanged.",
+    "PWA prefetch policy is owned by the coordinator and is not measured by this isolated font-demand audit.",
+    "System-symbol coverage is confirmed only for the measured browser/platform."
+  ]
+}

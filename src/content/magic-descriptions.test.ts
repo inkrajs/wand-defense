@@ -3,11 +3,13 @@ import test from "node:test";
 import type { ContentCatalog, RewardOption } from "../contracts";
 import { demoContent } from "./demo";
 import { fieldSpellDefinitions } from "./fieldSpells";
+import { expandedArcanaDescriptions } from "./expandedArcana";
+import { expandedSpellDefinitions } from "./expandedSpells";
 import { enrichMagicReward } from "./magicDescriptions";
 
 const contentWithFieldSpells: ContentCatalog = {
   ...demoContent,
-  spells: { ...demoContent.spells, ...fieldSpellDefinitions },
+  spells: { ...demoContent.spells, ...fieldSpellDefinitions, ...expandedSpellDefinitions },
 };
 
 function itemReward(definitionId: string, description = "通用旧说明"): RewardOption {
@@ -27,9 +29,10 @@ function description(definitionId: string, content: ContentCatalog = contentWith
 
 test("every spell and arcana in the current catalog receives a specific non-generic description", () => {
   const ids = [...Object.keys(contentWithFieldSpells.spells), ...Object.keys(contentWithFieldSpells.arcana)];
-  assert.equal(ids.length, 44);
+  assert.equal(Object.keys(contentWithFieldSpells.spells).length, 48);
+  assert.equal(ids.length, 48 + Object.keys(contentWithFieldSpells.arcana).length);
   const descriptions = ids.map(id => description(id));
-  assert.ok(descriptions.every(value => value.length > 0 && value.length <= 45 && value !== "通用旧说明"));
+  assert.ok(descriptions.every(value => value.length > 0 && value.length <= 75 && value !== "通用旧说明"));
   assert.ok(descriptions.every(value => !/按配置|不承诺|不治疗角色|当前效果|独特魔法光泽/.test(value)));
   assert.equal(new Set(descriptions).size, ids.length, "each catalog item should have distinguishable copy");
 });
@@ -113,6 +116,22 @@ test("new arcana modifiers describe haste, efficiency, reach, projectile velocit
     ...unsupported.arcana.haste, id: "unknown", modifier: "unknown",
   } as never;
   assert.equal(description("unknown", unsupported), "通用旧说明");
+});
+
+test("new modifier copy uses the configured pierce, slow, burn, knockback, duration, capacity and precision values", () => {
+  for (const id of ["pierce", "slow", "burn", "knockback", "duration", "capacity", "precision"]) {
+    assert.ok(demoContent.arcana[id], `${id} exists in the demo catalog`);
+    assert.equal(description(id), expandedArcanaDescriptions[id]);
+  }
+});
+
+test("summon and building copy follows construct behavior, lifetime, cost and on-hit configuration", () => {
+  assert.equal(description("ember-familiar"), "召唤烬火灵，发射弹体攻击敌人，持续10秒；灼烧每0.6秒造成威力20%伤害，持续1.2秒。");
+  assert.equal(description("frost-wisp"), "召唤霜缕灵，发射弹体攻击敌人，持续10秒；命中后敌人移动速度变为75%，持续1.2秒。");
+  assert.equal(description("thorn-guardian"), "召唤荆棘卫士，近战攻击敌人，持续14秒。");
+  assert.equal(description("ember-turret"), "部署烬火炮台（6金币），持续16秒远程攻击敌人；灼烧每0.6秒造成威力15%伤害，持续1.2秒。");
+  assert.equal(description("frost-pylon"), "部署霜纹塔（8金币），持续18秒远程攻击敌人；命中后敌人移动速度变为80%，持续1秒。");
+  assert.equal(description("restorative-totem"), "部署复苏图腾（10金币），持续20秒治疗附近友军。");
 });
 
 test("area spell copy follows strike, expanding ring and ground eruption timing", () => {

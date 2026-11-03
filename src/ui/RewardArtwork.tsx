@@ -6,6 +6,7 @@ import { AssetImage, resolveAsset } from "./assets";
 import { CharacterPresentationIcon } from "./characterPresentationIcons";
 import { GearPresentationIcon, getGearPresentationIcon } from "./gearPresentationIcons";
 import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
+import { getSupplyPresentationIcon, SupplyPresentationIcon } from "./supplyPresentationIcons";
 import "./RewardArtwork.css";
 
 export interface RewardArtworkProps {
@@ -93,6 +94,11 @@ function ItemArtwork({ reward, size }: { reward: RewardOption; size: number }) {
   if (id && getGearPresentationIcon(id)) {
     return <GearPresentationIcon definitionId={id} size={size} seed={`reward-gear-${reward.id}`} />;
   }
+  if (id && getSupplyPresentationIcon(id)) {
+    return <SupplyPresentationIcon definitionId={id} size={size} seed={`reward-supply-${reward.id}`} />;
+  }
+  const supply = id ? demoContent.items?.[id] : undefined;
+  if (supply) return <AssetImage asset={resolveAsset(supply.asset, { label: supply.name, icon: "◇" })} />;
   if (id && getMagicPresentationIcon(id)) {
     return <MagicPresentationIcon definitionId={id} size={size} seed={`reward-magic-${reward.id}`} />;
   }

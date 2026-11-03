@@ -106,7 +106,10 @@ export function projectState(state: GameState, catalog?: ContentCatalog) {
       ...(e.kind === 'beam' ? {beamWidth:e.beamWidth,maxTargets:e.maxTargets} : {}),
       ...(e.kind === 'area' && e.area ? {area:{mode:e.area.mode,radius:e.area.radius,delayMs:e.area.delayMs,durationMs:e.area.durationMs,maxTargets:e.area.maxTargets,
         tickMs:e.area.tickMs,anchor:e.area.anchor,moveSpeed:e.area.moveSpeed,pullRadius:e.area.pullRadius,pullStrength:e.area.pullStrength},launchDelayMs:e.launchDelayMs ?? 0} : {}),
-      sourceCharacterId:e.sourceCharacterId,sourceItemId:e.sourceItemId,targetId:e.targetId})),
+      ...(e.kind === 'summon' || e.kind === 'building' ? {construct:e.construct?{
+        behavior:e.construct.behavior,attackMode:e.construct.attackMode,durationMs:e.construct.durationMs,maxAlive:e.construct.maxAlive,
+        attackIntervalMs:e.construct.attackIntervalMs}:undefined}:{}),
+      sourceEntityId:e.sourceEntityId,sourceCharacterId:e.sourceCharacterId,sourceItemId:e.sourceItemId,targetId:e.targetId})),
     rewardHistory:(state.rewardHistory??[]).map(entry=>({id:entry.id,wave:entry.wave,gameTimeMs:entry.gameTimeMs,
       reward:entry.reward.definitionId&&!known.has(entry.reward.definitionId)
         ? {id:entry.reward.id,kind:entry.reward.kind,label:'未发现的奖励'} : structuredClone(entry.reward)})),
@@ -134,7 +137,7 @@ const publicEventTypes = new Set(['waveStarted','waveCleared','enemyKilled','ter
   'damage','heal','spawn','despawn','playerLevelUp','player.levelReward','enemyAttacked','territoryAttacked','bossSpawned','enemySpawned',
   'loadout.placed','loadout.removed','loadout.merged','loadout.equipped','game.restarted','wandUnequipped','wandCleared','itemDiscarded','wandDiscarded','gearEquipped','gearUnequipped','gearDiscarded','itemUsed','supplyDiscarded','lootGranted','speed.changed',
   'projectileSpawned','projectileExpired','beamSpawned','chainArc','areaSpawned','areaActivated','areaPulse','fieldTriggered','shieldRestored','attackMiss','itemsMerged','territoryUpgraded','territoryRepaired','territoryRecoveryUpgraded','characterLevelUp','character.levelReward','game.revived',
-  'statusApplied','statusExpired','knockback']);
+  'statusApplied','statusExpired','knockback','construct.deployed','constructSpawned','constructExpired','constructDestroyed','constructAttacked','constructHealed','constructDamaged','constructDied']);
 const numericFields = new Set(['wave','amount','count','damage','hp','maxHp','coins','xp','level','previousLevel','cost','paidCount','freeRemaining','increase','rate','beamWidth','radius','delayMs','durationMs','remainingMs','multiplier','distance','tickMs','tickRemainingMs','x','y','originX','originY','targetX','targetY','territoryHp','territoryShield','shieldAbsorbed','hpDamage','bossTier','speed']);
 const idFields = new Set(['itemId','gearId','replacedGearId','instanceId','wandId','characterId','xpCharacterId','entityId','targetId','sourceItemId','targetItemId','projectileId','beamId','chainId','areaId','rewardId','commandId','sourceCharacterId','sourceEntityId','enemyId','outputItemId','fromCharacterId','gameId']);
 export function projectEvents(state: GameState, events: GameEvent[]): GameEvent[] {
@@ -152,18 +155,20 @@ export function projectEvents(state: GameState, events: GameEvent[]): GameEvent[
       else if (key === 'grade' && gradeOrder.some(grade => grade === value)) data[key]=value;
       else if (key === 'track' && (value === 'wall' || value === 'shield')) data[key]=value;
       else if(key==='slot'&&['head','body','feet','accessory'].includes(String(value)))data[key]=value;
-      else if(key==='effectType'&&['territoryHeal','territoryShield','partyMana'].includes(String(value)))data[key]=value;
-      else if(key==='kind'&&['gear','item'].includes(String(value)))data[key]=value;
+      else if(key==='effectType'&&['territoryHeal','territoryShield','partyMana','territoryRestore','partyManaPercent','cooldownAdvance','territoryHealPercent','territoryShieldPercent'].includes(String(value)))data[key]=value;
+      else if(key==='kind'&&['gear','item','summon','building'].includes(String(value)))data[key]=value;
+      else if(key==='behavior'&&['attack','heal','shield'].includes(String(value)))data[key]=value;
+      else if(key==='attackMode'&&['contact','projectile'].includes(String(value)))data[key]=value;
       else if(key==='mode'&&['strike','ring','eruption','field','vortex'].includes(String(value)))data[key]=value;
       else if(key==='trigger'&&['contact','range','either'].includes(String(value)))data[key]=value;
-      else if (key === 'reason' && typeof value === 'string' && ['timeout','targetLost','invalidPosition','outOfBounds'].includes(value)) data[key]=value;
+      else if (key === 'reason' && typeof value === 'string' && ['timeout','targetLost','invalidPosition','outOfBounds','lifetime','damage'].includes(value)) data[key]=value;
       else if (['definitionId','spellId','recipeId','sequenceId','effect'].includes(key) && typeof value === 'string' && known.has(value)) data[key]=value;
     }
     return {seq:event.seq,gameTimeMs:event.gameTimeMs,type:publicEventTypes.has(event.type)?event.type:'stateChanged',data};
   });
 }
 const commandSchemas = {
-  startWave:{},restart:{},setPaused:{paused:'boolean'},setSpeed:{speed:'0.25|0.5|0.75|1|2|3|5'},setBackpack:{open:'boolean'},
+  startWave:{},deployConstruct:{characterId:'own character id',itemId:'equipped known summon/building spell id',x:'finite 0..100 world coordinate',y:'finite 0..100 world coordinate'},restart:{},setPaused:{paused:'boolean'},setSpeed:{speed:'0.25|0.5|0.75|1|2|3|5'},setBackpack:{open:'boolean'},
   upgradeTerritory:{track:'wall|shield'},repairTerritory:{track:'wall|shield'},upgradeTerritoryRecovery:{track:'wall|shield'},
   placeItem:{wandId:'id',itemId:'id',x:'integer',y:'integer',rotation:'0|1|2|3'},
   removeItem:{wandId:'id',itemId:'id'},mergeRecipe:{wandId:'id',recipeId:'known recipe id',itemIds:'id[]'},

@@ -614,3 +614,35 @@ Help最后CSS补minmax(0,1fr)列、tabs/content min-width0/max-width100%及420px
 ### 本地生产包真实离线验收补记
 
 根随后报告已在独立本地production origin `http://127.0.0.1:4173/wand-defense/` 使用CUA CDP确认SW activated、scope正确及缓存key独立；仅将该测试tab设为Network offline后reload，真实游戏root、HP、法杖与开始按钮正常渲染。随后恢复online并关闭测试tab，未修改用户实际游戏页面的网络。此为根执行的真实浏览器离线验收，替代前段“最终浏览器离线验收仍未完成”的状态；本审查仅补记录，未自行复测。waiting更新的证据仍为UI负责人早期浏览器测试与后续静态审查，不声称根本轮重测waiting或完成新的安装验收。公共registry与vendor的独立clean生产构建及476项通过沿用上述证据。根准备发布main，截至此补记GitHub Pages实际workflow run与线上部署仍待结果，不称已上线。
+
+### 上一批Pages发布完成
+
+根最终报告：f2e01b7对应首次workflow在npm ci因缺少FreeBSD optional依赖失败；随后依据官方npm同版本1.2.16元数据仅补package-lock 17行，提交c1504e0并push。最终GitHub Pages run 41730796388的build、test与deploy全部success，上一批Pages部署完成，替代前段部署待结果状态。上述为根执行与workflow结果报告，本审查仅记录，未自行复跑或检查线上HTTP；根当时已发起线上HTTP检查，尚未在此提供结果。此前实际58项赠送、本地生产包离线验收及476项测试证据保持各自范围。
+
+用户随后新授权密集战斗性能、合计至少100类型、首屏加载/拆包、召唤建筑主线实装四项工作，根与既定负责人已启动；本审查等待新批边界冻结，不读改该批生产源码，也不把上一批Pages成功表述为新批功能已经上线。
+
+### 新批共享接线与SW v2窄审
+
+相对c1504e0只读复核contracts、runtime部署、compile/cast边界、engine集成、demo目录入口、Agent协议与SW/vite清单接线，未发现具体P1/P2。deployConstruct校验已知实例、双向角色/法杖所属、编译后真实construct、有限0..100坐标及资源/冷却；战中要求显式paused，defeat拒绝，创建成功才一次扣金币/法力与设冷却。容量不足由spawn返回false，不收费；命令仍走原receipt幂等。building不自动施放，summon自动成功一次收费；准备/奖励不推进TTL，清波及开波保留存活友方，失败清理友方。compile复制construct后应用品级/奥术，不修改共享定义；Agent沿已知定义过滤、显式construct字段及轻量事件白名单，没有另起游戏权威。
+
+SW v2以构建bundle生成的pwa-assets.json枚举全部必需JS/CSS/字体/图片，覆盖lazy分块；校验同scope hashed路径，必需资源与CSS依赖成功缓存后才替offline shell，extended字体列optional并跳过CSS预取，实际请求仍沿cache-first缓存。保留无强制接管/刷新策略。静态上补齐拆包后离线依赖链，但这是SW后台预缓存，不能据此声称后台完全不下载lazy资源或已取得首屏性能收益；最终产物清单及新v2真实离线打开懒页面仍待冻结验收。早先v1离线通过不替代该项。
+
+已阅读新增部署3项与目录1项测试断言；4/4及strict TS通过、UI真实runtime部署(75,20)及资源/HP/TTL结果均归根与负责人执行报告，本审查未重跑整仓/测试、截图或改生产源码。目录数量与战斗/构筑细节沿各领域Sol审证据，本轮只核共享契约；性能同源A/B、首屏/字体收尾、最终全量及新批发布仍待根冻结汇总。旧demo-scope中的召唤不合主线限制按本次用户明确新授权覆盖。
+
+根随后报告当前build成功、519/519全量通过；扩目录后5处旧硬编码断言已改按实际目录，仍保留确定性、比例与保留性断言。实际目录为48spell、18arcana、18gear、8items、18monster、2wand templates，合计112种，另39配方。根在独立production origin端口4174以CUA实际确认SW v2 activated、24项缓存、Character/Help lazy已缓存且extendedCached=false；断网reload游戏root正常，随后离线首次打开菜单/帮助手册及合成tab成功，结束恢复online并关闭测试tab。此根执行证据补足前段v2懒页面离线待验项，本审查未自行复测。
+
+首屏主字体实际请求1,569,516B，但前后均约1.57MB，不能将全源码覆盖字体probe约1.74MB称为首屏提升；同步JS最终HTML入口及modulepreload合计仍待根统计，不沿用早期isolated入口25%数字。root每transition懒建敌人ID Map及Battle同cast targets均仍为性能候选；519通过包含当前root候选，只代表正确性回归，mixed同源A/B收益尚待证据，必要时撤回。当前不宣称整体性能完成或新批发布。
+
+### owned推进候选独立窄审
+
+根报告敌ID Map与projectile目标排序两候选因生产1×劣化、5×收益不稳定已撤回，不计作优化成果。新候选将stepBattle与advanceOwnedBattle共用同一private算法，纯入口仍复制、仅runtime.tick使用owned原地推进。本审查已读实际调用：构造checkpoint、getState/checkpoint返回、notify入队和逐listener仍独立复制；排队通知不持有authority引用，事件监听只得标量summary与独立events。引擎同步阶段无外部listener，重入tick只在已有通知快照入队后发生，因此正常有效状态/固定catalog路径未见新增外部alias或旧队列快照共享。
+
+异常原子性并未保持：若引擎中途throw，旧纯入口的临时state可丢弃；owned可能已推进时钟、实体或RNG，却尚未完成revision/统计/奖励/notify。本轮未见正常固定catalog的预期throw路径，已向根明确该语义差异，不将其称为有回滚保证或无条件安全。纯/owned全state与events等价、重入tick的历史快照隔离定向测试及实际收益仍待根补证；本审查未运行测试或改生产源，候选尚不标最终验收完成。
+
+随后已实读runtime新增`content === demoContent`身份限制：仅内置目录走owned，自定义catalog保留纯stepBattle；RuntimePort未增加unsafe开关。已读owned-step三项断言：120tick逐次完整Transition深等价且纯输入不变、checkpoint/监听快照经后续tick与重入setSpeed及恶意listener改参仍隔离、自定义目录getter途中throw后runtime状态等于before。第二项覆盖重入命令而非listener内直接重入tick，不扩大其测试范围。根报告前两项连同既有订阅/部署共8/8通过，第三项当时刚落待跑；本审查未执行。此限制收窄自定义目录异常风险，固定内置目录owned的unexpected throw仍不承诺回滚；源码边界窄审无新增阻塞，实际收益与最终验证仍待结果。
+
+根随后报告owned-step 3/3通过，补足custom rollback待跑状态。已只读核对`.local/work/owned-step-perf/results/{pure,owned}/measure-speed{1,5}.json`：同20秒混合场景、60初始敌人/100初始弹体，1×400次有效调用均值3.976→3.096ms、p95 5.157→4.504ms；5×80次有效调用均值7.198→6.032ms、p95 9.616→8.060ms。每个速度内pure/owned的stateDigest和eventDigest分别一致、均9236事件且missingEvents为空；并非跨速度摘要相同。最大单次耗时两组略升，不称所有分位或单次都改善。结合既有边界源码与等价/隔离断言，接受此固定内置目录owned候选的窄审与本次Node runtime tick均值/p95收益证据；不外推浏览器FPS、普遍收益或异常回滚保证。未自行跑基准或测试，最终整仓仍待根汇总。
+
+### 新批最终构建与测试收尾
+
+根最终报告522/522整仓通过、类型检查及production build通过，日志为`../../work/wand-defense-expansion-final-tests.log`与`../../work/wand-defense-expansion-build.log`，替代前段最终整仓待结果状态。最终dist入口加4个同步modulepreload合计897,890B；655,012B仅入口文件，不能称总首屏，也不据此复述早期25%提升。PWA资源清单18项mandatory与1项extended optional均存在；此前SW v2真实离线懒页面验收与Node tick配对收益按各自证据范围保留。根报告demo-status、mechanism与生成112项内容清单已更新，准备提交发布；截至此记录新批尚无Pages部署成功回报，不沿用上一批run成功为本批上线。本审查仅补最终证据归属记录，未重跑检查、改生产源或重新验收文档内容；共享边界窄审无新增阻塞。

@@ -8,11 +8,15 @@ export function boundedCombatValue(value: number | undefined, fallback: number, 
 }
 
 /** Shared HP mutation and provenance for resolved contacts and periodic damage. */
-export function applyResolvedDamage(target: CombatEntity, amount: number, source: Record<string, unknown>, emit: CombatEmit): void {
-  if (target.hp <= 0) return;
+export function applyResolvedDamage(target: CombatEntity, amount: number, source: Record<string, unknown>, emit: CombatEmit): number {
+  if (target.hp <= 0) return 0;
   const boundedAmount = boundedCombatValue(amount, 0, 0, COMBAT_ROLL_LIMITS.maxDamage);
-  target.hp = Math.max(0, target.hp - boundedAmount);
-  emit("damage", { ...source, targetId: target.id, amount: boundedAmount, x: target.x, y: target.y });
+  const armor = boundedCombatValue(target.armor, 0, 0, COMBAT_ROLL_LIMITS.maxDamage);
+  const resolved = Math.max(0, boundedAmount - armor);
+  target.hp = Math.max(0, target.hp - resolved);
+  emit("damage", { ...source, targetId: target.id, amount: resolved, x: target.x, y: target.y,
+    ...(armor > 0 ? { absorbedAmount: boundedAmount - resolved } : {}) });
+  return resolved;
 }
 
 /** A saved burn never rolls accuracy/critical or applies another on-hit effect. */

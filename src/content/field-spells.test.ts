@@ -94,5 +94,11 @@ test("field spell definitions extend the spell collection by exactly four IDs", 
   assert.deepEqual(Object.keys(fieldSpellDefinitions).sort(), [
     "fire-field-bolt", "moving-storm", "thunder-field-bolt", "thunderstorm",
   ]);
-  assert.equal(Object.keys(content.spells).length, 33);
+  const previous = Object.fromEntries(Object.entries(demoContent.spells)
+    .filter(([id]) => !Object.hasOwn(fieldSpellDefinitions, id)));
+  assert.equal(Object.keys(content.spells).length, Object.keys(previous).length + 4);
+  for (const [id, definition] of Object.entries(fieldSpellDefinitions)) {
+    assert.equal(content.spells[id], definition);
+    assert.equal(demoContent.spells[id], definition, `${id} is connected to the real catalog`);
+  }
 });

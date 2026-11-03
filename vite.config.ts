@@ -14,10 +14,14 @@ export default defineConfig(({mode}) => {
     define: {"import.meta.env.INKRA_LOCAL":JSON.stringify(Boolean(localPackage))},
     resolve: { dedupe: ["react","react-dom"] },
     optimizeDeps: localPackage ? {exclude:["@inkra/react"]} : undefined,
-    server: { port: 5173, strictPort: true,
+    server: { port: 5173, strictPort: true, watch:{ignored:["**/.local/**","**/vendor/**"]},
       ...(localPackage ? {fs:{allow:[process.cwd(),dirname(dirname(localPackage))]}} : {}) },
     build: { target: "es2022" },
-    plugins: [react(),{name:"local-preview-request",apply:"serve",configureServer(server) {
+    plugins: [react(),{name:"pwa-resource-manifest",apply:"build",generateBundle(_options,bundle) {
+      const files=Object.keys(bundle).filter(file=>/^assets\//.test(file)&&/\.(?:js|css|woff2?|png|webp|svg)$/.test(file));
+      const optional=files.filter(file=>/ui-hand-xiaolai-extended-/.test(file));
+      this.emitFile({type:"asset",fileName:"pwa-assets.json",source:JSON.stringify({assets:files.filter(file=>!optional.includes(file)),optional})});
+    }},{name:"local-preview-request",apply:"serve",configureServer(server) {
       server.ws.on("wand-defense:targeted-result",result=>{
         if(["user-revive-20261104-01","user-chain-magic-20261104-01","user-large-wands-20261104-01","user-mythic-wands-20261104-01","user-area-arcana-20261104-01","user-fields-multicast-20261104-01","user-all-items-20261104-01","user-all-items-20261104-02","user-max-catalog-20261104-01"].includes(result?.requestId)) {
           console.info("TARGETED_PREVIEW_RESULT",JSON.stringify(result));

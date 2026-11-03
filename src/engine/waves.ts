@@ -2,6 +2,7 @@ import type { CombatEntity, GameState } from "../contracts";
 import { getCharacterAnchor } from "../content/characterAnchors";
 import { integrateMotion } from "./motion";
 import { getMonsterSize, getUnlockedMinionDefinitions } from "../content/monsters";
+import { applyResolvedDamage } from "./damage";
 
 export type BossTier = "none" | "minor" | "major" | "apex";
 
@@ -78,7 +79,9 @@ export function beginWave(
   state.phase = "battle";
   state.waveSpawnRemaining = getWaveSpec(state.wave).count;
   state.spawnRemainingMs = 0;
-  state.entities = [];
+  state.entities = state.entities.filter(entity => entity.faction === "player"
+    && (entity.kind === "summon" || entity.kind === "building") && entity.hp > 0
+    && (entity.remainingMs === undefined || entity.remainingMs > 0));
   emit("waveStarted", { wave: state.wave, ...getWaveSpec(state.wave) });
 }
 
@@ -98,9 +101,19 @@ export function advanceEnemies(
     state.spawnRemainingMs = getWaveSpec(state.wave).spawnIntervalMs;
   }
 
+  const defenders = state.entities.filter(entity => entity.faction === "player"
+    && (entity.kind === "summon" || entity.kind === "building") && entity.hp > 0)
+    .map(entity => ({ entity, radius: getMonsterSize(entity).hitRadius }));
   for (const enemy of state.entities) {
     if (enemy.kind !== "enemy" || enemy.hp <= 0) continue;
+    const regeneration = Number.isFinite(enemy.regenerationPerSecond) ? Math.max(0, enemy.regenerationPerSecond!) : 0;
+    if (regeneration > 0) enemy.hp = Math.min(enemy.maxHp, enemy.hp + regeneration * dt / 1000);
     enemy.attackRemainingMs = Math.max(0, enemy.attackRemainingMs - dt);
+    const engaged = nearestDefender(enemy, defenders);
+    if (engaged) {
+      attackDefender(enemy, engaged, emit);
+      continue;
+    }
     const target = getEnemyMovementTarget(state, enemy);
     const dx = target.x - enemy.x;
     const dy = target.y - enemy.y;
@@ -118,6 +131,11 @@ export function advanceEnemies(
       // Off-screen arrivals keep their real position until they walk across y=0.
       enemy.y = clamp(enemy.y + (dy / remaining) * step, Math.min(FIELD_MIN, enemy.y), FIELD_MAX);
     }
+    const contacted = nearestDefender(enemy, defenders);
+    if (contacted) {
+      attackDefender(enemy, contacted, emit);
+      continue;
+    }
     if (enemy.y >= TERRITORY_Y && enemy.attackRemainingMs <= 0) {
       const damage = Math.max(0, enemy.damage);
       const shield = Math.max(0, state.territory.shield ?? 0);
@@ -131,6 +149,30 @@ export function advanceEnemies(
         territoryShield: state.territory.shield ?? 0, territoryHp: state.territory.hp });
     }
   }
+}
+
+function nearestDefender(enemy: CombatEntity, defenders: readonly { entity: CombatEntity; radius: number }[]): CombatEntity | undefined {
+  let nearest: CombatEntity | undefined;
+  let bestDistance = Infinity;
+  for (const { entity, radius } of defenders) {
+    if (entity.hp <= 0 || (entity.remainingMs !== undefined && entity.remainingMs <= 0)) continue;
+    const distance = Math.hypot(entity.x - enemy.x, entity.y - enemy.y);
+    if (distance > Math.max(0, enemy.range) + radius) continue;
+    if (distance < bestDistance || distance === bestDistance && nearest && entity.id.localeCompare(nearest.id) < 0) {
+      nearest = entity;
+      bestDistance = distance;
+    }
+  }
+  return nearest;
+}
+
+function attackDefender(enemy: CombatEntity, target: CombatEntity, emit: (type: string, data: Record<string, unknown>) => void): void {
+  if (enemy.attackRemainingMs > 0) return;
+  applyResolvedDamage(target, enemy.damage, { sourceEntityId: enemy.id, sourceKind: "enemy",
+    effect: enemy.definitionId, critical: false }, emit);
+  enemy.attackRemainingMs = enemy.cooldownMs;
+  if (target.hp <= 0) emit("constructDestroyed", { entityId: target.id, definitionId: target.definitionId,
+    kind: target.kind, x: target.x, y: target.y, reason: "damage", sourceEntityId: enemy.id });
 }
 
 /** Applies slow only to distance during its remaining simulation-time segment. */
@@ -199,6 +241,8 @@ function spawnEnemy(
     y: -(getMonsterSize({ definitionId }).pixels / 6 + 2),
     movementMode: huntsCharacter ? "huntCharacter" : "straight",
     ...(targetCharacter ? { targetCharacterId: targetCharacter.id } : {}),
+    ...(spawn?.armor ? { armor: Math.max(0, spawn.armor) } : {}),
+    ...(spawn?.regenerationPerSecond ? { regenerationPerSecond: Math.max(0, spawn.regenerationPerSecond) } : {}),
     hp: baseHp * tierMultiplier * hpMultiplier,
     maxHp: baseHp * tierMultiplier * hpMultiplier,
     damage: (2 + state.wave - 1) * (isBoss ? (tier === "apex" ? 5 : tier === "major" ? 3 : 2) : damageMultiplier),

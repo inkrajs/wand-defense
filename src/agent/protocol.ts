@@ -2,7 +2,7 @@ import type { Command, CommandResult, RuntimePort } from '../contracts';
 import { GAME_SPEEDS, type GameSpeed } from '../contracts';
 import { gradeOrder } from '../content/grades';
 
-export const remoteCommandTypes = ['startWave', 'restart', 'setPaused', 'setSpeed', 'upgradeTerritory', 'repairTerritory', 'upgradeTerritoryRecovery', 'setBackpack', 'placeItem',
+export const remoteCommandTypes = ['startWave', 'deployConstruct', 'restart', 'setPaused', 'setSpeed', 'upgradeTerritory', 'repairTerritory', 'upgradeTerritoryRecovery', 'setBackpack', 'placeItem',
   'removeItem', 'clearWand', 'discardItem', 'discardWand', 'equipGear', 'unequipGear', 'discardGear', 'useItem', 'discardSupply', 'mergeRecipe', 'mergeItems', 'claimReward', 'refreshRewards', 'equipWand', 'unequipWand', 'setCheats', 'cheat'] as const;
 const identifier = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 160;
 const integer = (value: unknown): value is number => Number.isSafeInteger(value);
@@ -14,6 +14,10 @@ export function parseRemoteCommand(input: unknown): Command | undefined {
   const id = c.id;
   switch (c.type) {
     case 'startWave': return { id, type: c.type };
+    case 'deployConstruct':
+      if(identifier(c.characterId)&&identifier(c.itemId)&&typeof c.x==='number'&&Number.isFinite(c.x)&&c.x>=0&&c.x<=100
+        &&typeof c.y==='number'&&Number.isFinite(c.y)&&c.y>=0&&c.y<=100)
+        return {id,type:c.type,characterId:c.characterId,itemId:c.itemId,x:c.x,y:c.y}; break;
     case 'restart': return { id, type: c.type };
     case 'setPaused': if (typeof c.paused === 'boolean') return {id,type:c.type,paused:c.paused}; break;
     case 'setSpeed': if (GAME_SPEEDS.includes(c.speed as GameSpeed)) return {id,type:c.type,speed:c.speed as GameSpeed}; break;
@@ -62,6 +66,10 @@ export function dispatchRemote(runtime: RuntimePort, input: unknown): CommandRes
   if (!command) return reject('INVALID_COMMAND');
   if ((command.type === 'cheat' || command.type === 'setCheats') && !state.cheats.unlocked) return reject('FORBIDDEN');
   if (command.type === 'cheat' && !state.cheats.enabled) return reject('FORBIDDEN');
+  if(command.type === 'deployConstruct') {
+    const item=Object.hasOwn(state.items,command.itemId)?state.items[command.itemId]:undefined;
+    if(!item || !state.knowledge.spellIds.includes(item.definitionId))return reject('UNAVAILABLE');
+  }
   if (command.type === 'mergeRecipe' && !state.knowledge.recipeIds.includes(command.recipeId)) return reject('UNAVAILABLE');
   if(command.type === 'discardItem') {
     const item=Object.hasOwn(state.items,command.itemId)?state.items[command.itemId]:undefined;

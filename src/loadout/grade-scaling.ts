@@ -22,11 +22,19 @@ export function gradedArcanaValue(definition: ArcanaDefinition, instanceGrade: G
       return 1 + (definition.value - 1) * ratio * gradeModifierTuning.focusBonus;
     case 'haste':
     case 'efficiency':
+    case 'slow':
       return Math.max(gradeModifierTuning.minimumReductionMultiplier, 1 + (definition.value - 1) * ratio);
     case 'reach':
     case 'velocity':
     case 'area':
+    case 'duration':
       return 1 + (definition.value - 1) * ratio;
+    case 'pierce':
+    case 'capacity':
+    case 'burn':
+    case 'knockback':
+    case 'precision':
+      return definition.value * ratio;
     case 'double':
     case 'split': {
       const steps = gradeOrder.indexOf(instanceGrade) - gradeOrder.indexOf(definition.grade);

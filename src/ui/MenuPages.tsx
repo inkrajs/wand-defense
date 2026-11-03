@@ -1,11 +1,12 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, PencilIcon, PencilLine, PencilText, Select, Slider, Switch, Tabs, type PencilIconPath } from "@inkra/react";
-import { HelpManual } from "./HelpManual";
 import { useGraphicsSettings } from "./graphicsSettings";
 import type { Command, CommandResult, GameState } from "../contracts";
 import "./MenuPages.css";
 import "./Preferences.css";
 import "./MenuSettings.css";
+
+const HelpManual = lazy(() => import("./HelpManual").then(module => ({ default: module.HelpManual })));
 
 export type MenuPage = "menu" | "settings" | "agent" | "accessibility" | "character" | "help" | "graphics" | "music" | "controls" | "debug";
 type Props = {
@@ -199,7 +200,7 @@ export function MenuPages({ page, navigate, close, restart, agentPanel, state, u
             </>}
           </div></Tabs.Content>
         </Tabs.Root>}
-        {displayPage === "help" && page !== null && <div className="menu-page__detail menu-page__help"><HelpManual state={state} /></div>}
+        {displayPage === "help" && page !== null && <div className="menu-page__detail menu-page__help"><Suspense fallback={<span role="status">正在加载手册…</span>}><HelpManual state={state} /></Suspense></div>}
       </div>
       <div className="menu-page__detail menu-page__agent" data-active={displayPage === "agent"} aria-hidden={displayPage !== "agent"} inert={displayPage !== "agent"}>
         {agentPanel ?? <PencilText as="p" seed="agent-unavailable">Agent 连接不可用。</PencilText>}

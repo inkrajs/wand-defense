@@ -18,6 +18,8 @@ export interface ProjectileSpec {
   impact?: ProjectileImpact;
   attackRoll?: AttackRollStats;
   onHit?: OnHitSpec;
+  origin?: { x: number; y: number };
+  sourceEntityId?: string;
 }
 
 type Emit = (type: string, data: Record<string, unknown>) => void;
@@ -39,8 +41,9 @@ export function spawnProjectiles(
   emit: Emit,
 ): boolean {
   if (state.phase !== "battle" || state.paused || state.backpackOpen) return false;
-  const origin = getCharacterAnchors(state.characters).find(anchor => anchor.characterId === characterId)
+  const origin = spec.origin ?? getCharacterAnchors(state.characters).find(anchor => anchor.characterId === characterId)
     ?? {x: ORIGIN_X, y: ORIGIN_Y};
+  if (!Number.isFinite(origin.x) || !Number.isFinite(origin.y)) return false;
   const target = nearbyEnemies(state, origin.x, origin.y, spec.range)[0];
   if (!target) return false;
 
@@ -84,6 +87,7 @@ export function spawnProjectiles(
       ...(spec.onHit ? { onHit: structuredClone(spec.onHit) } : {}),
       sourceCharacterId: characterId,
       sourceItemId: spec.itemId,
+      ...(spec.sourceEntityId ? { sourceEntityId: spec.sourceEntityId } : {}),
       targetId: target.id,
       originX: origin.x,
       originY: origin.y,
@@ -191,7 +195,10 @@ export function advanceProjectiles(state: GameState, dtMs: number, emit: Emit): 
 }
 
 function launchProjectile(state:GameState,projectile:CombatEntity,emit:Emit):boolean {
-  const origin=getCharacterAnchors(state.characters).find(anchor=>anchor.characterId===projectile.sourceCharacterId);
+  const origin = projectile.sourceEntityId
+    ? state.entities.find(entity => entity.id === projectile.sourceEntityId && entity.hp > 0)
+    : getCharacterAnchors(state.characters).find(anchor=>anchor.characterId===projectile.sourceCharacterId);
+  if (projectile.sourceEntityId && !origin) { projectile.hp=0;projectile.remainingMs=0;return false; }
   if(origin){projectile.x=origin.x;projectile.y=origin.y;projectile.originX=origin.x;projectile.originY=origin.y;}
   const targets=nearbyEnemies(state,projectile.x,projectile.y,projectile.range);
   const target=targets[(projectile.splitBranchIndex??0)%Math.max(1,targets.length)];
@@ -208,6 +215,7 @@ function launchProjectile(state:GameState,projectile:CombatEntity,emit:Emit):boo
   aimProjectile(projectile,projectile.splitWaypointX??target.x,projectile.splitWaypointY??target.y);
   emit("projectileSpawned",{entityId:projectile.id,definitionId:projectile.definitionId,
     sourceCharacterId:projectile.sourceCharacterId,sourceItemId:projectile.sourceItemId,targetId:target.id,
+    ...(projectile.sourceEntityId ? { sourceEntityId: projectile.sourceEntityId } : {}),
     x:projectile.x,y:projectile.y,originX:projectile.originX,originY:projectile.originY,
     targetX:projectile.targetX,targetY:projectile.targetY});
   return true;
