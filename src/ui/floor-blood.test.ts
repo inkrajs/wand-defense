@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createInitialState } from "../runtime/initial";
-import { advanceBloodMemory, BLOOD_LIMIT, bloodAppearance, bloodOpacity, bloodSpots, restoreBloodMemory, type BloodMemory } from "./floorBlood";
+import { advanceBloodMemory, BLOOD_LIMIT, bloodAppearance, bloodOpacity, bloodSpots, bloodGeometry, restoreBloodMemory, type BloodMemory } from "./floorBlood";
 
 function scene() {
   const state = createInitialState(); state.wave = 1; state.gameTimeMs = 1000;
@@ -19,6 +19,9 @@ test("death stains stay deterministic; fire chars them and rock increases their 
   assert.equal(bloodAppearance(fire).color,"#34302b");
   assert.ok(bloodAppearance(rock).diameter > bloodAppearance(plain).diameter);
   assert.deepEqual(bloodSpots(rock),bloodSpots(rock));
+  assert.deepEqual(bloodGeometry(rock),bloodGeometry(rock));
+  assert.notEqual(bloodGeometry(plain).d,bloodGeometry(rock).d);
+  assert.equal(/NaN|Infinity/.test(bloodGeometry(rock).d),false);
   assert.equal(advanceBloodMemory(memory,state),memory);
   assert.equal(state.rngState,createInitialState().rngState);
 });

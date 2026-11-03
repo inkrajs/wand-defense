@@ -3,27 +3,63 @@
 .character-page__equipment, .character-page__details { min-width: 0; }
 .character-page__gear-grid { display: grid; grid-template-columns: 56px minmax(96px, 112px) 56px; grid-template-rows: 56px 56px 56px; grid-template-areas: "head portrait wand-one" "body portrait wand-two" "feet portrait accessory"; align-items: center; justify-content: center; gap: var(--inkra-space-2); }
 .character-page__portrait { grid-area: portrait; display: grid; place-items: center; width: 100%; height: 100%; color: var(--inkra-ink-muted); }
-.character-page__gear-slot { display: grid; place-items: center; width: 56px; height: 56px; }
+.character-page__gear-slot { position: relative; display: grid; place-items: center; width: 56px; height: 56px; }
 .character-page__gear-slot.is-loadout { position: relative; width: 56px; height: 56px; overflow: visible; }
 .character-page__gear-slot-icon { z-index: 1; pointer-events: none; }
-.character-page__loadout-grid { position: absolute !important; left: 50%; top: 50%; width: max-content; max-width: none; transform: translate(-50%, -50%) scale(.36); transform-origin: center; pointer-events: auto; }
+.character-page__gear-slot-preview { display: grid; place-items: center; max-width: 44px; max-height: 44px; pointer-events: none; }
+.character-page__gear-slot-preview > .wand-preview { display: block; max-width: 44px; max-height: 44px; }
+.character-page__gear-art { width: 36px; height: 36px; font-size: 32px; line-height: 1; }
+.character-page__gear-art > img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.character-page__gear-quality { position: absolute; top: 3px; left: 3px; z-index: 4; display: grid; place-items: center; width: 12px; height: 12px; pointer-events: none; }
+.character-page__loadout-grid { position: absolute !important; left: 50%; top: 50%; width: max-content; max-width: none; transform: translate(-50%, -50%) scale(var(--character-loadout-scale, .36)); transform-origin: center; pointer-events: auto; }
 .character-page__slot--head { grid-area: head; }.character-page__slot--wand-one { grid-area: wand-one; }.character-page__slot--body { grid-area: body; }.character-page__slot--wand-two { grid-area: wand-two; }.character-page__slot--feet { grid-area: feet; }.character-page__slot--accessory { grid-area: accessory; }
 .character-page__details > .inkra-tabs { display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: center; gap: clamp(24px, 3vw, 40px); min-width: 0; }
-.character-page__tabs { grid-column: 2; grid-row: 1; }
+/* Keep this sizing independent of shared vertical Tabs CSS import order. */
+.character-page .character-page__tabs { grid-column: 2; grid-row: 1; height: 320px; max-height: min(320px, max(60px, calc(100dvh - var(--scene-inventory-space, 0px) - var(--ready-area-top, 0px) - var(--ready-area-bottom, 0px) - 8px))); }
+.character-page .character-page__tabs > .inkra-tabs__list { height: auto; min-height: 0; max-height: none; flex: 1 1 auto; flex-direction: column; gap: 8px; overflow-x: hidden; overflow-y: auto; }
+.character-page .character-page__tabs .inkra-tabs__trigger { flex: 0 0 44px; min-width: 44px; min-height: 44px; height: 44px; padding: 6px; gap: 0; }
+.character-page__tabs .inkra-tabs__divider[data-orientation="horizontal"] { top: -8px; }
+.character-page__tabs .inkra-tabs__label { display: none; }
 .character-page__panel { grid-column: 1; grid-row: 1; min-width: 0; }
 .character-page__overview { display: grid; gap: var(--inkra-space-2); align-content: center; }
+.character-page__details { container-name: character-details; container-type: inline-size; }
+@container character-details (min-width: 560px) {
+  .character-page__overview { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+}
 .character-page__summary-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: var(--inkra-space-3); min-height: 36px; }
 .character-page__summary-row > strong { color: var(--inkra-ink); font-weight: 400; text-align: end; }
-.character-page__attributes { display: grid; justify-items: center; }
-.character-page__radar { width: 240px; max-width: 100%; }
+.character-page__attributes { display: block; }
+.character-page__radar-panel { display: grid; place-items: center; }
+.character-page__radar { width: min(100%, 320px); min-width: 0; justify-self: center; }
+.character-page__radar .inkra-radar__viewport { min-block-size: 0; width: calc(100% - 40px); margin: 20px; }
+.character-page__radar .inkra-radar__axis-label { min-inline-size: 0; width: 2.5em; }
+.character-page__attribute-list { display: grid; gap: var(--inkra-space-2); min-width: 0; }
+.character-page__attribute-trigger { width: 100%; min-width: 0; min-height: 40px; padding: 2px 6px; gap: 8px; border: 0; border-radius: 3px; background: transparent; color: inherit; font: inherit; text-align: start; cursor: help; }
+.character-page__attribute-trigger:focus-visible { outline: 2px solid var(--inkra-accent-strong); outline-offset: 3px; }
+.character-page__attribute-trigger:hover { color: var(--inkra-accent-strong); }
+.character-page__attribute-tooltip { z-index: 100; width: min(280px, calc(100vw - 24px)); max-height: var(--radix-tooltip-content-available-height); overflow-y: auto; font-size: var(--inkra-text-sm); line-height: 1.5; }
+.character-page__attribute-tooltip dl { display: grid; gap: 4px; margin: 8px 0; }
+.character-page__attribute-tooltip dl > div { display: flex; justify-content: space-between; gap: 16px; }
+.character-page__attribute-tooltip dd { margin: 0; }
+.character-page__attribute-tooltip p { margin: 8px 0 0; }
+@container character-details (min-width: 560px) {
+  .character-page__attribute-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+}
+/* Keep the Radar name accessible; the two value pages provide its real values. */
+.character-page .inkra-radar__heading, .character-page .inkra-radar__summary, .character-page .inkra-radar__values { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+.character-page .inkra-radar__summary { display: none; }
+.character-page__growth { display: grid; align-content: center; gap: var(--inkra-space-2); min-width: 0; overflow-x: auto; }
+.character-page__growth > h4 { margin: 0; font-size: var(--inkra-text-sm); font-weight: 400; }
+.character-page__growth-table { display: grid; gap: var(--inkra-space-1); width: max-content; min-width: 100%; }
+.character-page__growth-row { display: grid; grid-template-columns: max-content repeat(3, minmax(72px, max-content)); align-items: center; gap: 12px; min-height: 32px; white-space: nowrap; }
+.character-page__growth-row > span { font-size: var(--inkra-text-xs); text-align: center; }
+.character-page__growth-row > span:first-child { text-align: start; }
+.character-page__growth-header { min-height: 24px; color: var(--inkra-ink-muted); }
 .character-page__pathways { display: grid; align-content: center; gap: var(--inkra-space-3); }
 .character-page__pathway { display: grid; gap: var(--inkra-space-1); }
 .character-page__pathway h4, .character-page__pathway p { margin: 0; }
 .character-page__pathway h4 { font-size: var(--inkra-text-md); font-weight: 400; }
 .character-page__pathway p { color: var(--inkra-ink-muted); }
-/* Radar 0.15 always emits a heading and series/value control block. Keep its
-   accessible text and controls without adding a visible title or extra rows. */
-.character-page .inkra-radar__heading, .character-page .inkra-radar__summary { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 @media (max-width: 760px) {
   .character-page__layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .character-page__details > .inkra-tabs { grid-template-columns: minmax(0, 1fr) 44px; gap: 12px; }

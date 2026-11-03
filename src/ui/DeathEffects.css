@@ -1,0 +1,6 @@
+.death-effects { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.death-effects__body { animation: enemy-fall 180ms ease-out both; pointer-events: none; }
+@keyframes enemy-fall { from { opacity: .85; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, calc(-50% + 7px)) rotate(9deg) scale(.65); } }
+@media (prefers-reduced-motion: reduce) { .death-effects__body { animation-name: enemy-fade; } }
+html[data-game-reduce-motion="true"] .death-effects__body { animation-name: enemy-fade; }
+@keyframes enemy-fade { from { opacity: .5; } to { opacity: 0; } }

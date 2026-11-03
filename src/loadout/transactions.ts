@@ -6,6 +6,9 @@ import { areAdjacent, placementCells, validatePlacement } from "./geometry";
 
 import { commit, reject, maxItemCooldown } from "./transition";
 import { applyMergeItemsCommand } from "./merge-items";
+import { applyDiscardCommand } from "./discard";
+import { applyGearCommand } from "./gear";
+import { applyClearWandCommand } from "./clear-wand";
 import { applyWandEquipmentCommand } from "./equipment";
 
 function shapeFor(item: ItemInstance, content: ContentCatalog): Cell[] | undefined {
@@ -53,8 +56,46 @@ function multisetEquals(a: string[], b: string[]): boolean {
   return true;
 }
 
+/** Validate using the existing pure equipment transactions, then publish one atomic swap. */
+function applySlotEquipment(state: GameState, command: Extract<Command, {type: "equipWand"}>): CommandTransition {
+  const requestedSlot = command.slot;
+  if (requestedSlot !== 0 && requestedSlot !== 1) return reject(state, command, "INVALID_SLOT", "法杖槽位必须为0或1");
+  const targets = state.characters.filter(character => character.id === command.characterId);
+  if (targets.length !== 1) return reject(state, command, "CHARACTER_NOT_FOUND", "目标角色不存在或ID不唯一");
+  const target = targets[0];
+  if (target.wandIds.length > 2) return reject(state, command, "INVALID_SLOT", "目标法杖槽位无效");
+  const slot = Math.min(requestedSlot, target.wandIds.length);
+  const replacedWandId = target.wandIds[slot];
+  if (replacedWandId === command.wandId) return reject(state, command, "ALREADY_EQUIPPED", "法杖已在该槽位");
+  const incoming = state.wands.find(wand => wand.id === command.wandId);
+  if (!incoming) return reject(state, command, "WAND_NOT_FOUND", "法杖不存在");
+  let staged = state;
+  if (incoming.characterId !== null) {
+    const detached = applyWandEquipmentCommand(staged, {id: command.id, type: "unequipWand", wandId: incoming.id});
+    if (detached.result.status !== "executed") return reject(state, command, detached.result.code ?? "WAND_OWNERSHIP_INVALID", "来源法杖归属无效");
+    staged = detached.state;
+  }
+  if (replacedWandId !== undefined) {
+    const replaced = staged.wands.find(wand => wand.id === replacedWandId);
+    if (replaced?.characterId !== target.id) return reject(state, command, "WAND_OWNERSHIP_INVALID", "目标法杖归属无效");
+    const detached = applyWandEquipmentCommand(staged, {id: command.id, type: "unequipWand", wandId: replacedWandId});
+    if (detached.result.status !== "executed") return reject(state, command, detached.result.code ?? "WAND_OWNERSHIP_INVALID", "目标法杖归属无效");
+    staged = detached.state;
+  }
+  const equipped = applyWandEquipmentCommand(staged, {id: command.id, type: "equipWand", wandId: command.wandId, characterId: target.id});
+  if (equipped.result.status !== "executed") return reject(state, command, equipped.result.code ?? "WAND_OWNERSHIP_INVALID", "装备法杖失败");
+  const retainedIds = target.wandIds.filter(id => id !== command.wandId && id !== replacedWandId);
+  const actualSlot = Math.min(slot, retainedIds.length);
+  retainedIds.splice(actualSlot, 0, command.wandId);
+  const characters = equipped.state.characters.map(character => character.id === target.id ? {...character, wandIds: retainedIds} : character);
+  return commit(state, command, {characters, wands: equipped.state.wands}, "wandEquipped", {
+    wandId: command.wandId, characterId: target.id, fromCharacterId: incoming.characterId,
+    slot: actualSlot, ...(replacedWandId !== undefined ? {replacedWandId} : {}),
+  });
+}
+
 export function applyLoadoutCommand(state: GameState, command: Command, content: ContentCatalog): CommandTransition {
-  if (!["placeItem", "removeItem", "mergeRecipe", "equipWand", "unequipWand", "mergeItems"].includes(command.type)) {
+  if (!["placeItem", "removeItem", "clearWand", "mergeRecipe", "equipWand", "unequipWand", "mergeItems", "discardItem", "discardWand", "equipGear", "unequipGear", "discardGear"].includes(command.type)) {
     return reject(state, command, "UNSUPPORTED_COMMAND", "此模块不处理该命令");
   }
   if (state.phase === "defeat") return reject(state, command, "DEFEAT", "失败后不能调整构筑");
@@ -148,9 +189,19 @@ export function applyLoadoutCommand(state: GameState, command: Command, content:
       };
       return commit(state, command, { items, wands, backpack: [...state.backpack, outputId], knowledge }, "recipeMerged", { recipeId: recipe.id, consumedItemIds: [...command.itemIds], outputItemId: outputId });
     }
+    case "clearWand":
+      return applyClearWandCommand(state, command);
+    case "equipGear":
+    case "unequipGear":
+    case "discardGear":
+      return applyGearCommand(state, command, content);
+    case "discardItem":
+    case "discardWand":
+      return applyDiscardCommand(state, command);
     case "mergeItems":
       return applyMergeItemsCommand(state, command, content);
     case "equipWand":
+      return command.slot !== undefined ? applySlotEquipment(state, command) : applyWandEquipmentCommand(state, command);
     case "unequipWand":
       return applyWandEquipmentCommand(state, command);
     default:

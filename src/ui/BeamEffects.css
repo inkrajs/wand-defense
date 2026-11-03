@@ -1,0 +1,4 @@
+.beam-effects { position: absolute; inset: 0; z-index: 3; overflow: hidden; pointer-events: none; }
+.beam-effects__ray { position: absolute; display: block; transform-origin: left center; opacity: .88; pointer-events: none; }
+.beam-effects__ray--void-ray { opacity: .76; }
+@media (forced-colors: active) { .beam-effects__ray { --beam-color: Highlight !important; } }

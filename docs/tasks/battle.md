@@ -197,3 +197,316 @@ src/content/progression.ts导出normalizeCharacterProgression(state: GameState):
 新progression-migration.test.ts 3项：首角色一次承接旧共享xp、其他角色只取等级下限、已有个人池不被复制；迁移重入幂等且无事件/奖励；旧等级下限及20/60/120等阈值边界。既有death metadata精确断言仅补实际xpCharacterId。
 
 已运行上述7项+既有death5/index12，共24/24通过。定向strict TypeScript与范围diff-check通过，未重复全仓或验收UI。Sol实读经验受益Set、逐级事件、发射来源追踪、无owner路径与迁移调用边界，确认只有个人累计值驱动角色level，不以兼容统计凑等级。没有提交/推送，停止编辑交根统一集成。
+
+## 十五种可玩法术与通用影响机制（2026-11-04，完成）
+
+用户要求再增加12种魔法，随后追加3种持续射线。本轮保留原8定义，demoContent共23 spells；15个固定新增ID为flame-lance/cinder-burst/thorn-shot/renewal/tidal-orb/stone-spike/iron-disc/gale-burst/arc-chain/light-arrow/dark-orb/ward/solar-ray/ember-ray/void-ray。完整参数/形状见design/content.md当前原型表与demo.ts，均level1/common、实际可装3×3，不是只写能力文案。
+
+### 原生并行与文件边界
+
+| threadId | 模型/provider | 独占文件 | 状态及Sol验收 |
+| --- | --- | --- | --- |
+| 01a1a22f-e838-7703-a5f5-63ec59275bc4 | GPT-6 Luna/native | content/demo.ts、rewards.ts、rewards.test.ts、design/content.md | completed/idle，实际数据/轮转/配置文档经Sol通过 |
+| 01a1a22f-eb63-7942-b93a-cb1447c69336 | GPT-6 Luna/native | engine/impact.test.ts、content/expanded-spells.test.ts | completed/idle，关键行为与真实事务/战斗测试经Sol通过 |
+
+Sol负责人实现engine/impact.ts、targets.ts、beams.ts及projectiles/effects/index集成，并完成随后waveProgress/waves小域扩展；没有再拆第三任务。根负责contracts类型、loadout编译beam攻击加成及配置克隆、所有UI/agent/runtime、当前run onlyMissing补全库存；本模块不修改这些文件或用户存档，不自动装备、不提交/推送。没有provider失败/恢复。
+
+### 真实机制
+
+- targets.ts提供稳定距离/ID顺序选择和统一接触伤害。各模式damage都在模拟中真实接触/脉冲时发，保留发射sourceCharacterId/sourceItemId/effect，现pendingKills对每个真正致死目标独立关联个人XP/血迹来源，不按UI猜。
+- ProjectileImpact为根冻结的discriminated union。pierce接触后沿入射方向向前、距射线不超过4单位、后续射程内选未命中活敌人，继续同一弹体实际飞行；chain接触后取配置半径内未命中活敌人，当前伤害按falloff逐段衰减，下一50ms子步继续飞行。每段更新origin/target坐标，source不变。不会在同一接触子步凭空扣下一目标HP。
+- splash只在首目标实际接触时，以接触点为中心按radius/距离/ID选择有限活目标逐个结算；原目标中途死亡仍只飞至记忆位置消散，不提前触发范围伤害。hitIds去重，三模式每个弹体总目标<=8，remainingImpacts记录余额；延续段不重置原5秒寿命，不另造无限后继弹体，保留每触发64/同时512弹预算。
+- ward为shield恢复，最多补到territory.maxShield；满盾、无有效上限或无效恢复不扣mana/不开冷却。shieldRestored包含effect/amount/x50/y84/targetId territory及来源，事件名按根约定。renewal沿用真实治疗。
+- 三射线effect beam有BeamSpec配置，实体固定从50/84向最初所选敌人方向延伸到最大射程，不追踪目标；width/2点到线段距离判定，每次pulse稳定选择<=8个活目标。power代表每pulse伤害，非整个持续期总伤害。
+- beam首次pulse至少100ms，后续以模拟dt推进cooldown/attackRemaining/remaining；无UI时钟。solar每100ms/900ms，ember每200ms/1200ms，void每400ms/1000ms；global活beam<=24，总寿命<=5000ms。满池返回false不扣mana/不开冷却，部分空槽只发实际数量，spellCast.casts为实际数。
+- index先推进既有projectiles和beams，再结算死亡/施法，新beam不在发射子步脉冲。暂停/背包/速度沿统一dt；清波清全部实体，defeat明确移除两种在途实体。既有个人XP/金币/RNG/清波回满规则保持。
+- 事件新增beamSpawned（entityId/definitionId/source/x/y/targetX/Y/beamWidth/remainingMs），damage在beam时带beamId、普通弹体带projectileId；spellCast、projectileSpawned/Expired、enemyKilled等仍沿既有语义。根已接射线与其他15法术表现。
+
+normal item奖励保留旧前10项，再依次附15新ID，共25项轮转。没有重抽现有存档奖励；根仅补当前run尚未拥有的定义到背包并解锁知识，不在本模块执行该操作。
+
+### Sol实际审查和验证
+
+审查了内容执行者全部15定义/奖励轮转和测试执行者实际调用链，检查effect参数、形状、真实发射→接触、资源边界与分层扩展。Sol自行抽通用选敌/伤害，修正pierce入射方向不得按两个分量分别fallback，避免混合方向；补beam无效脉冲间隔防零延迟循环。要求护盾测试保留远处敌人，避免清波自动回满mana掩盖扣费错误；要求amount unknown收窄、三模式预算、真实范围多杀归属及beam池上限/冻结/清场验证，均已完成。
+
+实际运行：新impact.test.ts + expanded-spells.test.ts + rewards.test.ts共20/20通过（机制/内容占格/伤害/支持法术资源/25波轮转）。另旧projectiles/character-progression/death-metadata/rewards回归22/22通过；没有重复全仓。定向strict TypeScript及范围diff-check通过。根负责全网站补齐库存、视觉验收与最终统一集成，本记录不声称这些外部步骤已完成。
+
+### 限制与原型选择
+
+穿透为前向窄带内逐目标引导飞行，不是物理碰撞器的连续扫掠；chain复用原实体而非创建独立新弹体，仍有真实后继飞行。范围伤害即时发生在真实首接触点；射线为固定线段脉冲，可以走出线段。宽度/半径/衰减/目标数/伤害和射速都是原型数值，未宣称平衡确认。未实现其他状态系统或召唤建筑，未操作当前存档或做AI视觉验收。
+
+## 波次Boss节点与进度（2026-11-04，完成）
+
+用户追加右侧进度与中途/结尾Boss节点。本段由Sol负责人直接实现，无新子任务。
+
+WaveSpec新增bossNodes数组{id,spawnIndex,tier}，spawnIndex为0起点；getWaveSpec和spawnEnemy共用该表，禁止UI画虚假节点。每5波末尾minor；每10波（100优先）中途minor、末尾major；每100波中途major、末尾apex。中途索引floor(count/2)，末尾count-1；bossTier仍为末尾Boss层级兼容信息。中途Boss实际替换该次普通敌人，数量不增，生成/掉落随机调用次数不额外增加；该节点编排为临时试玩配置，确实改变中途敌人强度。
+
+新纯API `import { getWaveProgress } from '../engine/waveProgress'` 返回{total,defeated,progress,markers:[{id,position,tier,cleared}]}。正常进度为(total-waveSpawnRemaining-aliveEnemies)/total并截断，wave0为0/空节点，reward显示上一波1；position=spawnIndex/total。cleared需该索引已经生成且对应enemy-wave-(total-index)不再存活；不通过progress跨过position推测，所以乱序击杀不会误点亮仍活Boss。
+
+新waveProgress.test.ts 3项验证1/5/10/100实际逐个spawn与节点完全一致、marker position、乱序击杀、尚未生成/ready0/reward边界；连同既有movement2与death5检查共10/10通过。随后定向strict TypeScript及范围diff-check通过，不改UI；helper已交根/UIlead消费。全部本轮文件停止编辑，等待根统一提交。
+
+### 最新奖励规则覆盖（2026-11-04）
+
+用户随后明确要求每张奖励独立随机，允许全攻击/全其他属性/混合，固定轮转不符合最终需求。上文25项固定物品轮转仅是此前中间实现与当时验证记录，不能作为当前最终规则或验收结论。root已接手content/rewards.ts、rewards.test.ts及runtime RNG/领取/增益共享数据；内容子任务已completed/idle，相关文件立即释放，本负责人不继续修改或扩固定列表。15种法术定义及真实影响/射线/护盾机制保留，所有新法术正常奖励的可得性由root的随机池实现与新测试最终确认。
+
+本模块完成并交接的范围仍是15法术真实玩法、实际3×3放置、通用有界影响与持续射线，以及真实Boss节点/进度。未宣称随机奖励、用户当前save补齐和UI验收已由本模块完成。
+
+## 波次遭遇序列取代固定中/末双节点（2026-11-04，完成）
+
+用户进一步澄清波次可由多段小怪与多个Boss段组成，不应固定两轮。此节取代上文固定mid/end示例；Sol负责人只改waves.ts、waveProgress.ts、waveProgress.test.ts及本记录，技能机制与已释放随机奖励文件完全未碰，没有新子任务。
+
+WaveSpec现新增encounters: WaveEncounter[]，有序union为{type:'minions',count}或{type:'boss',tier:Exclude<BossTier,'none'>,count}。导出buildWaveSpec(wave,encounters)作为配置展平器，过滤无效数量、按60总敌人预算截断，生成同一实际count和每个Boss实例的bossNodes。一个boss段可有多只Boss，并各有独立spawnIndex/node；不是单纯画分段标签。getWaveSpec(wave)是当前权威配置入口，默认确定配置也经buildWaveSpec展平；spawnEnemy与getWaveProgress继续只消费这一份结果。UI不可独立传另一套配置猜节点。
+
+默认临时配置：保留原count=min(60,5+(wave-1)*2)，因此第8波仍为19，不重置当前战斗；按强度拆多个minion/boss段。第5/10/20/100/200波分别有1/2/3/11/12只Boss，里程碑波最多12只且末Boss仍遵守5 minor/10 major/100 apex优先级。部分非里程碑波（12波起、4的倍数）有中途minor段后接minion，更多后期普通波可有多个中断Boss段。普通波也拆不同数量的小怪段，阶段总数量始终受60预算约束。bossTier表示最后实体属于Boss时的层级；普通波可能有中途Boss但bossTier仍none，真正完整信息以encounters/bossNodes为准。这些编排仍为原型平衡，不是随机地图。
+
+getWaveProgress接口和UI现有markers字段不变。剩余计数继续clamp到0..total，非有限值保守视为尚未生成；即使旧checkpoint.waveSpawnRemaining大于当前total也不会负进度或把未spawn Boss标为清除。marker仍依据实际spawn索引映射的实例ID和存活状态，保留乱序击杀语义。
+
+验证：waveProgress现6项，覆盖手工多Boss连续段展平/预算截断、1/5/10/12/20/100/200逐个真实spawn与所有nodes完全一致、1..250波总数量/独立节点一致、普通波混合、乱序击杀、legacy第8波与超大剩余计数/ready/reward边界。连同既有movement2及death5共13/13通过；定向strict TypeScript与范围diff-check通过。不重复全仓、不改用户save、不提交推送，完成后停止编辑。
+
+## 角色基础属性、装备分层及真实施法（2026-11-04，完成）
+
+用户确认角色先有固有属性，装备提升角色能力，再叠加法术与其他修饰。方案/字段/公式已先经根确认；根将contracts/content角色helper/initial/compile/engine/runtime核心文件本轮交本模块独占，UI和agent投影仍由根/界面负责。没有操作用户当前存档文件，没有依赖变更/视觉验收/提交推送。
+
+### 原生委派与验收
+
+| threadId | 模型/provider | 独占文件 | 已核验结果 |
+| --- | --- | --- | --- |
+| 01a1a240-1411-7642-8951-44f5de00abbc | GPT-6 Luna/native | content/characters.ts、characters.test.ts | completed/idle；helper、来源聚合、迁移、有限边界经Sol实际审查通过 |
+| 01a1a240-16cd-7392-be82-9400fc3c5fec | GPT-6 Luna/native | loadout/compile.ts、actor-stats.test.ts | completed/idle；品质/角色/装备/奥术/序列/本局公式及快照经Sol实际审查通过 |
+
+Sol负责人持有contracts、runtime/index/initial及runtime actor tests、engine接触/RNG/实体/回蓝/实际命中测试和本记录。两任务健康完成，无provider失败/模型恢复。曾因负责人先写消费者import、helper未落盘造成预览缺模块；已纠正顺序优先落完整helper，实际curl5173该模块200，未使用假stub。后续所有最终核心定向类型检查通过。
+
+### 公共类型与真实来源
+
+CharacterBaseStats字段/中性默认/单位：attack=0（额外攻击点，仅攻击法术）、castSpeedPercent=0（施法频率百分比加成）、range=0（世界单位射程加值）、accuracy=1（0..1命中概率）、critChance=0（0..1条件暴击率）、critMultiplier=1.5（暴击倍率）、luck=0（掉币概率百分点）、elementBonuses={}（系别比例加成）。mana/maxMana/manaRegen继续用既有实例字段，分别为当前法力/已有个人上限/每秒回复，没有在baseStats另造一份真源。
+
+CharacterInstance.baseStats可选仅为旧checkpoint兼容，new/recruit使用createCharacterBaseStats每次独立创建。WandInstance.statBonuses支持Partial<CharacterBaseStats>及maxMana/manaRegen增量；可选state.gear注册表与角色gearIds提供head/body/feet/accessory四槽通用入口。装备不会永久写入base：只算wand.characterId和角色wandIds双向一致的法杖、每ID一次；gear需注册表id、slot、characterId和角色对应槽一致，去重。没有新增大型装备内容、gear背包或gear穿脱命令；现有法杖装备/卸下/换人是真实可操作链。
+
+### getter与公式（界面/公开投影复用）
+
+`getCharacterStats(state,characterId,content=demoContent): CharacterStatsView | undefined` 导出于content/characters.ts，未知或重复角色ID不返回伪结果。返回严格显式克隆的{base,equipment,run,sequence,final}，仅合法Element键，不spread未知payload。
+
+final含attack/attackMultiplier、range/rangeMultiplier、castSpeedPercent/cooldownMultiplier、accuracy/critChance/critMultiplier、luck/totalLuck、elementBonuses、mana/maxMana/manaRegen。
+
+- 原始角色平攻A=max(0,base.attack+equipment.attack)，M=max(0,1+run.attackPercent/100)，final.attack=A*M、attackMultiplier=M。
+- 攻击法术基础power=(definition.power*物品品级倍率+ A)*M，再乘邻接奥术power倍率及最终系别倍率。编译等价写为spellGradePower*final.attackMultiplier+final.attack，避免平攻双乘。本局攻击增幅不增强heal/shield。
+- 原始角色射程加值R=max(0,base.range+equipment.range)，N=max(0,1+run.rangePercent/100)，编译射程=(definition.range+R)*N，再乘focus邻接射程倍率。
+- 施法频率S=clamp(base.castSpeedPercent+equipment.castSpeedPercent,-90,10000)，冷却=definition.cooldownMs/(1+S/100)*(1-clamp(run.cooldownPercent,0,70)/100)。引擎仍有50ms最小实际冷却，不把UI帧率当施法频率。
+- 系别基础与装备比例先相加B=base.elementBonuses+equipment.elementBonuses，再与序列Q相乘：(1+max(-1,B))*(1+max(-1,Q))；final.elementBonuses存倍率减1，compile只应用一次。品质与各奥术原有规则保留，impact/beam配置独立clone。
+- final.accuracy/critChance分别加装备后限0..1；critMultiplier限1..10；luck加装备后非负，totalLuck再合state.luck。幸运只影响实际金币掉落概率，未声称影响稀有物品概率。
+- final.maxMana=已有character.maxMana+equipment.maxMana，final.manaRegen同理；已有实例字段已包含先前实际发过的本局maxMana/regen奖励，所以不再次加run摘要。发动/回蓝/清波回满使用同一getter；真实构筑/卸杖成功后按最终上限夹当前mana，装备去掉后不会遗留虚高容量或永久污染base。
+
+基础合法有限值迁移保留；装备/本局计算层采用命名有限界限（flat ±1e6、倍率0..1e4、频率等边界），极大有限求和和相乘正向溢出饱和，不把溢出的法力上限归零。final.luck也与实际命中快照一致限1e6；公开层字段均有限。基础合法有限值可继续保留其原始数值，参与最终计算时有界，避免修改已有角色合法基础数据。
+
+### 精准、暴击、幸运实际生效
+
+CompiledSpell.attackRoll与CombatEntity.attackRoll快照{accuracy,critChance,critMultiplier,sourceLuck}。真实发射复制，换人/卸装/基础值改变不改变在途弹体或射线归属/概率。legacy无快照按1/0/1.5/0。
+
+通用applyContactDamage由projectile/pierce/splash/chain和beam每次实际接触或pulse目标共用；使用同一个state.rngState的LCG保存流。非中性配置每次有效接触只取一个roll：roll>=accuracy为miss；命中时以roll/accuracy<critChance判暴击，保持P(hit)=accuracy及P(crit|hit)=critChance，准确处理0/1边界。neutral accuracy1/crit0不额外取随机数，保默认平衡与原掉落流。
+
+miss仅emit attackMiss（entityId/targetId/source/effect/x/y），不emit damage、不扣HP、不发死亡/XP/血迹或清洗事件；该目标仍计已接触，穿透/连锁不重试同目标。beam每pulse每目标重新判一次。命中damage带critical与sourceLuck，暴击乘快照倍率；真实致死pending cause携sourceLuck，掉币保持旧概率clamp(.25+(state.luck+sourceLuck)*.01,.1,.8)，只取实际致死来源，非最近施法。极端伤害运算用COMBAT_ROLL_LIMITS.maxDamage=1e12防非有限，普通数值不受影响。
+
+### 迁移/运行时及实际检查
+
+normalizeCharacterStats(state):void逐field补缺/校验partial或malformed base，保所有有效值，不改身份、xp/level、mana、已有maxMana/regen。constructor调用一次，checkpoint仍v1；new/recruit独立clone中性base，不复制其他角色属性。重新归一幂等，没有自动升级/赠品或重置用户状态。
+
+Sol实读两任务和集成，修正getter未定义安全分支、极大有限属性加法/乘法溢出、final.luck与真实快照限额不一致，以及不应在无关领地升级命令顺带夹角色mana的接线。公开projection和UI字段已通知根及UIlead，本模块不写其文件。
+
+最终集中47/47通过：helper5、角色编译4、实际actor combat7、runtime actor3、既有compile7/impact13/death5/rewards3。覆盖基础/装备/品级/奥术/序列/本局不双算、真实射程与350ms施法、攻击接触伤害、单roll确定序列crit/hit/miss、中性RNG兼容、miss无死亡/XP、beam共用、发射快照、角色幸运真实掉币、装备法力回蓝及回满、真实卸杖容量回落、legacy不重置和新角色独立值。定向strict TypeScript及范围diff-check通过；不重复全仓，曾读到的UI/投影中间态错误交各owner修，根统一完整构建。全部核心文件已释放，停止编辑交根静态批审/统一提交。
+
+## 雷系连锁小扩展（2026-11-04，完成）
+
+按用户要求复用原内容Luna原生任务01a1a22f-e838-7703-a5f5-63ec59275bc4继续执行，没有创建新聊天、没有重写通用chain或重跑核心47/194。执行者仅追加demo.ts定义、expanded-spells.test.ts内容检查和design/content.md新段；读取最新文档后append，保留根已补的角色基础/装备说明。
+
+新固定ID及原型：spark-hop跳电（8力量/4法力/650ms/射程26/弹速125，3目标、半径9、逐跳0.6，横2格）；thunder-chain雷链（20/14/1800/36/105，4目标、半径22、0.85，T4格）；storm-net雷网（12/16/2100/30/110，6目标、半径11、0.8，方4格）。均lightning/projectile/chain、level1/common；旧arc-chain及原23法术保留，目录现26。数值为原型，未宣称平衡定案。未添加可选暗系，保持小范围。
+
+Sol实读3条配置、测试调用与文档：均<=3×3、参数有限、目标数不超现有8预算、真实后续飞行/去重/衰减沿用通用机制。修正雷链shape表误写L为T；补20单位跳距验证雷链独有的长跳距，保留10单位场景区分跳电与雷网。
+
+实际expanded-spells.test.ts定向6/6通过，涵盖全部新定义真实放置/编译/首次发射不瞬伤以及3/4/6唯一目标、逐跳伤害和半径差异；执行者最后小修后重跑该文件仍6/6，未扩大至核心全套。最终定向strict TypeScript和本范围diff-check通过。执行者最终状态completed/idle，Sol验收通过，停止编辑。root负责新ID视觉映射及已授权当前run定向onlyMissing补齐，本模块未触用户IAB/runtime/preview/save，也不宣称用户已领取。无提交推送。
+
+## 独立飞弹速度属性（2026-11-04，完成）
+
+用户确认飞弹飞行速度独立于施法攻速，可由角色与装备提升后叠加法术speed。本轮仅该字段，无回旋/返回法术新机制，不重新叠mana/regen，不改全局时间倍率。
+
+复用原健康Luna任务：01a1a240-1411-7642-8951-44f5de00abbc独占characters.ts/characters.test.ts；01a1a240-16cd-7392-be82-9400fc3c5fec独占compile.ts/actor-stats.test.ts；均已核验completed/idle。Sol负责人修改contracts可选字段、CastSpec与effects取编译速度、新engine/projectile-speed.test.ts并实读验收，无新聊天或失败恢复。
+
+CharacterBaseStats.projectileSpeedPercent?:number仅因legacy/旧手写fixture兼容而可缺；factory及normalize补0，非法/非finite/越界base恢复默认。NormalizedCharacterBaseStats与getter.base/equipment均始终有number；final新增projectileSpeedPercent与projectileSpeedMultiplier。角色和合法装备同字段按百分点加法，最终percent限[-90,10000]，multiplier=1+percent/100，确保有限正值（约0.1..101）。装备归属/去重/白名单与其他属性一致，不永久写base，旧有效角色数据和mana/regen保持。
+
+只对effect projectile编译speed=(definition.speed??72)*final.projectileSpeedMultiplier，缺速度的旧法术仍按原72基准享加成。CastSpec.speed可选，effects改取spec.speed??rawDefinition.speed??72，防原始定义覆盖编译值。真实实体speed和moveSpeed因此同时生效；火球仍以18%上限速度起步/原600ms指数时间常数，不复制积分。beam固定方向/脉冲、heal/shield不受飞弹加成，castSpeedPercent仍只调整施法冷却。游戏速度仍由runtime统一dt一次，不在编译或飞行另乘state.speed。
+
+已通知root和UIlead准确字段及百分比单位。实测characters5+compile actor6+新projectile-speed3共14/14通过；包含旧缺字段/partial/非法默认、基础与wand/gear叠加/错误owner、有限边界、与攻速/法力独立、缺定义speed fallback、火花同20单位飞行300ms→150ms且冷却700/耗蓝4不变、火球cap50→100/起步9→18、solar-ray首pulse延迟100ms不变。最终定向strict TypeScript与范围diff-check通过；未跑核心47/194/全仓，没有改存档/IAB或提交推送。Sol实际代码验收通过，停止编辑并释放本轮核心文件。
+## 角色成长、升级满蓝与两种敌人路线（2026-11-04）
+
+根确认接口后复用两个健康原任务：Luna `01a1a240-1411-7642-8951-44f5de00abbc` 独占 characterGrowth.ts、character-growth.test.ts、characters.ts、characters.test.ts；Luna `01a1a240-16cd-7392-be82-9400fc3c5fec` 独占 waves.ts、waves.test.ts、characterAnchors.ts、character-anchors.test.ts。两个任务均实际完成并释放，未更换用户模型。Sol负责 contracts 初始字段、engine/index.ts 升级回蓝、growth-and-anchors.test.ts、文档与实际代码验收；projectiles/beams 的同源发射位置修改落后已明确交根独占继续双重/分裂新需求，不并写其文件。
+
+CharacterInstance.growthProfileId 可选兼容旧档。getCharacterGrowth 返回 detached 的 profileId/name/multipliers/perLevel/total，基础每级 attack1/castSpeedPercent1/range0.1/projectileSpeedPercent0.5/maxMana5/manaRegen0.25；fire attack×2/cast×1.5，wood maxMana×2/regen×2/attack×0.75，balanced各1。总量为(level-1)×每级增量，各项有限封顶1e6，非指数翻倍；缺失/未知profile按wood/fire序列回退，否则balanced，normalize只保存档案、不改永久base/XP/mana。getter新增growth总量，base+growth+equipment后按原run/sequence规则合成，实例maxMana/regen已含run历史奖励，不重加摘要。settleDeaths每次真实level++后用传入content的最终maxMana回满，再发原逐级characterLevelUp；旧高等级恢复只计算成长，不补满蓝/历史赠品。
+
+getCharacterAnchors(characters) 返回 {characterId,x,y}[]，x=50+(index-(count-1)/2)×min(24,80/max(1,count-1))、y84；三人26/50/74，单人50。UI头像、实际projectile原点与选敌射程、beam原点与真实线段及敌人追击共用此x来源，UI纵向仍投影至盾条上方，不宣称独立角色HP。CombatEntity.movementMode 为 straight/huntCharacter，targetCharacterId保存目标；spawnIndex奇偶定路线，同一既有出生随机值选角色，不新增RNG draw。straight与缺mode旧敌保当前x下行；hunter先到所选角色锚点84，再沿该x下行到92攻击共享领地。目标消失稳定取首个剩余角色，0角色退straight，不强制追空中心。暂停、背包、原integrateMotion/ramp及boss出生计划保留。
+
+定向检查发现首波边缘straight无法进入初始火花射程，真实破坏原自动清波闭环；根确认仅首波x收至30+40×原random，后续仍10+80×random，不改火花射程或让直行怪归中。Sol强化首波用例，确认实际生成全部敌人而非反复读取首个旧敌，并再推进1000ms断言直行x保持。
+
+已实际验证成长helper+stats10项、路线+锚点11项、真实成长/多角色发射集成4项，以及既有actor compile/runtime/combat16项通过。个人升级、旧档迁移、boss进度等检查通过；首波调整前明确有一次starter清波失败，未篡改测试预期。根双重/分裂核心稳定后，重新集中验证index+成长/发射集成16项中15项通过，确认首波自动清波恢复、成长/锚点4项保持通过；唯一失败为旧double测试期待100ms同时两次命中，现新120ms连发机制只命中一次，已交根cast所有者更新真实分时验证。本域不篡改或接管根cast测试。已通知根及UIlead完整API；无本域存档/IAB操作、提交推送或UI视觉验收。
+
+### 法力来源复审修正
+
+UIlead复审发现新增resourceSources对不一致旧档直接执行实例值减run摘要，会把maxMana20/run30反推为虚假基础-10（regen2/run4同理）。Sol已窄修characters.ts/test：character/run资源字段改为number|null，新增combined保存实例内合并数值、status按maxMana/manaRegen分别标derived或combined；无法非负可靠拆分或非法/饱和值时返回null，不把反推负数当真实基础。最终战斗数值、成长和装备贡献不变，不重写存档。新增三项边界检查，stats最终10/10通过；UIlead已接稳定API并以“合计 N”与run列“—”处理不可拆分数据，未将null当0。consumer接好后全仓strict TypeScript与本范围diff-check通过。此修正独立于成长公式及根cast机制。根随后按用户覆盖需求继续修改ballistic飞弹，本域遵照协调暂停cast集成检查，不宣称其最终验收完成。
+### 最终稳定版集成确认
+
+根通知新版physical ballistic及分时双重稳定后，本域仅运行 `src/engine/index.test.ts` 与 `src/engine/growth-and-anchors.test.ts` 一次，16/16通过。确认首波自动清波、历史等级真实成长且不自动回蓝、实际跨级最终法力回满、三角色26/50/74发射/射程和真实beam脉冲均保持；原double时序断言已由根修正并通过。本域未改根cast文件、未重跑整仓或发起UI视觉检查。成长、路线、锚点和来源修正验收完成，释放本域文件；后续新机制由根协调整合。
+
+## 怪物体型共享数据与真实攻击事件（2026-11-04，完成）
+
+根确认接口后复用原内容 Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4`，仅独占新增 content/monsters.ts 与 monsters.test.ts；原健康任务正常完成并释放，无模型切换或新顶层任务。根持有 contracts MonsterBodySize/CombatEntity.bodySize、碰撞/素材/死亡效果接线；UIlead持有sprite尺寸/HP条和攻击bob。Sol仅在 waves.ts 原 territoryAttacked 增加 sourceEntityId、targetId=territory、x/y，保留 enemyId及原伤害字段；没有新增enemyAttacked或重复伤害，也不改模拟y。新增waves单项真实攻击事件测试验证一次扣盾、完整来源坐标、冷却期间不再发事件，未重跑原波次矩阵。
+
+MONSTER_SIZE_PRESETS 提供 small/normal/large/huge/colossal，像素24/32/48/64/80，世界碰撞半径0.75/1/1.5/2/2.5；monsterDefinitions映射 enemy-basic/boss-minor/boss-major/boss-apex 到 normal/large/huge/colossal，素材key为 monster.basic/monster.boss.minor/monster.boss.major/monster.boss.apex。getMonsterSize(entity Pick definitionId/bodySize) 返回detached{id,pixels,hitRadius}，合法显式bodySize覆盖定义，非法runtime size退定义、未知定义退normal。默认体型不冗余写入spawn实例；共享数据与asset深冻结，定义查own key防prototype-like字符串误取对象。
+
+Sol已实际读取实现和调用流程，确认normal半径保持1、boss同比增长、override/fallback/原型键白名单、数据冻结与副本独立。修正测试对readonly返回类型直接赋值的TS问题，保留mutable test view验证detached副本，不改helper运行行为。执行者monsters定向5/5通过，最终typecheck通过；Sol真实territoryAttacked定向1/1通过，本范围diff-check通过。未跑整仓/build/旧波次矩阵，未改rootcast/碰撞/UI/save或提交推送。稳定导出和事件字段已发根及UIlead，视觉及其消费接线由相应负责人继续验收。
+
+## 领地全量修复与无玩法上限升级（2026-11-04，完成）
+
+按根授权复用两个原健康Luna：`01a1a240-1411-7642-8951-44f5de00abbc` 独占 content/territory.ts；`01a1a240-16cd-7392-be82-9400fc3c5fec` 独占 runtime/territory.ts 与 territory.test.ts。Sol实读helper、事务与测试并补下一步价格/容量安全边界用例；两个任务均完成释放，无模型切换。根负责contracts/protocol/projection，构筑Sol `01a1a190-f915-7e63-b995-4fdb7bf581f7` 持有runtime/index.ts路由及runStatistics，UIlead持有界面，本域未并写这些文件。
+
+getTerritoryRepair(state,track) 返回 track/current/maximum/restore/cost/allowed/reason(full|coins|phase|invalid)；wall按缺失量×0.5、shield×0.3向上取整，有缺失至少1金币。满值包括旧档0/0护盾restore0/cost0不可付费。applyTerritoryRepair复用预览提交一次 territoryRepaired {track,cost,increase:restore,hp,shield}，原子扣费补满该轨道，不改变另一轨道、等级或上限。满值ALREADY_FULL、金币INSUFFICIENT_COINS、时机INVALID_PHASE、非法数值INVALID_STATE，拒绝返回原state和空events，router负责命令ID去重，不另造去重表。
+
+getTerritoryUpgrade移除rules.maxLevel和maxLevel reason，金币够可持续升；价格仍当前wall等级×20/shield×15，增量仍wall20/shield10，同时加当前与上限保持受损差。nextLevel:null仅为非法/越过JavaScript安全数值边界的保护：levels为安全正整数，价格、当前/上限增量、金币等finite非负且不超过MAX_SAFE_INTEGER；事务revision/nextEventSeq的下一增量也必须安全，gameTimeMs有界。ready/reward/显式暂停battle允许，defeat禁止借此复活。数值为暂定原型，已记design/mechanics.md。
+
+开发中执行者delete/recreate runtime模块造成导入缺失和live页面空白，根反馈后已立即要求优先恢复完整文件再测试，禁止继续长时间删除在用模块；文件恢复已核对并通知根及router，没有把中间态描述为可用成品。最终Sol实读验收通过：执行者territory定向9/9，Sol新增安全价格/生命容量/护盾容量溢出单项1/1通过；最终全仓tsc --noEmit与本范围diff-check通过。构筑Sol独立报告真实router统计/修复/命令幂等5项通过且支出不倒扣累计收入。未跑旧整仓矩阵/build、未动UI/rootcast/save或提交推送。稳定helper导出、事件、拒绝码已发根/UI/router，本域三文件释放，界面视觉由用户确认。
+
+## 城墙与护盾独立自动恢复（2026-11-04，完成）
+
+根授权独立新模块，不改root engine/index.ts、runtime/index.ts、contracts、UI或protocol。复用两原健康Luna：`01a1a240-1411-7642-8951-44f5de00abbc` 独占 content/territoryRecovery.ts 与 content/territory-recovery.test.ts；`01a1a240-16cd-7392-be82-9400fc3c5fec` 独占 runtime/territoryRecovery.ts 与 runtime/territory-recovery.test.ts；Sol独占 engine/territoryRecovery.ts 与 engine/territory-recovery.test.ts，负责实际审查、集成协调及追加回归。新模块均一次完整Add落盘后通知根消费，没有再次删除在用模块造成导入空窗。两worker已完成释放，无模型更换。
+
+getTerritoryRecovery(state,track) 返回 track/level/unlocked/rate/nextRate/cost/allowed/reason(coins|phase|invalid)，复用旧territory数值校验及track validator；缺失repairLevel为0。两个轨道独立，unlockCost300，后续价格150×当前能力等级，wall每级1生命/秒、shield每级2盾/秒；冻结配置集中保存，等级线性无玩法cap，仅安全整数/派生价格及速率边界。现有速率不因金币不足或购买时机不符归零；getTerritoryRecoveryRate(territory,track)供引擎纯取速率，不依赖金币/phase门禁。初始化显式0由根接，旧档仍以缺失0兼容，checkpoint保存等级，新局清回0。
+
+applyTerritoryRecoveryUpgrade仅提交对应wallRepairLevel或shieldRepairLevel，扣金币并安全递增revision/seq，发一次territoryRecoveryUpgraded {track,level,cost,rate}，不立即修复、不改容量或另一轨等级，不写统计/另建命令去重。准备/奖励/显式暂停battle可买，defeat和实时战斗拒绝；原子失败返回原state/noevents，安全元数据guard沿旧事务模式。
+
+advanceTerritoryRecovery(state,dtMs)只在battle且未paused/未backpackOpen、hp>0且合法时推进。每轨按已scaled dt秒数累加至真实上限，不重乘state.speed，不另timer、每tick事件或扣钱；未解锁/非法当前轨等级不恢复。先比较seconds与gap/rate再乘，极大有限dt也不会产生Infinity。根将调用放在每50ms子步enemy伤害及defeat检查之后，死亡同slice不能靠恢复复活；本域未改根入口。
+
+Sol实读修正：初版shield系数误为0.5，核对根及用户无新覆盖后改回2；清理重复isRecoveryPhase定义并复用门控；更正runtime测试将坏shield等级却对wall命令预期拒绝的问题，移除曾为该错误预期加入的无关轨guard，额外双向回归验证一轨NaN不阻止另一健康轨交易。根新initial显式0后，仅legacy fixture删除两字段模拟旧档，未逆改生产初始化。
+
+实际检查：内容6/6最终通过（初次重复函数transform失败后修复复跑），初始0变化后legacy单项1/1；runtime原7/7及收敛后safe metadata单项1/1、Sol独立轨单项1/1；引擎5/5覆盖独立恢复、暂停/背包/其他phase、hp0不复活、上限及巨量dt、非法level、20×50ms与1s一致和速度只由caller换算。两个worker定向strict与范围diff通过；根报告真实跨layer恢复/引擎/投影9/9通过。最终全仓strict按根要求等待UI新Props齐后统一执行，不重复撞中间态；本域未跑全仓/build、未改UI/save或提交推送。design/mechanics.md已记暂定价格/速率与两轨规则，稳定API/事件/接线位置已交根，本域文件释放，视觉由用户确认。
+
+## 具体魔法奖励介绍（2026-11-04，完成）
+
+根授权本域新增 magicDescriptions.ts/test 并接 randomRewards.ts，不改 runtime/index、UI、契约或战斗。复用唯一原内容Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4` 独占 content/magicDescriptions.ts 与 magic-descriptions.test.ts；Sol负责 randomRewards.ts 物品生成接线、真实机制/产品短句实际审、抽卡不变性检查及文档。原健康任务正常完成释放，无新顶层任务/模型更换。
+
+export enrichMagicReward(reward:RewardOption,content:ContentCatalog):RewardOption 始终返回detached新对象，已知item按effect/impact/element及fireball加速等真实行为替换description，不改ID/kind/definitionId/label/grade/effect/amount/details。未知定义、原型保留键、非item或未知效果保原说明，不枚举泄露其他内容。randomRewards item分支调用同helper并移除旧通用“获得此法术或奥术，发现其定义并存入共享背包”；不增加随机调用，不计算另一套品质/角色叠加伤害。根持有runtime构造时map旧rewards及领取/持久化测试，原卡不重抽，后续领取快照自然保新介绍；本域不改根router。
+
+Sol实查纠正火球举例：当前fireball无splash，只有逐渐加速及接触伤害；与根核对后不因文案需求改AOE或捏造周围伤害。水系真实damage事件确实冲洗附近血迹，回春/生息恢复领地生命、光盾恢复领地盾，射线持续脉冲，连锁逐跳降伤，穿透直线有限目标；double相邻攻击分次连发且治疗/盾重复、split相邻飞弹/射线同时分支。初版motif氛围套话与否定/实现说明未达产品要求，根及Sol反馈后整段删除，收敛到30种各自可区分的短用途句，目录均≤45字；水系单句、射线用该法术名作主语。未知行为保旧说明，不补另一条通用垃圾话。
+
+实际验证：执行者magic-descriptions最终6/6（首次潮涌旧断言失败，随最终短句同步断言后复跑通过），覆盖30目录、重点机制、effect变更、未知/原型键、clone及字段保留；执行者typecheck和两文件diff通过。Sol原randomRewards定向7/7通过；额外真实四物品卡脚本确认仍12次RNG draw，原ID/kind/definition/grade/details保留且description具体化。本范围diff-check通过，未扩跑战斗矩阵/build、未触用户IAB/save或提交推送。根已实读最终短句符合并接旧卡map；本域三源码/测试文件释放，根后续独占runtime/index继续其他工作。
+
+## 装备、普通药水目录及真实击杀掉落（2026-11-04，完成）
+
+用户明确allitems包含全部背包分类，并要求头盔护具真正可穿、敌人能掉装备。根授权本域数据与新loot模块，根/构筑/UI分别持有契约、穿脱/药水命令、背包/属性展示、协议过滤和当前档补齐，本域未越界写其文件。复用原内容Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4` 独占 content/gear.ts、supplies.ts、gear-supplies.test.ts；复用原Luna `01a1a240-16cd-7392-be82-9400fc3c5fec` 独占 engine/loot.ts/test；Sol持有demo.ts目录导入、实际验收与文档。两健康任务已完成释放，没有新顶层任务或模型切换，新文件均一次完整Add，不删除在用模块。
+
+gearDefinitions含8件1级白板、每slot两件：apprentice-hat/astrologer-hood、rune-robe/heartguard-armor、swift-boots/farwatch-boots、copper-ring/spring-pendant。createGearFromDefinition(def,id,grade=def.grade)生成definitionId/name/slot/level/grade/null owner及独立statBonuses，按共享gradePower实例/定义比例缩放有限白名单字段及合法元素键。静态定义/shape/asset/bonus深冻结，实例独立可变，无反向loadout依赖。asset.label改定性作用，避免白板固定数值冒充更高品质实例实际贡献；只增强已有真实属性，无角色HP、护甲减伤或移动速度假机制。
+
+supplyDefinitions含health-potion领地生命40、shield-potion领地护盾30、mana-potion全队法力50，1级白板、1至2格。createSupplyFromDefinition仅生成独立id/definitionId/level/grade，效果不复制入实例，根运行时读取定义按同品质比例使用。demoContent.gear/items由Sol接入。获得后分别入state.gear（未装备）/state.supplies，不混入magic items/backpack；knowledge.gearIds/itemIds随获得去重发现。
+
+grantEnemyLoot(state,enemy,sourceLuck,content,emit)由根在每个真实enemyKilled之后调用一次，沿nextCombatRandom保存流，不另造随机源、伤害结算或死亡账本。普通gear基础8%加(state.luck+原发射幸运快照)×0.001，最高30%，药水独立4%；第一次装备仅在registry空且knowledge gear也空时保底。boss-minor/major/apex保证装备（无gear目录回退药水），品质底线rare/epic/legendary；最多每次gear1+supply1，品质权重60/25/10/4/0.8/0.2。只从当前目录合法own定义抽取，空目录不伪造；ID检查所有registry key及实例id、法杖/角色/实体与背包，避免覆盖。emit lootGranted {enemyId,kind:gear|item,instanceId,definitionId,grade,x,y}，不默认泛通知、不直接穿戴/使用。概率、品级与基础属性均为原型，详表已记design/content.md。
+
+Sol实际审修正boss等级表原型键误保底、NaN/-Infinity HP误认真实死亡、跨registry actual id冲突与validAsset未知object类型收窄。执行者数据/factory8/8、loot10/10最终通过；Sol额外脚本验证epic帽子合法穿戴后最终法力+30/恢复+1，epic靴子真实编译冷却÷1.1/飞弹速度×1.2；根stepBattle真实飞弹接触→致死damage→enemyKilled→首次gear只掉一次，下一步不再发放。最终全仓tsc --noEmit及范围diff-check通过，未跑旧全矩阵/build或改rootcast/UI/save。根已接真实settleDeaths并获当前run全类别.02补齐所需稳定API；本域未声称代操作用户存档。所有本域文件释放停止编辑，无提交推送，普通发现过滤及用户视觉验收仍由相应负责人收口。
+
+### 装备统一单格补充（用户最新覆盖）
+
+用户随后明确四槽装备没有不同体积，统一占一个背包格，法杖容量独立。复用同两worker窄改：gearDefinitions八件shape全部为唯一原点格[{x:0,y:0}]，目录测试强断言精确单格；loot gear候选严格校验安全整数原点单格，多格和偏移格不可掉落。supplies继续原1至2格规则，不改装备数值、factory、品质、概率、法杖或UI。Sol实读实际数据、gear专用校验与新增用例通过；仅两个目标用例各1/1及必要strict/范围diff通过，没有重跑旧18矩阵。design/content.md同步单格规则，公开catalog随真实定义单格而非仅UI压缩。两worker再次释放，本域停止编辑。
+
+## 飞弹性能测量、候选缓存与弹体半径（2026-11-04）
+
+根先授权只读测量，临时基准/JSON/main线程CPU profile均在ignored .local/work。以512条历史（运行时实际裁切量）、3角色6法杖24法术位、混合直击/穿透/范围/连锁弹体测试100/300敌与弹、1x/5x；另测现实波次上限60敌。没有把1万/5万历史的裸engine压力数据归因于正常runtime。初始512 active profile的热点为飞弹推进/碰撞/目标查询，编译与getStats约1.5% self、等量5子步编译只约0.20/0.49ms，不优先做编译缓存。完整只读报告与数据见.local/work/engine-perf-report.md。
+
+根随后授权最小实施。复用原Luna `01a1a240-16cd-7392-be82-9400fc3c5fec` 独占 projectileCollision.ts/projectiles.ts；原内容Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4` 独占新projectile-collision-cache.test.ts，先保存旧全遍历公式作独立reference。Sol不代写实现，实际逐行审数学与调用链、独立前后测量与验收。保留每次advanceProjectiles入口构建enemy reference/radius候选缓存，所有legs复用，query实时重查HP/faction/kind/坐标/excluded；同slice前弹杀敌不会被后弹撞死体，半径从getMonsterSize每entry重建，不存档/跨步保留，不改targets/impact/RNG或事件顺序。
+
+相同150样本、512 history、5x主动施法、怪物/弹体旧半径的公平前后比较（p50/p95 ms）：60敌100弹2.96/4.58→2.06/3.08，60敌300弹6.38/8.36→3.90/4.59，300敌300弹15.67/23.53→10.86/11.79。现实60/300最终median下降约39%、p95约45%，复测也同向，但共享host有波动，不承诺UI帧率或独自解决全部卡顿。根另持有runtime持久化及UI祖先观察器修复。曾按根授权试作有界稀疏grid，三组全面退步（4.05/6.68、7.30/17.14、22.26/48.74），立即精确恢复cache-only；没有留下grid/Index/benchmark专用分支，也没有为数字换fixture。
+
+独立cache/reference5项与原collision4项均实际通过，涵盖64段/多大小混合样本、擦边/同距ID tie、排除项、同slice死亡与真实穿透A/B/C、下一entry读取新半径、neutral RNG及事件顺序。必要strict/diff通过，没有扩跑旧矩阵。根随后单独确认可见边缘玩法扩大：firstProjectileCollision新增第6可选projectileRadius默认0，legacy reference明确按0不变；实际advance统一传PROJECTILE_HIT_RADIUS=0.4。扩展擦边单独测，不按法术ID散写，不把根新的怪半径及负y出生混入上面的纯性能比较。根持有monsters/waves改动；本域不触UI/root index/runtime。三源码/测试已释放，非发射area新机制另行授权实施，不混入此性能验收。
+
+## 非发射区域技能、新奥术透传与全法术配方（2026-11-04，完成冻结）
+
+根授权真实非发射技能并持有contracts、compile起始area支持、engine/index接线/失败清理、projection和当前档grant；本域不越界写根文件。复用原内容Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4` 独占新content/areaSpells.ts/test、magicDescriptions.ts/test、magicRecipes.ts/test，expanded-spells.test.ts仅目录count更新；原engine Luna `01a1a240-16cd-7392-be82-9400fc3c5fec` 独占新engine/areaEffects.ts/test和effects.ts dispatch/编译元数据透传。Sol负责demo统一目录接入、targets.ts按根授权仅damage来源增加areaId一行、实际代码审、真实stepBattle验证、文档。构筑Sol另持expandedArcana/grade-scaling/compile及真实merge验证，文件互斥。所有本域源码/测试现冻结释放，不再扩内容或重跑全套。
+
+3新增ID为thunder-strike落雷、frost-ring冰环、earth-spikes地刺，effect area与mode strike/ring/eruption真实控制位置/时间，未用隐形projectile或beam。spawnAreaEffects返回是否实际创建，调用者统一扣一次法力/冷却；advanceAreaEffects只在正常battle推进，paused/backpack冻结。ground modes施法时锁地，预兆后一次圈内碰撞，敌人移走可miss；ring从原角色共享anchor扩散，以前后波前与敌body交叠判一次contact。伤害复用applyContactDamage的精准/暴击/sourceLuck与原source XP，事件damage用areaId。Double/split复用castPattern：120ms后续bursts、同时多个锁地点/同心不同展开时长的真实多环，每分支独立伤害；不静默忽略area split。perCast8/alive32/每实体最多8目标/radius100/总等待加active寿命≤5s，击中包括miss均消耗contact，不能多帧重复打同敌。
+
+Area时钟复用launchDelayMs与remainingMs：前者是剩余预兆/双重等待，等待时remainingMs保持active duration；激活后删除前者并emit areaActivated，再扣active remainingMs。area snapshot保实际delay/duration/radius，ring编译range联动至最终radius且钳100，视觉与物理不分叉；ground castRange独立于局部radius。Sol纠正未知caster回退假中心、single-target split把负y点clamp0、ring override绕过最大半径预算三个问题。根每slice接advanceAreaEffects并在失败清area，清波原全实体清理防跨波伤害。
+
+新增5奥术haste/efficiency/reach/velocity/area的数据和编译由构筑域完成，本域demo append其expandedArcana，当前29spells+9arcana=38；描述按modifier给真实短句、unknown仍保原，广域明确含区域/溅射/连锁并加宽光束。effects CastSpec新增optional impact/beam/area并以编译spec优先于模板，防广域实际几何被原definition吞掉。Source列控范围未扩compile/targets/impact其他语义，未捏造减速/冻结/DOT/角色HP。
+
+magicRecipeDefinitions20条真实相邻异名合成，baseMagicDefinitionIds9起点，首fireball-recipe保留；旧29spell无新增数值，9根+20产物覆盖全目录，ID/产物唯一、全inputs已定义且有向无环。demo.recipes替换真实表，不另造UI假路线；与同名升品质机制分离。根按输入知识自动发现配方，手册及普通协议未知节点仍过滤，静态全表不作为普通发现直出。
+
+实际验收：区域engine8/8最终通过（delay/锁地移走miss/扩散去重/crit-miss/分时多分支/预算/编译geometry覆盖）；内容3新定义+区域描述初批10/10、旧目录count1/1；新增5mod后最终描述8/8覆盖38目录；Sol集中recipe结构/覆盖/DAG3/3通过。主Sol真实stepBattle逐个3招确认kind area、无projectile/beam、spawn无瞬伤且法力只扣一次、随后24/12/30基础伤害areaId；第二角色area击杀只原施法者XP+10且不重放。构筑域独立new modifiers4/4含编译→cast实际ring radius32.5命中原射程外目标，以及2/2真实public merge（落雷与含广域材料的地刺，邻接失败原子无吞/成功进bag再装杖compile）。最终本域整仓tsc与范围diff通过，不重复旧全矩阵/build。
+
+根后续已报告index/projection/recipeKnowledge路由完整接齐，当前run波25缺失8新魔法grant真实ACK executed/granted8且保金币和布局；这是根持有的用户存档操作，本域未代操作。根全量中旧飞弹时序assert因有意扩大碰撞半径从300ms变250ms，由根更新并继续统一最终检查；本域没有为旧断言缩回新半径。手册/UI/library收尾及视觉由用户确认，未做AI视觉验收，无本域提交推送。
+
+## 持续区域、雷暴与移动风暴（2026-11-04，完成冻结）
+
+根已实际落地ProjectileImpact.field、AreaSpec.field/vortex及tick/anchor/move/pull字段、CombatEntity.travelledDistance。复用原engine Luna `01a1a240-16cd-7392-be82-9400fc3c5fec` 独占projectiles.ts、impact.ts、areaEffects.ts与新focused engine测试；原内容Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4` 独占新fieldSpells.ts、magicRecipes.ts、magicDescriptions.ts及相应数据测试。Sol持demo接入与独立field-integration.test.ts，必须实际审代码/真实stepBattle后才能记完成。构筑Sol另持compile的广域field/vortex几何、quadruple/sextuple奥术以及三输入雷暴真实合成测试；根独占contracts、index、projection和用户存档grant。没有新增聊天或改变健康作者模型。
+
+本批目标为33法术、11奥术、24配方。field弹仅按真实路径累计射程；contact命中、range终点、either较早者触发持久区域，首伤等tick且不叠一次直接伤。雷暴固定全场中心，仅伤害中心位于0..100屏内的敌人，负y预生怪排除；风暴为有限寿命area，以存档坐标保存确定性移动路线并每模拟片拉近敌人，非召唤/宠物。局部pulse最多8目标、全屏最多64，共享alive32与5s总寿命预算。此段仅记录任务与约束，运行结果尚待作者完成及Sol验收。
+
+同批用户明确纠正雷链为即时首击后就近逐跳传导，优先于旧文档“连锁飞弹”。根已加effect/kind chain；第三原Luna `01a1a240-1411-7642-8951-44f5de00abbc` 独占新engine/chains.ts及test，其他健康作者继续当前任务。Sol统一effects dispatch、targets damage来源chainId、demo四旧雷系定义改chain去speed；内容作者改描述与原扩展法术测试，构筑Sol纳入chain攻击型修饰，根接advance/清理与投影，UI接chainArc。目标为首支立即命中，后续80ms模拟间隔、从上一命中位置选最近未命中活敌，120ms双重延迟与同时分支，共享alive32/perCast8、hitIds/falloff及原角色来源；尚未运行验收。
+
+最终实现已完整接demo，33法术、11奥术、24配方。field与vortex可用5s寿命预算，旧三mode仍保持2s上限；首tick至少200ms，局部8与显式global64分开，未给anchor不能自动提升global。风暴从角色锚点朝固定屏内路点(15,20)/(85,20)/(85,80)/(15,80)游走，targetX/Y保存下一点，每片真实移动与按秒牵引；不是围角色脚边的小轨道。field射程只写field弹travelledDistance，普通弹snapshot与运动规则保持；碰撞缓存和0.4半径保留。根每片在推进飞弹前保存areasAtEntry，传给advanceAreaEffects第4可选候选参数，使碰撞新生field从下一片才计首tick，不增bornAt契约或隐藏延迟。
+
+Sol逐段实际审projectiles/impact/areaEffects/chains/effects/demo/targets，修正了局部64误用、火场2400被旧2000截短、tick50与约定200不符、旧弹无条件新增travelledDistance、风暴只绕caster小圈、anchor缺省误升global、未知caster假中心、chain非必要range120截断与expire后remainingMs复活。调用链为compile→effects→真实projectile/chain/area；field碰撞仅生成area，area每pulse重选仍活目标并复用applyContactDamage；chain每段chainArc且damage携chainId。原施法者attackRoll/luck/物品与角色归属快照保持，根结算XP/掉落，无UI规则副本。
+
+实际结果：原engine定向26/26、即时链6/6；内容定义/描述/配方18/18，扩展目录与即时链3/3；构筑Sol三输入雷暴真实合成1/1（断开拒绝不吞、三份原子消费、单事件、3×3产物可装杖编译），先前新广域及4/6连发3/3。主Sol独立field-integration.test.ts最终4/4：两fieldbolt真实cast扣蓝→飞行→area，出生后399ms无伤、第400ms首pulse、再400ms重击同敌且无直接伤；雷暴两屏幕角落伤而y=-.01预生怪不伤；风暴移动/牵引/pulse且JSON存档后800ms与16×50ms同态、暂停背包冻结；4旧即时链首步伤害无弹、后续仅第二活敌、来源与单次扣蓝正确。最终整仓npx tsc --noEmit及范围diff通过；没有重复全性能矩阵或独自宣称UI视觉验收。
+
+所有本域源码/测试已释放冻结。根已获可grant新4法术的完整结果，用户存档发放、UI、最终全量检查与新机制高负载验证由根统一；本域没有擅自grant、改用户保存布局、commit或push。原作者均健康完成，未切模型或中断任务。
+
+## 普通怪物种类与波次混合（2026-11-04，完成冻结）
+
+用户指出种类少且同色，根授权本域数据/出生规则与UI域并行。继续复用健康native内容Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4` 独占monsters.ts/test，engine Luna `01a1a240-16cd-7392-be82-9400fc3c5fec` 独占waves.ts及相关wave/growth/offscreen测试。Sol持新monster-variety-integration.test.ts、实际代码审和文档。已向根及UIlead冻结六个ID与颜色体型：enemy-moss苔团small绿、enemy-ember焰灵small橙红、enemy-frost-moth霜蛾small冰蓝、enemy-shadow-bat影蝠small紫、enemy-sand-beetle砂甲虫large黄褐、enemy-crystal-crab晶蟹normal蓝紫。旧basic与3boss保持；UI域另持多色图稿，本域不写UI。
+
+普通定义新增spawn配置，含解锁波次、生命/伤害/速度/攻击间隔倍率及可选现有movementMode；getUnlockedMinionDefinitions从同一定义筛出普通种类。首波原basic不变，后续按出生序号轮换已解锁种类，不额外消耗RNG；波28应可遇全7种。首领节点、数量、60上限、旧已生实体、加速和负y进入保持，不重置用户局、不添加远程/分裂/免疫机制。此段为实施约束，验收待作者完成。
+
+最终两原native作者健康完成且源码释放：内容monsters.ts/test增加6种，共7普通+3boss；waves.ts/test统一按解锁目录选普通，普通序号排除此前首领节点，移动模式优先定义否则旧parity。首次波保持全basic、首只直行；boss仍用原参数与出生节点，同一原有随机抽样决定x与hunter目标，未增加RNG调用。旧实体推进不按定义重算，只有后续新生实体使用倍率，因此当前局不用重开。Sol实际逐段审定义helper/冻结和waves选种/参数/移动/出生事件，并纠正高波次先把原基础间隔钳400后再乘种类倍率、最后保400下限，避免慢怪倍率被负的基础公式抹掉。
+
+实际验证：怪物定义6/6（7普通3boss、稳定颜色尺寸、解锁、倍率、冻结和fallback）；wave/offscreen/growth17/17（首波友善、种类优先移动、单随机抽样、按定义真实倍率、wave28全部7种、首领节点、加速与负y进入、旧追踪目标回退）；主Sol独立monster-variety-integration.test.ts 2/2，wave28中途JSON保存/恢复后继续出生与原状态全等，总59实体内实际含7普通种类/7色/多种HP和速度及正确碰撞体型。另以实际出生七种由真实stepBattle施法击杀，确认7条enemyKilled原definitionId与角色来源、按各maxHp计个人与团队XP、普通lootGranted正常，事件经现有accumulateBattleStatistics计敌7/首领0且不重放。统计验证使用runtime已有事件消费者，不另改runtime规则。
+
+最终整仓npx tsc --noEmit和范围git diff --check均通过。内容作者早先类型检查碰到UI正在重写模块的瞬态缺文件，由UI恢复后主Sol实际重跑通过；未把瞬态描述成仍失败。docs/design/content.md新增实际参数表，稳定ID表已直接同步根与UIlead。没有本域UI、存档reset/grant、依赖、commit/push改动；多色轮廓表现由UI域完成并由用户确认，本域不宣称视觉已接受。
+
+## 同轮奖励语义不重复（2026-11-04，内容域完成）
+
+用户明确撤销同轮允许重复的旧规则。复用健康native内容Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4`，独占content/rewards.ts、randomRewards.ts及两个对应tests；根持runtime已展示offer迁移、知识发现与持久化，未争文件。导出getRewardOfferKey、dedupeRewardOffers、fillUniqueRewardOffers；buff按effect.type、coins全同项、item按definitionId、heal按领地生命对象、character/wand按定义或默认对象，不用label/id/grade/amount判断重复。实际候选池按剩余类型权重与类型内语义抽取，抽中即从有限池移除，耗尽返回较少，不无限重试；仍允许四个不同属性或不同法术且不固定类型位置。
+
+迁移保留首unique原对象、内容、ID与顺序，重复槽新卡用稳定新ID并避开全部原卡ID，防旧点击/远程claim领取别的奖励；已唯一四张不采样不消耗RNG。Sol实际审完整helper并发现“替换a可能复用另一旧重复ID a:unique-v1”的边界，作者增加reservedOldIds和对抗用例后修正。最终内容13/13、类型与diff检查通过，源码冻结释放；根另报告constructor仅reward非空且检测重复时接迁移、2/2定向过，不为phase reward空测试暂态填卡。
+
+## 统一命中状态（2026-11-04，完成冻结）
+
+根已实际落公共OnHitSpec/BurnStatus/EnemyStatus；复用空闲engine Luna `01a1a240-16cd-7392-be82-9400fc3c5fec` 独占statusEffects.ts/test及waves.ts/test，空闲内容Luna在奖励冻结后独占demo/areaSpells、magicDescriptions及focusedtests。构筑Sol持compile深快照及其test，主Sol持新damage.ts、targets、四载体onHit快照/真实heading与status-integration.test.ts。根独占index/projection/runtime，UI另域；原runtime性能native作者继续scratch只读测量，不被打断。
+
+统一真实accuracy/crit命中且有伤害、敌人仍活才调用onHit；damage.ts抽取原HP/来源emit核心供接触与周期复用，避免targets/statusEffects运行环。周期burn无accuracy/crit重抽或递归onHit，damage使用statusId/sourceKind=status/statusType=burn，不造projectileId，保存原角色/物品/法术/luck。slow取最强，等强刷新max剩余、弱者不延长强者；只按有效时间缩放实际位移，不永久改base speed/moveSpeed/ramp。burn按char+item+definition同源刷新max伤害/寿命、不推迟原tick；每敌最多4来源、tick至少200ms、寿命至多5s。击退沿真实heading，x0..100、y可负且上限100，事件distance为实际受边界限制后的位移。
+
+实际完整接入顺序由根index确定：advanceEnemies及领地失败guard后，advanceEnemyStatuses并立即settleDeaths，再territory recovery与攻击推进/施法；既有slow先影响本片移动，再扣TTL，burn本片击杀先于新cast结算。四载体与编译均深快照onHit，field从原projectile继续保留，beam/chain记录真实heading；普通无onHit攻击不增加状态处理或额外克隆。内容冻结5项：风刃击退2世界单位；水弹75%速度1200ms；冰环50%速度1800ms；火球20%快照伤害/600ms/2400ms；炎流15%/600ms/1800ms，未改变原力量、射程、法力等或火球无溅射。通用介绍仅根据onHit追加效果，避免把世界单位说成背包格。
+
+Sol实际审完整statusEffects、waves分段积分、四载体、effects/targets/damage与内容，补正载入burn数组仍最多4、载入slow TTL钳5s、击退上界/实际距离；目标已死不再伤害/施加，miss不触发，保持现有pierce目标预算与缓存实时坐标查询。准确事件为statusApplied、statusExpired、knockback；slow未在公共契约存施加者，因此slow过期只带target/status ID与type，不虚构来源；burn过期与damage均保原来源。
+
+实际验收：engine状态与waves18/18，内容5配置/描述与area14/14，构筑深快照1/1；主Sol独立status-integration.test.ts最终4/4（真实风刃推位；真实accuracy miss不能击退或烧伤；水弹慢速比同态无slow少位移且基线速度/ramp保持；火球burn JSON存档后无RNG/crit并原角色/物品/法术击杀XP10且不重放）；damage抽取旧actor-combat7/7与collision-cache5/5通过。最后文案微调后描述11/11复核通过，整仓npx tsc --noEmit与范围diff通过。内容作者早先碰UI模块短暂缺失，恢复后主Sol实际全量类型检查已过，未遗留失败。
+
+本域源码/测试已全部释放冻结；根持UI/projection与最终全局整合。没有改用户存档、依赖或提交推送。CPU测试只在runtime基准窗口结束后运行；性能作者的同snapshot测量另记，不把本次状态功能检查或Node测试耗时当浏览器FPS。
+
+## 真实runtime通知性能证据（2026-11-04，测量完成）
+
+用户仍卡顿，根要求从createGameRuntime.tick与通知测量，不再仅测孤立stepBattle。复用原健康native Luna `01a1a240-1411-7642-8951-44f5de00abbc` 独占忽略目录.local/work/runtime-perf-2026-11-04/，没有生产源码、依赖、用户存档或UI修改。脚本使用3角色6法杖/30装杖/44背包，main保存gate、App快照回调、agent有界去重三订阅及250ms投影/200事件ACK；Node不含React渲染/layout/真实HTTP。每速20秒等量模拟，1x400个50ms调用，5x80个250ms调用，各400模拟子步，不能冒充各20秒真实墙钟或FPS。
+
+Sol实际审fixture/仪表/JSON/报告：原强构筑标准场景虽始60敌但很快清空，均8敌/1弹、峰61敌，不接受作持续60敌多弹压力。作者最小追加58敌+100由真实spawnProjectiles生成弹的压力checkpoint，延迟500ms新生，峰60敌113弹、均26敌14弹，20模拟秒77击杀、26出生、283后续新弹，仍battle。未硬改每tick状态补怪或关闭真实伤害。before普通三rep与压力单rep都在同一source snapshot，same-speed普通/instrument完整摘要一致；跨速核心/角色/法杖/实体/统计同态，压力仅保留事件历史顺序因通知节奏不同而有差异，摘要与history分列，未隐藏差异。初次读到一新一旧中间文件的摘要不等已追查并以最终一次driver输出验证匹配。
+
+before报告在.local/work/runtime-perf-2026-11-04/report.md及data/profiles。实际压力instrument 1x notify1495/总2054ms（约73%），5x346/538（约64%）；通知克隆占绝大部分，compile分别65/38ms、统计2/.5ms，故不先做编译缓存或另加engine复杂索引。主Sol从JSON复核并纠正报告残留旧run p95/mean，报告数须以最终数据计算。完整clone调用链为队列state/events各一次，加每full listener state/events各一次，三listener每批4份大state+4份events，engine入口另有一次stateclone。
+
+根据此独占实现backward-compatible subscribeEvents摘要/事件订阅，main保存gate和agent缓冲迁移，UI仍fullstate独立clone，队列快照、注册顺序、重入/回调隔离保留。根另报告API/奖励恢复/投影/连接/存档14项及tsc通过，本域不争runtime/main/contracts/agent文件。按新同source exact bundle追加压力3full对1full+2events，避免状态/奖励增量造成跨源码假比较，旧before产物不覆盖。after hash为29180a3fe901e889ae0753fef78e5fbee32fa7d77baca47620cc8278f44b2ad6，数据在data/after/，same-speed完整摘要分别911e2d8a...和be43bb6e...在两模式严格一致。
+
+Sol直接读after JSON确认：大state通知复制4→2，全部notify structuredClone次数8→6（剩余为events）。1x压力3full平均tick5.016/p50 4.690/p95 6.935/max15.384ms→事件模式平均3.414/p50 2.978/p95 6.342/max10.524，平均下降约32%；notify总1471→815ms、clone1457→801，而step531→547ms近似同量。5x平均9.731→4.677，但step自身298→180显示主机/profiler波动，不能将全部52%当通知收益。GC1x37.73→33.34ms，5x22.94→11.27ms。全部为有界单rep压力证据，不承诺浏览器帧率或独自解决所有卡顿。真正计时窗口与根大test、UI DEV/PROD采样串行，exec结束立即释放，不为写报告占CPU窗口；最终after摘要与报告由作者仅从冻结JSON整理，无继续跑矩阵。
+
+## 奖励刷新报价与幸运/采集内容（2026-11-04，领域完成冻结）
+
+根已落RewardRefreshState/Quote、RewardBuffType.luck及refreshRewards命令契约，并独占runtime/index、contracts、protocol和用户当前offer迁移。Sol独占新runtime/rewardRefresh.ts/test的纯计算；原健康native内容Luna `01a1a22f-e838-7703-a5f5-63ec59275bc4` 独占randomRewards.ts/test补幸运六档与实际金币概率介绍，不碰奖励事务/存档/UI。
+
+helper完整导出normalizeRewardRefresh(value:unknown,wave:number)和getRewardRefreshQuote(state:GameState)，返回新对象，不修改state或抽RNG。波次有限floor至0..MAX_SAFE；非法计数归0，同波保freeUsed，异波只清freeUsed，paidCount与refreshCount本局跨波继承。免费总额floor(wave/10)且优先使用；付费下一价3^paidCount，超过safe integer则null，仍可用免费；refreshCount到MAX_SAFE禁用防ID碰撞，phase须reward/非空offer/安全整数金币足够当前价。实际扣费、计数递增、换四卡、offer新ID、幂等与checkpoint仍由根原子执行。
+
+Sol helper实际6/6过，覆盖免费十波边界、跨波与同波、free优先、3^33安全与3^34溢出、非法/最大计数、phase/非空/余额/ID封顶、重复计算不改状态或RNG；定向strict TS与范围diff通过。首次整仓tsc只见根runtime新luck尚未独立claim分支的暂态索引错误，已告根且没有越界改root。内容与根完整接入验证待收尾，本域不重复全矩阵。
+
+同轮用户再增加采集奖励，根追加gatheringPercent与coinIncomeRemainder契约并持engine/runtime金币入口；构筑Sol独占characters/gear/economy与采集符，本域不争。本域内容作者继续同两个奖励文件加采集六档5/8/10/15/20/25%，说明覆盖怪物金币、清波金币及金币奖励且同类相加；幸运介绍扩为真实金币和装备掉落概率，不承诺稀有率。联合strict曾被构筑域同步增加CharacterBaseStats.gatheringPercent后characters.ts104 switch未收窄的暂态挡住，Sol已纠正一次提前报过的联合strict结果，不将阻断误归helper实现，也不越界改该文件。
+
+另按根要求只读确认已有掉落接线：engine/index.settleDeaths在enemyKilled后直接grantEnemyLoot，真实gear/supply写入对应registry、更新knowledge并emit lootGranted，非UI假物品。普通gear为8%+总幸运×.001，上限30%；supply独立4%；首次空gear且无gear知识保首件，3boss最低rare/epic/legendary且保gear（gear池空才保supply），每kill最多1gear+1supply。幸运不参与品级权重抽样，金币掉落本身为25%+每幸运点1百分点、上限80%。没有为回答“是否已有”重复写掉落系统。
+
+最终领域源码释放：rewardRefresh.ts/test纯策略6/6，内容randomRewards.ts/test新增luck六档1/2/3/4/6/8、采集六档5/8/10/15/20/25且13/13通过。Sol实际读新增metadata/值、全部grade取值循环、同语义跨grade/value去重、cooldown封顶只排cooldown而保luck/采集、有限池7项和默认seed复现，完成非Sol内容验收。当前联合定向strict唯一阻断仍为构筑域characters.ts104同步新属性switch未完成，已如实告根且不反复跑或越界修；helper独立strict在新属性之前真实通过，不能误报当前整仓已过。根继续刷新原子事务/幂等/存档、金币入口与投影/UI，构筑Sol继续采集stats/economy/符，本域不代宣称这些跨域接线已完成。没有改用户存档、共享契约、依赖、commit或push。

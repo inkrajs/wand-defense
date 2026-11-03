@@ -49,17 +49,18 @@ test("same-step multiple sources attribute only the hit that actually reaches ze
 });
 
 test("legacy pre-dead enemies default metadata without inferring a killer from historical damage", () => {
+  const coinOnlyContent={...demoContent,gear:{},items:{}};
   const state=battle();state.entities=[enemy({hp:0})];
   state.events=[{seq:1,type:"damage",gameTimeMs:0,data:{targetId:"target",effect:"rock-shot",sourceItemId:"stale",sourceCharacterId:"stale"}}];
   state.nextEventSeq=2;
   const expectedRng=(Math.imul(state.rngState,1664525)+1013904223)>>>0;
-  const result=stepBattle(state,50,demoContent);
+  const result=stepBattle(state,50,coinOnlyContent);
   const killed=result.events.find(e=>e.type==="enemyKilled")!;
   assert.equal(killed.data.level,8);assert.equal(killed.data.grade,"common");
   for(const field of ["effect","sourceItemId","sourceCharacterId"]) assert.equal(Object.hasOwn(killed.data,field),false);
   assert.equal(result.state.rngState,expectedRng);assert.equal(result.state.xp,1);
   assert.equal(killed.data.coins,expectedRng/0x100000000<.25?1:0);
-  assert.equal(stepBattle(result.state,50,demoContent).events.length,0);
+  assert.equal(stepBattle(result.state,50,coinOnlyContent).events.length,0);
 });
 
 test("enemy level and prototype grade tags reflect wave and boss tier without extra RNG", () => {

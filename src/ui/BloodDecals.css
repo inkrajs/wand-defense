@@ -1,3 +1,3 @@
 .blood-decals { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-.blood-decals__mark { position: absolute; overflow: visible; transform: translate(-50%, -50%); fill: currentColor; pointer-events: none; }
+.blood-decals__mark { position: absolute; display: block; transform: translate(-50%, -50%); pointer-events: none; }
 @media (forced-colors: active) { .blood-decals { display: none; } }

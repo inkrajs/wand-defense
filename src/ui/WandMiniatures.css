@@ -1,0 +1,106 @@
+.wand-miniatures {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  max-width: 100%;
+  pointer-events: none;
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: center top;
+  visibility: visible;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear;
+}
+
+.wand-miniatures[data-active="true"] {
+  opacity: 0;
+  transform: scale(.88);
+  visibility: hidden;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
+}
+
+.wand-preview {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.wand-preview--details { pointer-events: auto; }
+
+.wand-preview__item {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.wand-preview__item--details { pointer-events: auto; }
+.wand-preview__item--details:hover, .wand-preview__item--details:focus-within { z-index: 10; }
+.wand-preview__detail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 2px 4px;
+  overflow: visible;
+  color: var(--inkra-ink, #29271f);
+  cursor: help;
+  pointer-events: auto;
+}
+.wand-preview__detail-icon { display: grid; flex: 0 0 20px; place-items: center; width: 20px; height: 20px; overflow: hidden; font-size: 18px; line-height: 1; }
+.wand-preview__detail-icon > * { max-width: 20px; max-height: 20px; }
+.wand-preview__detail-name { display: block; min-width: 0; overflow: hidden; font-size: 12px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+
+.wand-preview__shape {
+  display: block;
+  max-width: none;
+  pointer-events: none;
+}
+
+.wand-preview__item[data-cast-flashing="true"] {
+  animation: wand-miniature-cast-flash 420ms ease-out 1 both;
+}
+
+@keyframes wand-miniature-cast-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wand-miniatures,
+  .wand-preview__item[data-cast-flashing="true"] {
+    transition: none;
+    animation: none;
+  }
+
+  .wand-miniatures[data-active="true"] {
+    visibility: hidden;
+  }
+
+  .wand-preview__item[data-cast-flashing="true"] {
+    filter: none;
+    opacity: .72;
+  }
+}
+
+html[data-game-reduce-motion="true"] .wand-miniatures {
+  transition: none;
+}
+
+html[data-game-reduce-motion="true"] .wand-miniatures[data-active="true"] {
+  visibility: hidden;
+}
+
+html[data-game-reduce-motion="true"] .wand-preview__item[data-cast-flashing="true"] {
+  animation: none;
+  filter: none;
+  opacity: .72;
+}
+/* Soften only the small painted shape, leaving layout and hit targets untouched. */
+.wand-preview__shape { filter: blur(.45px); }

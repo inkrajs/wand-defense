@@ -1,16 +1,42 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
-import { InventoryGrid, PencilText } from "@inkra/react";
-import type { InventoryContainer, InventoryChangeDetails } from "@inkra/react/inventory-grid";
+import { useLayoutEffect, useMemo, useRef, type ComponentType, type ReactNode } from "react";
+import { InventoryGrid, PencilText, Tooltip } from "@inkra/react";
+import type { InventoryContainer, InventoryChangeDetails, InventoryGridProps, InventoryItemRenderState } from "@inkra/react/inventory-grid";
 import { AssetImage, resolveAsset } from "./assets";
 import type { Command, CommandResult, GameState } from "../contracts";
 import { inventoryDefinition as getDefinition, makeGridItem, quarterTurn, type DockItem } from "./inventoryAdapter";
 import { getGameItemAppearance } from "./itemAppearance";
+import type { CastFlashLookup } from "./wandMiniatureEvents";
+import { WandClearButton } from "./WandClearButton";
+import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
+import { enrichMagicReward } from "../content/magicDescriptions";
+import { demoContent } from "../content/demo";
 import "./WandBoard.css";
 
-type Props = { activeCharacterId: string; state: GameState; dispatch: (command: Command) => CommandResult; onHeightChange: (height: number) => void };
+type Props = { flashes: CastFlashLookup; activeCharacterId: string; state: GameState; dispatch: (command: Command) => CommandResult; onHeightChange: (height: number) => void };
 type BoardItem = Extract<DockItem, { kind: "spell" | "arcana" }>;
+type ComposedGridRootProps = InventoryGridProps<BoardItem> & {
+  children: ReactNode;
+  getItemContentPlacement?: (item: BoardItem) => "bounds" | "first-cell";
+};
+type ComposedGridApi = {
+  Root?: ComponentType<ComposedGridRootProps>;
+  Container?: ComponentType<{ containerId: string; showHeader?: boolean; className?: string }>;
+};
+const WAND_CELL_SIZE = 56;
 
-export function WandBoard({ state, dispatch, activeCharacterId, onHeightChange }: Props) {
+function magicItemLabel(item: BoardItem) {
+  const definition = getDefinition(item);
+  const reward = enrichMagicReward({ id: item.id, kind: "item", definitionId: item.definitionId, label: item.label ?? item.id, grade: item.grade }, demoContent);
+  return [item.label ?? definition?.name ?? item.id, reward.description].filter(Boolean).join("。 ");
+}
+function MagicItemTooltip({ label, children }: { label: string; children: ReactNode }) {
+  return <Tooltip.Provider delayDuration={300}><Tooltip.Root>
+    <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
+    <Tooltip.Portal><Tooltip.Content side="top">{label}</Tooltip.Content></Tooltip.Portal>
+  </Tooltip.Root></Tooltip.Provider>;
+}
+
+export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeightChange }: Props) {
   const boardRef = useRef<HTMLDivElement>(null);
   const character = state.characters.find(character => character.id === activeCharacterId) ?? state.characters[0];
   const equippedWands = useMemo(() => character ? character.wandIds.flatMap((id) => {
@@ -59,41 +85,80 @@ export function WandBoard({ state, dispatch, activeCharacterId, onHeightChange }
     });
   }
 
+  // 0.15's public registry keeps the default multi-container grid; the local
+  // composed candidate adds Root/Container. Keep that optional surface behind
+  // the same structural bridge used by InventoryDock.
+  const composedGrid = InventoryGrid as unknown as ComposedGridApi;
+  const composed = import.meta.env.INKRA_LOCAL === true && Boolean(composedGrid.Root && composedGrid.Container);
+  const GridRoot = composedGrid.Root ?? (({ children }: ComposedGridRootProps) => <>{children}</>);
+  const GridContainer = composedGrid.Container ?? (() => null);
+
   // Registry 0.15 does not expose getItemAppearance; the local Inkra build does.
   const appearanceProps = import.meta.env.INKRA_LOCAL === true
     ? { getItemAppearance: getGameItemAppearance }
     : {};
 
+  const gridProps = {
+    "aria-label": "当前角色法杖插槽",
+    className: composed ? "wand-board__root" : "wand-board__root wand-board__root--registry",
+    containers,
+    cellSize: 56,
+    disabled: state.phase === "battle",
+    allowRotation: true,
+    canPlace: ({ source, target }: Parameters<NonNullable<InventoryGridProps<BoardItem>["canPlace"]>>[0]) => source.id === target.id,
+    onChange: onInventoryChange,
+    labels: {
+      instructions: "按空格选取物品，使用方向键移动，再按空格放下；按 R 旋转。",
+      rotate: "旋转选中物品",
+      pickedUp: (item: string) => `已选中 ${item}`,
+      position: (item: string, container: string, column: number, row: number) => `${item} 移至第 ${column} 列、第 ${row} 行`,
+      invalid: "此位置不可放置",
+      requested: (item: string) => `已提交 ${item} 的布局操作`,
+      cancelled: (item: string) => `已取消 ${item} 的移动`,
+    },
+    getItemLabel: (item: BoardItem) => getMagicPresentationIcon(item.definitionId) ? magicItemLabel(item) : item.label ?? item.id,
+    ...appearanceProps,
+    renderItem: (item: BoardItem, renderState: InventoryItemRenderState) => {
+      const instance = state.items[item.id];
+      const definition = instance && getDefinition(instance);
+      const sourceWand = equippedWands.find(wand => wand.placements.some(placement => placement.itemId === item.id));
+      const iconDefinition = getMagicPresentationIcon(item.definitionId);
+      const label = iconDefinition ? magicItemLabel(item) : item.label ?? item.id;
+      const iconSize = iconDefinition ? WAND_CELL_SIZE * Math.max(1, ...iconDefinition.shape.map(cell => Math.max(cell.x + 1, cell.y + 1))) : 20;
+      const icon = iconDefinition
+        ? <MagicPresentationIcon definitionId={item.definitionId} size={iconSize} rotation={renderState.rotation} seed={`wand-board-${item.definitionId}`} />
+        : <AssetImage asset={resolveAsset(definition?.asset, { label: item.label ?? item.id, icon: item.kind === "spell" ? "✦" : "◇" })} />;
+      const iconBox = <span className={`wand-board__item-icon${iconDefinition ? " wand-board__item-icon--magic" : ""}`}>{icon}</span>;
+      return <span className="wand-board__item" data-cast-flashing={sourceWand && flashes.has(sourceWand.id, item.id) ? "true" : undefined}>
+        {iconDefinition ? <MagicItemTooltip label={label}>{iconBox}</MagicItemTooltip> : iconBox}
+        {!iconDefinition && <PencilText as="span" className="wand-board__item-label" seed="wand-board-item-label">{String(item.label)}</PencilText>}
+      </span>;
+    },
+  } satisfies InventoryGridProps<BoardItem>;
+  const composedContentPlacementProps = composed ? {
+    getItemContentPlacement: (item: BoardItem) => getMagicPresentationIcon(item.definitionId) ? "bounds" as const : "first-cell" as const,
+  } : {};
+
   return <div className="wand-board" ref={boardRef}>
-    <InventoryGrid<BoardItem>
-      aria-label="当前角色法杖插槽"
+    {containers.length > 0 && composed ? <GridRoot
       key={character?.id ?? activeCharacterId}
-      className="wand-board__inventory"
-      containers={containers}
-      cellSize={56}
-      disabled={state.phase === "battle"}
-      allowRotation
-      canPlace={({ source, target }) => source.id === target.id}
-      onChange={onInventoryChange}
-      labels={{
-        instructions: "按空格选取物品，使用方向键移动，再按空格放下；按 R 旋转。",
-        rotate: "旋转选中物品",
-        pickedUp: (item) => `已选中 ${item}`,
-        position: (item, container, column, row) => `${item} 移至第 ${column} 列、第 ${row} 行`,
-        invalid: "此位置不可放置",
-        requested: (item) => `已提交 ${item} 的布局操作`,
-        cancelled: (item) => `已取消 ${item} 的移动`,
-      }}
-      getItemLabel={(item) => item.label ?? item.id}
-      {...appearanceProps}
-      renderItem={(item) => {
-        const instance = state.items[item.id];
-        const definition = instance && getDefinition(instance);
-        return <span className="wand-board__item" title={item.label}>
-          <span className="wand-board__item-icon"><AssetImage asset={resolveAsset(definition?.asset, { label: item.label ?? item.id, icon: item.kind === "spell" ? "✦" : "◇" })} /></span>
-          <PencilText as="span" className="wand-board__item-label" seed="wand-board-item-label">{String(item.label)}</PencilText>
-        </span>;
-      }}
-    />
+      {...gridProps}
+      {...composedContentPlacementProps}
+    >
+      {containers.map(container => {
+        const wandId = container.id.slice("wand:".length);
+        const wand = equippedWands.find(entry => entry.id === wandId);
+        if (!wand) return null;
+        return <div key={container.id} className="wand-board__slot" role="group" aria-label={`${wand.name}法杖编辑器`}>
+          <WandClearButton className="wand-board__clear-button" wand={wand} state={state} dispatch={dispatch} />
+          <GridContainer containerId={container.id} showHeader={false} className="wand-board__inventory" />
+        </div>;
+      })}
+    </GridRoot> : containers.length > 0 ? <div className="wand-board__registry-layout">
+      <div className="wand-board__registry-actions" style={{ gridTemplateColumns: equippedWands.map(wand => `${wand.width * 56}px`).join(" ") }}>
+        {equippedWands.map(wand => <WandClearButton key={wand.id} className="wand-board__registry-clear" wand={wand} state={state} dispatch={dispatch} />)}
+      </div>
+      <InventoryGrid<BoardItem> {...gridProps} />
+    </div> : <div className="wand-board__slot wand-board__slot--empty"><WandClearButton className="wand-board__clear-button" state={state} dispatch={dispatch} /></div>}
   </div>;
 }

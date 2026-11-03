@@ -1,33 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertInventoryContainers, type InventoryItem } from "@inkra/react/inventory-grid";
-import { columnsForInventoryWidth, minimumRequiredColumns, packInventory, type DockItem } from "./inventoryAdapter";
+import { columnsForInventoryWidth, INVENTORY_PAGE_ROWS, minimumRequiredColumns, packInventory, type DockItem } from "./inventoryAdapter";
 
 function item(id: string, cells: InventoryItem["cells"] = [{ x: 0, y: 0 }], rotatable = true): DockItem {
   return { id, label: id, kind: "spell", definitionId: id, grade: "common", cells, position: { x: 0, y: 0 }, rotatable };
 }
 
-test("six columns keep nine single-cell items inside the default three rows", () => {
+test("six columns keep nine single-cell items inside the default five rows", () => {
   const packed = packInventory(Array.from({ length: 9 }, (_, index) => item(`i${index}`)), 6);
-  assert.equal(packed.rows, 3);
+  assert.equal(packed.rows, INVENTORY_PAGE_ROWS);
   assert.equal(packed.items.length, 9);
   assert.equal(packed.unplaced.length, 0);
 });
 
-test("packing grows rows to fit every owned cell shape while preserving saved positions", () => {
+test("packing grows rows to fit every owned cell shape while preserving valid saved positions", () => {
   const items = Array.from({ length: 22 }, (_, index) => item(`i${index}`, index % 3 === 0 ? [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }] : [{ x: 0, y: 0 }]));
-  const packed = packInventory(items, 6, 3, { i0: { x: 4, y: 5, rotation: 0 } });
-  assert.ok(packed.rows > 3);
+  const packed = packInventory(items, 6, INVENTORY_PAGE_ROWS, { i0: { x: 4, y: 3, rotation: 0 } });
+  assert.ok(packed.rows > INVENTORY_PAGE_ROWS);
   assert.equal(packed.items.length, items.length);
   assert.equal(packed.unplaced.length, 0);
-  assert.deepEqual(packed.items.find(candidate => candidate.id === "i0")?.position, { x: 4, y: 5 });
+  assert.deepEqual(packed.items.find(candidate => candidate.id === "i0")?.position, { x: 4, y: 3 });
   assert.equal(packed.items.find(candidate => candidate.id === "i0")?.rotation, 0);
   const uniqueIds = new Set(packed.items.map(candidate => candidate.id));
   assert.equal(uniqueIds.size, items.length);
 });
 
 test("colliding saved positions repack the conflict without dropping either item", () => {
-  const packed = packInventory([item("a"), item("b"), item("c")], 6, 3, {
+  const packed = packInventory([item("a"), item("b"), item("c")], 6, INVENTORY_PAGE_ROWS, {
     a: { x: 0, y: 0, rotation: 0 },
     b: { x: 0, y: 0, rotation: 0 },
   });
@@ -37,10 +37,29 @@ test("colliding saved positions repack the conflict without dropping either item
   assert.notDeepEqual(packed.items.find(candidate => candidate.id === "b")?.position, { x: 0, y: 0 });
 });
 
+test("a shape that would cross a page boundary is relocated whole to the next page", () => {
+  const shape = item("shape", [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }], false);
+  const packed = packInventory([shape], 6, INVENTORY_PAGE_ROWS, { shape: { x: 0, y: INVENTORY_PAGE_ROWS - 1, rotation: 0 } });
+  assert.equal(packed.unplaced.length, 0);
+  assert.equal(packed.items.length, 1);
+  assert.equal(Math.floor(packed.items[0].position.y / INVENTORY_PAGE_ROWS), Math.floor((packed.items[0].position.y + 1) / INVENTORY_PAGE_ROWS));
+  assert.notEqual(packed.items[0].position.y, INVENTORY_PAGE_ROWS - 1);
+});
+
+test("a later small item fills an earlier hole left by a large item", () => {
+  const items = [item("saved-top"), item("saved-bottom"), item("large", [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }], false), item("small")];
+  const packed = packInventory(items, 3, INVENTORY_PAGE_ROWS, {
+    "saved-top": { x: 1, y: 0, rotation: 0 },
+    "saved-bottom": { x: 1, y: 1, rotation: 0 },
+  });
+  assert.deepEqual(packed.items.find(candidate => candidate.id === "large")?.position, { x: 0, y: 2 });
+  assert.deepEqual(packed.items.find(candidate => candidate.id === "small")?.position, { x: 0, y: 0 });
+});
+
 test("a shape wider than the column count rotates into the fixed-width grid", () => {
   const packed = packInventory([item("wide", [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }])], 2);
   assert.equal(packed.unplaced.length, 0);
-  assert.equal(packed.rows, 3);
+  assert.equal(packed.rows, INVENTORY_PAGE_ROWS);
   assert.equal(packed.items[0].rotation, 90);
 });
 
@@ -60,12 +79,11 @@ test("responsive columns retain 48px cells and fill narrow and wide viewports", 
   assert.equal(minimumRequiredColumns([item("wide", [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }])]), 1);
 });
 
-test("large full-width shapes get separate bounded segments without losing items", () => {
+test("shapes taller than the five-row page are reported as unplaced instead of split", () => {
   const cells = Array.from({ length: 6 * 400 }, (_, index) => ({ x: index % 6, y: Math.floor(index / 6) }));
   const packed = packInventory([item("tall-a", cells, false), item("tall-b", cells, false), item("tall-c", cells, false)], 6);
-  assert.equal(packed.unplaced.length, 0);
-  assert.equal(packed.items.length, 3);
-  assert.equal(new Set(packed.items.map(entry => Math.floor(entry.position.y / packed.segmentRowLimit))).size, 3);
+  assert.equal(packed.unplaced.length, 3);
+  assert.equal(packed.items.length, 0);
 });
 
 test("packing splits storage into public-grid containers within the 4096-cell limit", () => {
@@ -85,9 +103,9 @@ test("packing splits storage into public-grid containers within the 4096-cell li
 });
 
 test("invalid far-away UI coordinates are ignored within the packing row bound", () => {
-  const packed = packInventory([item("a")], 6, 3, { a: { x: 0, y: 1_000_000_000, rotation: 0 } });
-  assert.equal(packed.rows, 3);
+  const packed = packInventory([item("a")], 6, INVENTORY_PAGE_ROWS, { a: { x: 0, y: 1_000_000_000, rotation: 0 } });
+  assert.equal(packed.rows, INVENTORY_PAGE_ROWS);
   assert.equal(packed.unplaced.length, 0);
   assert.deepEqual(packed.items[0].position, { x: 0, y: 0 });
-  assert.equal(packed.segments.reduce((count, segment) => count + segment.rows, 0), 3);
+  assert.equal(packed.segments.reduce((count, segment) => count + segment.rows, 0), INVENTORY_PAGE_ROWS);
 });

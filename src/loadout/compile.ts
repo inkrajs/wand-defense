@@ -1,4 +1,5 @@
-import type { ContentCatalog, GameState, SpellDefinition } from '../contracts';
+import type { AttackRollStats, ContentCatalog, GameState, SpellDefinition } from '../contracts';
+import { getCharacterStats } from '../content/characters';
 import { areAdjacent, placementCells } from './geometry';
 import { gradedArcanaValue, gradeStrengthRatio } from './grade-scaling';
 
@@ -6,7 +7,10 @@ import { gradedArcanaValue, gradeStrengthRatio } from './grade-scaling';
 export interface CompiledSpell extends SpellDefinition {
   itemId: string;
   copies: number;
+  burstCount: number;
+  splitCount: number;
   modifierItemIds: string[];
+  attackRoll: AttackRollStats;
 }
 export interface CompiledWand {
   wandId: string;
@@ -22,7 +26,9 @@ export function compileWand(
   if (!wand || wand.characterId === null) return undefined;
   const character = state.characters.find(candidate => candidate.id === wand.characterId);
   if (!character || !character.wandIds.includes(wand.id)) return undefined;
-  const sequence = content.sequences[character.sequenceId];
+  const stats = getCharacterStats(state, character.id, content);
+  if (!stats) return undefined;
+  const final = stats.final;
   const modifiers = wand.placements.flatMap(placement => {
     const item = state.items[placement.itemId];
     const definition = item?.kind === 'arcana' ? content.arcana[item.definitionId] : undefined;
@@ -32,32 +38,76 @@ export function compileWand(
     const item = state.items[placement.itemId];
     const definition = item?.kind === 'spell' ? content.spells[item.definitionId] : undefined;
     if (!definition) return [];
+    const isAttack = definition.effect === 'projectile' || definition.effect === 'beam' || definition.effect === 'area' || definition.effect === 'chain';
     const spell: CompiledSpell = {
       ...definition,
       grade: item.grade, level: item.level,
-      power: definition.power * gradeStrengthRatio(item.grade, definition.grade),
+      power: definition.power * gradeStrengthRatio(item.grade, definition.grade)
+        * (isAttack ? final.attackMultiplier : 1)
+        + (isAttack ? final.attack : 0),
+      ...(definition.effect === 'projectile'
+        ? { speed: (definition.speed ?? 72) * final.projectileSpeedMultiplier }
+        : {}),
+      range: definition.range * final.rangeMultiplier + final.range,
+      cooldownMs: definition.cooldownMs * final.cooldownMultiplier,
       shape: definition.shape.map(cell => ({ ...cell })),
       asset: { ...definition.asset },
-      itemId: item.id, copies: 1, modifierItemIds: [],
+      ...(definition.impact ? { impact: { ...definition.impact } } : {}),
+      ...(definition.beam ? { beam: { ...definition.beam } } : {}),
+      ...(definition.area ? { area: { ...definition.area } } : {}),
+      ...(definition.onHit ? { onHit: {
+        ...definition.onHit,
+        ...(definition.onHit.slow ? { slow: { ...definition.onHit.slow } } : {}),
+        ...(definition.onHit.burn ? { burn: { ...definition.onHit.burn } } : {}),
+      } } : {}),
+      itemId: item.id, copies: 1, burstCount:1, splitCount:1, modifierItemIds: [],
+      attackRoll: {
+        accuracy: final.accuracy,
+        critChance: final.critChance,
+        critMultiplier: final.critMultiplier,
+        sourceLuck: final.luck,
+      },
     };
     const cells = placementCells(definition.shape, placement);
+    const appliedModifierItems = new Set<string>();
     for (const modifier of modifiers) {
       if (!areAdjacent(cells, modifier.cells)) continue;
+      if (appliedModifierItems.has(modifier.itemId)) continue;
+      if (modifier.definition.modifier === 'velocity' && spell.effect !== 'projectile') continue;
+      if (modifier.definition.modifier === 'area'
+        && !spell.beam
+        && !(spell.impact && (spell.impact.type === 'splash' || spell.impact.type === 'chain' || spell.impact.type === 'field'))
+        && !spell.area) continue;
       const value = gradedArcanaValue(modifier.definition, modifier.grade);
       if (!Number.isFinite(value) || value <= 0) continue;
+      appliedModifierItems.add(modifier.itemId);
       spell.modifierItemIds.push(modifier.itemId);
       switch (modifier.definition.modifier) {
         case 'amplify': spell.power *= value; break;
-        case 'double':
-        case 'split': spell.copies *= Math.max(1, Math.floor(value)); break;
+        case 'double': spell.burstCount=Math.min(64,spell.burstCount*Math.max(1,Math.floor(value))); break;
+        case 'split': spell.splitCount=Math.min(64,spell.splitCount*Math.max(1,Math.floor(value))); break;
         case 'focus': spell.power *= value; spell.range *= value; break;
+        case 'haste': spell.cooldownMs *= value; break;
+        case 'efficiency': spell.manaCost *= value; break;
+        case 'reach': spell.range *= value; break;
+        case 'velocity': spell.speed = (spell.speed ?? 72) * value; break;
+        case 'area':
+          if (spell.beam) spell.beam.width *= value;
+          if (spell.impact && (spell.impact.type === 'splash' || spell.impact.type === 'chain' || spell.impact.type === 'field')) {
+            spell.impact.radius *= value;
+          }
+          if (spell.area) {
+            spell.area.radius *= value;
+            if (spell.area.mode === 'vortex' && spell.area.pullRadius !== undefined) spell.area.pullRadius *= value;
+            if (spell.area.mode === 'ring') spell.range *= value;
+          }
+          break;
       }
     }
-    const bonus = sequence?.bonuses[spell.element] ?? 0;
-    const multiplier = Number.isFinite(bonus) ? Math.max(0, 1 + bonus) : 1;
+    spell.copies=Math.min(64,spell.burstCount*spell.splitCount);
+    const elementBonus = final.elementBonuses[spell.element] ?? 0;
+    const multiplier = Number.isFinite(elementBonus) ? Math.max(0, 1 + elementBonus) : 1;
     spell.power *= multiplier;
-    const attackPercent = state.runBonuses?.attackPercent ?? 0;
-    if (spell.effect === 'projectile' && Number.isFinite(attackPercent)) spell.power *= Math.max(0,1 + attackPercent / 100);
     if ((spell.effect === 'summon' || spell.effect === 'building') && spell.hp !== undefined) {
       spell.hp *= multiplier;
     }

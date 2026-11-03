@@ -1,9 +1,31 @@
-.wand-board { min-width: 0; }
+.wand-board { width: max-content; max-width: none; min-width: 0; overflow: visible; white-space: nowrap; }
+.wand-board__root.inkra-inventory-grid[data-layout="composed"] { display: flex; align-items: flex-start; justify-content: center; flex-wrap: nowrap; gap: 12px; width: max-content; max-width: none; padding: 22px; overflow: visible; white-space: nowrap; }
+.wand-board__registry-layout { position: relative; display: block; width: max-content; max-width: none; overflow: visible; }
+.wand-board__registry-actions { position: absolute; z-index: 20; top: 3px; left: 25px; display: grid; align-items: start; justify-content: start; gap: 12px; overflow: visible; pointer-events: none; }
+.wand-board__registry-clear { justify-self: end; margin-right: -22px; pointer-events: auto; }
+.wand-board__root--registry.inkra-inventory-grid { display: flex; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap; gap: 12px; width: max-content; max-width: none; padding: 22px; overflow: visible; white-space: nowrap; }
+.wand-board__root--registry .inkra-inventory-grid__container { width: max-content; max-width: none; }
+.wand-board__root--registry .inkra-inventory-grid__header { display: none; }
+.wand-board__root--registry .inkra-inventory-grid__scroll { max-width: none; overflow: visible; padding: 3px; }
+.wand-board__slot { position: relative; flex: 0 0 auto; padding: 0; overflow: visible; pointer-events: auto; }
+.wand-board__clear-button { position: absolute; top: -22px; right: -22px; z-index: 20; pointer-events: auto; }
+.wand-board__slot--empty { min-width: 44px; min-height: 44px; overflow: visible; pointer-events: auto; }
 .wand-board__inventory { gap: 12px; }
 .wand-board__inventory .inkra-inventory-grid__container { width: max-content; max-width: 100%; }
 .wand-board__inventory .inkra-inventory-grid__header { display: none; }
 .wand-board__inventory .inkra-inventory-grid__scroll { padding: 3px; }
-.wand-board__item { display: grid; place-items: center; align-content: center; gap: 2px; width: 100%; height: 100%; overflow: hidden; font-size: 11px; line-height: 1.2; text-align: center; }
+.wand-board__item { position: relative; display: grid; place-items: center; align-content: center; gap: 2px; width: 100%; height: 100%; overflow: hidden; font-size: 11px; line-height: 1.2; text-align: center; }
 .wand-board__item-icon { display: grid; place-items: center; width: 20px; height: 20px; overflow: hidden; font-size: 18px; }
+.wand-board__item-icon--magic { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .wand-board__item-icon > * { max-width: 20px; max-height: 20px; }
+.wand-board__item-icon--magic > * { max-width: 100%; max-height: 100%; }
 .wand-board__item-label { display: block; max-width: 100%; overflow: hidden; font-size: 12px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+
+.wand-board__inventory .inkra-inventory-grid__item:has(.wand-board__item[data-cast-flashing="true"]) .inkra-inventory-grid__shape-fill { animation: wand-cast-opacity 420ms ease-in-out; }
+@keyframes wand-cast-opacity { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .wand-board__inventory .inkra-inventory-grid__item:has(.wand-board__item[data-cast-flashing="true"]) .inkra-inventory-grid__shape-fill { animation: none; opacity: .85; } }
+html[data-game-reduce-motion="true"] .wand-board__inventory .inkra-inventory-grid__item:has(.wand-board__item[data-cast-flashing="true"]) .inkra-inventory-grid__shape-fill { animation: none; opacity: .85; }
+.wand-board__inventory { animation: wand-board-change var(--game-motion-duration) var(--game-motion-ease) both; }
+@keyframes wand-board-change { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .wand-board__inventory { animation-duration: 0ms; } }
+html[data-game-reduce-motion="true"] .wand-board__inventory { animation-duration: 0ms; }

@@ -6,6 +6,7 @@ export const gradeModifierTuning = {
   amplifyBonus: 1,
   focusBonus: 1,
   extraCopiesPerGrade: 1,
+  minimumReductionMultiplier: 0.1,
 } as const;
 
 export function gradeStrengthRatio(instanceGrade: Grade, referenceGrade: Grade): number {
@@ -19,6 +20,13 @@ export function gradedArcanaValue(definition: ArcanaDefinition, instanceGrade: G
       return 1 + (definition.value - 1) * ratio * gradeModifierTuning.amplifyBonus;
     case 'focus':
       return 1 + (definition.value - 1) * ratio * gradeModifierTuning.focusBonus;
+    case 'haste':
+    case 'efficiency':
+      return Math.max(gradeModifierTuning.minimumReductionMultiplier, 1 + (definition.value - 1) * ratio);
+    case 'reach':
+    case 'velocity':
+    case 'area':
+      return 1 + (definition.value - 1) * ratio;
     case 'double':
     case 'split': {
       const steps = gradeOrder.indexOf(instanceGrade) - gradeOrder.indexOf(definition.grade);

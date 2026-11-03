@@ -32,3 +32,24 @@ test("territory upgrade uses the real remote route, notifies once and survives c
   assert.equal(restored.getState().territory.wallLevel,1);
   assert.equal(restored.getState().territory.shieldLevel,1);
 });
+
+test("repair shares the remote command, displayed quote and durable idempotent transaction",()=>{
+  const checkpoint=createGameRuntime().checkpoint();
+  checkpoint.state.coins=100;checkpoint.state.territory.hp=63;checkpoint.state.territory.shield=0;
+  const runtime=createGameRuntime(demoContent,checkpoint);
+  const before=projectFrame(runtime.getState(),[],[],demoContent);
+  assert.equal(before.capabilities.territoryRepairs.wall.cost,19);
+  const command={id:"repair-wall",type:"repairTerritory",track:"wall"};
+  assert.deepEqual(parseRemoteCommand({...command,secret:"hidden"}),command);
+  assert.equal(dispatchRemote(runtime,command).status,"executed");
+  const after=runtime.getState();assert.equal(after.coins,81);assert.equal(after.territory.hp,100);
+  assert.equal(after.territory.wallLevel,1);assert.equal(after.runStatistics!.coinsEarned,0);
+  dispatchRemote(runtime,command);assert.deepEqual(runtime.getState(),after);
+  const restored=createGameRuntime(demoContent,runtime.checkpoint());
+  dispatchRemote(restored,command);assert.deepEqual(restored.getState(),after);
+  assert.equal(dispatchRemote(restored,{id:"full",type:"repairTerritory",track:"wall"}).status,"rejected");
+  const frame=projectFrame(after,after.events,[],demoContent);
+  assert.equal(frame.capabilities.territoryRepairs.wall.reason,"full");
+  assert.equal(frame.events.find(event=>event.type==="territoryRepaired")?.data.increase,37);
+  assert.equal(parseRemoteCommand({id:"bad",type:"repairTerritory",track:"roof"}),undefined);
+});

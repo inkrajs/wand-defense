@@ -1,53 +1,39 @@
 .combat-effects { position: absolute; inset: 0; z-index: 3; pointer-events: none; container-type: size; --cast-hero-gap: 12px; }
-.combat-cast, .combat-projectile { --cast-color: #ed6c23; --cast-core: #fff0a3; --cast-bolt-size: 18px; --cast-heading: 0deg; --cast-source-x: calc(50cqw + (var(--cast-index) - (var(--cast-count) - 1) / 2) * (96px + var(--cast-hero-gap))); --cast-source-y: calc(100cqh - var(--game-defense-bottom) - var(--game-vitals-height, 28px) - 60px); }
+.combat-cast, .combat-projectile { --cast-color: #bd642f; --cast-source-x: calc(50cqw + (var(--cast-index) - (var(--cast-count) - 1) / 2) * (96px + var(--cast-hero-gap))); --cast-source-y: calc(100cqh - var(--game-defense-bottom) - var(--game-vitals-height, 28px) - var(--game-hero-mini-space, 0px) - 60px); }
 .combat-cast { position: absolute; inset: 0; }
-/* Only authoritative positions move the projectile; this layer never schedules a hit. */
-.combat-projectile { position: absolute; width: 0; height: 0; left: calc(var(--projectile-x) + var(--origin-weight) * (var(--cast-index) - (var(--cast-count) - 1) / 2) * (96px + var(--cast-hero-gap))); top: calc(var(--projectile-y) + var(--origin-weight) * (100cqh - var(--game-defense-bottom) - var(--game-vitals-height, 28px) - 60px - var(--origin-y))); transition: left 50ms linear, top 50ms linear; }
+/* Simulation positions move wrappers; shared pencil stamps never follow a display clock. */
+.combat-projectile { position: absolute; width: 0; height: 0; left: 0; top: 0; transition: transform 50ms linear; }
 .combat-effects[data-paused="true"] .combat-projectile { transition: none; }
-.combat-cast--fireball { --cast-bolt-size: 28px; --cast-color: #e85024; }
-.combat-cast--needle { --cast-color: #a57b25; --cast-core: #fff5cf; }
-.combat-cast--heal { --cast-color: #438746; --cast-core: #c4e9a3; }
-.combat-cast--water { --cast-color: #438eb9; --cast-core: #d6f4ff; --cast-bolt-size: 21px; }
-.combat-cast--lightning { --cast-color: #d6b23b; --cast-core: #fff9c9; --cast-bolt-size: 27px; }
-.combat-cast--wind { --cast-color: #4c9b8b; --cast-core: #d8f8ec; --cast-bolt-size: 29px; }
-.combat-cast--rock { --cast-color: #92704b; --cast-core: #d5b88a; --cast-bolt-size: 26px; }
-.combat-cast__bolt { position: absolute; display: block; width: var(--cast-bolt-size); height: var(--cast-bolt-size); margin: calc(var(--cast-bolt-size) / -2); border-radius: 65% 15% 65% 45%; transform: rotate(calc(var(--cast-heading) - 38deg)); background: var(--cast-color); box-shadow: 0 0 10px 3px #f5a44888; }
-.combat-cast__bolt::before { content: ""; position: absolute; width: 65%; height: 190%; left: 20%; top: 36%; background: linear-gradient(var(--cast-color),transparent); transform: rotate(38deg); transform-origin: top; border-radius: 40%; }
-.combat-cast__bolt i { position: absolute; inset: 28% 20% 12% 25%; border-radius: 60% 10% 60% 45%; background: var(--cast-core); }
-.combat-cast__bolt b { position: absolute; width: 22%; height: 36%; top: -30%; left: 55%; border-radius: 65% 10% 65% 45%; background: #ffb43b; }
-.combat-cast--needle .combat-cast__bolt { width: 5px; height: 28px; border-radius: 50% 50% 20% 20%; background: linear-gradient(90deg,#8c651c,var(--cast-core),#b78f3c); box-shadow: 0 0 6px #bd9e4566; transform: rotate(var(--cast-heading)); }
-.combat-cast--needle .combat-cast__bolt i, .combat-cast--needle .combat-cast__bolt b { display: none; }
-.combat-cast--water .combat-cast__bolt { border-radius: 70% 15% 70% 65%; box-shadow: 0 0 9px #71c4de66; }
-.combat-cast--water .combat-cast__bolt::before { height: 150%; opacity: .5; }
-.combat-cast--water .combat-cast__bolt i { inset: 20% 24% 42% 38%; border-radius: 50%; }
-.combat-cast--water .combat-cast__bolt b { display: none; }
-.combat-cast--lightning .combat-cast__bolt { width: 18px; height: 34px; margin: -17px -9px; border-radius: 0; clip-path: polygon(53% 0, 8% 55%, 43% 55%, 25% 100%, 94% 37%, 57% 37%, 80% 0); background: linear-gradient(90deg, var(--cast-color), var(--cast-core), var(--cast-color)); box-shadow: none; transform: rotate(var(--cast-heading)); }
-.combat-cast--lightning .combat-cast__bolt::before, .combat-cast--lightning .combat-cast__bolt i, .combat-cast--lightning .combat-cast__bolt b { display: none; }
-.combat-cast--wind .combat-cast__bolt { width: 31px; height: 23px; margin: -12px -16px; border-radius: 65% 65% 45% 45%; background: linear-gradient(var(--cast-core), var(--cast-color)); clip-path: polygon(0 62%, 9% 32%, 26% 10%, 50% 0, 74% 10%, 91% 32%, 100% 62%, 79% 41%, 50% 29%, 21% 41%); box-shadow: none; transform: rotate(var(--cast-heading)); }
-.combat-cast--wind .combat-cast__bolt::before, .combat-cast--wind .combat-cast__bolt i, .combat-cast--wind .combat-cast__bolt b { display: none; }
-.combat-cast--rock .combat-cast__bolt { border-radius: 0; clip-path: polygon(22% 4%, 70% 0, 98% 36%, 85% 82%, 39% 100%, 0 65%, 5% 24%); background: linear-gradient(135deg, var(--cast-core), var(--cast-color) 60%, #634b38); box-shadow: none; transform: rotate(var(--cast-heading)); }
-.combat-cast--rock .combat-cast__bolt::before, .combat-cast--rock .combat-cast__bolt b { display: none; }
-.combat-cast--rock .combat-cast__bolt i { inset: 22% 18% 31% 32%; border-radius: 0; clip-path: polygon(0 0,100% 17%,72% 100%,12% 69%); opacity: .45; }
-.combat-cast__impact { position: absolute; left: var(--cast-x); top: var(--cast-y); width: 30px; height: 30px; margin: -15px; border-radius: 50%; background: radial-gradient(circle,var(--cast-core),var(--cast-color) 35%,transparent 70%); animation: magic-impact var(--cast-duration) cubic-bezier(.16,1,.3,1) both; }
-.combat-cast__impact i { position: absolute; left: 50%; top: 50%; width: 4px; height: 12px; border-radius: 60% 20%; background: var(--cast-color); transform: rotate(var(--spark-angle)) translateY(-22px); }
-.combat-cast--fireball .combat-cast__impact { width: 46px; height: 46px; margin: -23px; }
-.combat-cast--water .combat-cast__impact { background: radial-gradient(circle, transparent 22%, var(--cast-core) 32%, var(--cast-color) 43%, transparent 58%); }
-.combat-cast--water .combat-cast__impact i { width: 4px; height: 8px; border-radius: 70% 20%; }
-.combat-cast--lightning .combat-cast__impact i { width: 2px; height: 17px; border-radius: 0; transform: rotate(var(--spark-angle)) translateY(-20px) skewX(-20deg); }
-.combat-cast--wind .combat-cast__impact { background: radial-gradient(ellipse, transparent 30%, var(--cast-color) 48%, transparent 62%); }
-.combat-cast--wind .combat-cast__impact i { width: 2px; height: 12px; border-radius: 50%; }
-.combat-cast--rock .combat-cast__impact { background: radial-gradient(circle, #c6a67788, transparent 70%); }
-.combat-cast--rock .combat-cast__impact i { width: 6px; height: 7px; border-radius: 1px; }
-.combat-cast--heal .combat-cast__impact { left: var(--cast-source-x); top: var(--cast-source-y); width: 64px; height: 64px; margin: -32px; background: radial-gradient(circle,transparent 45%,#6ebd6566 55%,transparent 68%); animation-name: magic-heal; }
-.combat-cast--heal .combat-cast__impact i { width: 6px; height: 11px; background: var(--cast-core); box-shadow: 0 0 3px var(--cast-color); transform: rotate(var(--spark-angle)) translateY(-24px); }
-.combat-cast.is-fizzled .combat-cast__impact { width: 12px; height: 12px; margin: -6px; background: radial-gradient(circle,var(--cast-color),transparent 70%); }
-.combat-cast.is-fizzled .combat-cast__impact i { display: none; }
-@keyframes magic-impact { 0% { opacity: .9; transform: scale(.35); } 25% { opacity: 1; transform: scale(.85); } 100% { opacity: 0; transform: scale(1.8); } }
-@keyframes magic-heal { 0% { opacity: 0; transform: scale(.7); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5) translateY(-10px); } }
+.combat-cast--fireball { --cast-color: #b94e2c; }
+.combat-cast--needle { --cast-color: #9d7b32; }
+.combat-cast--heal { --cast-color: #4f8550; }
+.combat-cast--water { --cast-color: #4d8da9; }
+.combat-cast--lightning { --cast-color: #b2932f; }
+.combat-cast--wind { --cast-color: #508e7f; }
+.combat-cast--rock { --cast-color: #8e7050; }
+.combat-cast--thorn { --cast-color: #4d8050; }
+.combat-cast--disc { --cast-color: #9b8749; }
+.combat-cast--light { --cast-color: #b69b38; }
+.combat-cast--shadow { --cast-color: #775b8b; }
+.combat-cast--shield { --cast-color: #52899d; }
+.combat-cast__bolt { position: absolute; display: block; }
+/* The water stamp's rounded body leads; its pointed end trails the flight. */
+.combat-projectile.combat-cast--water .combat-cast__bolt > [data-magic-effect-art="water"] { transform: rotate(180deg); }
+.combat-cast__bolt > .combat-cast__tail { position: absolute; left: 50%; top: 65%; transform: translateX(-50%); opacity: .38; }
+.combat-cast__impact { position: absolute; left: var(--cast-x); top: var(--cast-y); width: var(--cast-impact-size); height: var(--cast-impact-size); margin: calc(var(--cast-impact-size) / -2); animation: magic-impact var(--cast-duration) cubic-bezier(.16,1,.3,1) both; }
+.combat-cast--heal .combat-cast__impact, .combat-cast--shield .combat-cast__impact { left: var(--cast-source-x); top: var(--cast-source-y); }
+.combat-cast--heal .combat-cast__impact { animation-name: magic-heal; }
+.combat-cast.is-fizzled .combat-cast__impact { opacity: .5; }
+@keyframes magic-impact { 0% { opacity: .8; transform: scale(.45); } 25% { opacity: 1; transform: scale(.9); } 100% { opacity: 0; transform: scale(1.5); } }
+@keyframes magic-heal { 0% { opacity: 0; transform: scale(.75); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.2) translateY(-8px); } }
 @keyframes magic-still { from { opacity: .8; } to { opacity: 0; } }
-@supports (transform: rotate(atan2(1, 1))) { .combat-projectile { --cast-heading: calc(atan2(calc(var(--cast-y) - var(--projectile-y)),calc(var(--cast-x) - var(--projectile-x))) + 90deg); } }
 @media (max-width: 560px) { .combat-effects { --cast-hero-gap: 4px; } }
-@media (prefers-reduced-motion: reduce) { .combat-projectile { transition: none; } .combat-cast__bolt::before { display: none; } .battlefield .combat-effects .combat-cast__impact { animation: magic-still 200ms linear both; animation-duration: 200ms !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .combat-projectile { transition: none; }
+  .combat-cast__tail { display: none; }
+  .battlefield .combat-effects .combat-cast__impact { animation: magic-still 200ms linear both; animation-duration: 200ms !important; }
+}
 html[data-game-reduce-motion="true"] .combat-projectile { transition: none; }
-html[data-game-reduce-motion="true"] .combat-cast__bolt::before { display: none; }
+html[data-game-reduce-motion="true"] .combat-cast__tail { display: none; }
 html[data-game-reduce-motion="true"] .battlefield .combat-effects .combat-cast__impact { animation: magic-still 200ms linear both; animation-duration: 200ms !important; }
+@media (forced-colors: active) { .combat-cast, .combat-projectile { --cast-color: Highlight; } }

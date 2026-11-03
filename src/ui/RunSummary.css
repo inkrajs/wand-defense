@@ -1,0 +1,12 @@
+.run-summary { pointer-events: auto; width: min(440px, 100%); max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; display: grid; gap: 20px; }
+.run-summary__header { text-align: center; }
+.run-summary__header h2 { margin: 0; font-size: var(--inkra-text-2xl); font-weight: 400; }
+.run-summary__meta { display: flex; justify-content: center; align-items: center; gap: 10px; color: var(--inkra-ink-muted); margin-top: 6px; }
+.run-summary__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 8px; }
+.run-summary__stat { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.run-summary__stat > svg { flex: none; }
+.run-summary__stat > div { display: grid; min-width: 0; gap: 2px; }
+.run-summary__label { color: var(--inkra-ink-muted); font-size: var(--inkra-text-xs); }
+.run-summary__value { font-size: var(--inkra-text-lg); font-weight: 400; overflow-wrap: anywhere; }
+.run-summary__restart { justify-self: center; min-width: 120px; }
+@media (max-width: 420px) { .run-summary { padding: 20px; gap: 16px; } .run-summary__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; } }

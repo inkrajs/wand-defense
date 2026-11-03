@@ -57,3 +57,14 @@ test("new elemental attacks show their own projectile and impact only on actual 
     assert.equal(impacts[0].fizzled, false);
   }
 });
+
+
+test("projectiles and impacts retain real coordinates at and beyond the field edge", () => {
+  const state = createInitialState();
+  const entity = { id: "p", definitionId: "spark", kind: "projectile" as const, faction: "player" as const, x: 101, y: 92, hp: 1, maxHp: 1, damage: 1, speed: 1, range: 1, cooldownMs: 0, attackRemainingMs: 0, targetX: 50, targetY: -2 };
+  const visual = projectileVisual(entity)!;
+  assert.deepEqual([visual.x, visual.y, visual.targetX, visual.targetY], [101, 92, 50, -2]);
+  state.events = [{ seq: 1, type: "damage", gameTimeMs: 0, data: { effect: "spark", sourceCharacterId: state.characters[0].id, amount: 1, x: 101, y: 92 } }];
+  const [impact] = collectCastVisuals(state, 0);
+  assert.deepEqual([impact.x, impact.y], [101, 92]);
+});

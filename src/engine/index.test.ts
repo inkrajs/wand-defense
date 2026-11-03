@@ -131,8 +131,11 @@ test("double creates real projectiles, hits the same surviving target, and charg
   assert.equal(cast.state.entities.find(entity => entity.id === "target")?.hp, 100);
   assert.equal(cast.state.characters[0].mana, 96);
   const result = stepBattle(cast.state, 100, demoContent).state;
-  assert.equal(result.entities.find(entity => entity.id === "target")?.hp, 78);
+  assert.equal(result.entities.find(entity => entity.id === "target")?.hp, 89);
   assert.equal(result.characters[0].mana, 96);
+  const later=stepBattle(result,150,demoContent).state;
+  assert.equal(later.entities.find(entity=>entity.id === "target")?.hp,78);
+  assert.equal(later.characters[0].mana,96);
 });
 test("multiple wands share personal mana and keep independent cooldowns", () => {
   const state = battle(); state.characters[0].mana = 4; state.characters[0].manaRegen = 0;

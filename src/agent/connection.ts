@@ -52,12 +52,15 @@ export function createBrowserConnection(runtime: RuntimePort, config: BrowserCon
     config.onStatus?.(value);
   };
 
-  const unsubscribe = runtime.subscribe((_state, events) => {
+  const receiveEvents = (_summary: unknown, events: GameEvent[]) => {
     for (const event of events) {
       if (!pendingEvents.some((queued) => queued.seq === event.seq)) pendingEvents.push(event);
     }
     if (pendingEvents.length > MAX_PENDING_EVENTS) pendingEvents.splice(0, pendingEvents.length - MAX_PENDING_EVENTS);
-  });
+  };
+  const unsubscribe = runtime.subscribeEvents
+    ? runtime.subscribeEvents(receiveEvents)
+    : runtime.subscribe(receiveEvents);
 
   for (const event of runtime.getState().events) {
     if (!pendingEvents.some((queued) => queued.seq === event.seq)) pendingEvents.push(event);

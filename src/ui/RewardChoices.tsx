@@ -1,17 +1,22 @@
+import { RewardArtwork } from "./RewardArtwork";
 import { useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
-import { PencilSurface, PencilText } from "@inkra/react";
-import type { RewardOption } from "../contracts";
+import { Button, PencilIcon, PencilSurface, PencilText, type PencilIconPath } from "@inkra/react";
+import type { RewardOption, RewardRefreshQuote } from "../contracts";
 import { gradeDefinitions } from "../content/grades";
 import "./RewardChoices.css";
 
-type Props = { rewards: RewardOption[]; onClaim: (rewardId: string) => void };
+type Props = { rewards: RewardOption[]; onClaim: (rewardId: string) => void; refreshQuote: RewardRefreshQuote; onRefresh: (offerId: string) => void };
+const refreshPaths: PencilIconPath[] = [{ d: "M20 7v5h-5M4 17v-5h5M19 11a7 7 0 0 0-12-4L4 12m16 0-3 5a7 7 0 0 1-12-4", mode: "stroke" }];
+const coinPaths: PencilIconPath[] = [{ d: "M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z M12 7v10M9 9c0-2 6-2 6 0s-6 2-6 4 6 2 6 0", mode: "stroke" }];
 const kindNames: Record<RewardOption["kind"], string> = { item: "物品", character: "角色", wand: "法杖", heal: "恢复", coins: "金币", buff: "增益" };
 
-export function RewardChoices({ rewards, onClaim }: Props) {
+export function RewardChoices({ rewards, onClaim, refreshQuote, onRefresh }: Props) {
   const [flipped, setFlipped] = useState<Set<string>>(() => new Set());
+  const [preparedBacks,setPreparedBacks]=useState<Set<string>>(()=>new Set());
   const pointerStarts = useRef(new Map<string, { x: number; y: number; selectedText: string }>());
   const suppressedClicks = useRef(new Map<string, number>());
   function toggleFlip(id: string) {
+    setPreparedBacks(current=>current.has(id) ? current : new Set([...current,id]));
     setFlipped((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -19,7 +24,7 @@ export function RewardChoices({ rewards, onClaim }: Props) {
     });
   }
 
-  return <div className="reward-choices" aria-label="奖励选项">
+  return <div className="reward-choices-layout"><div className="reward-choices" aria-label="奖励选项">
     {rewards.map((reward) => {
       const isFlipped = flipped.has(reward.id);
       const grade = reward.grade ?? "common";
@@ -39,12 +44,12 @@ export function RewardChoices({ rewards, onClaim }: Props) {
           <div className="reward-choice__flipper">
             <PencilSurface as="div" className="reward-choice__face reward-choice__front" variant="outline" seed={`reward-${reward.id}-front`} radius={6} aria-hidden={isFlipped} inert={isFlipped}>
               <div className="reward-choice__front-content">
-                <div className="reward-choice__art" aria-hidden="true" />
+                <div className="reward-choice__art" aria-hidden="true"><RewardArtwork reward={reward} /></div>
                 <PencilText as="h3" seed={`reward-${reward.id}-title`}>{reward.label}</PencilText>
                 <PencilText as="p" seed={`reward-${reward.id}-intro`}>{reward.description || kindNames[reward.kind]}</PencilText>
               </div>
             </PencilSurface>
-            <PencilSurface as="div" className="reward-choice__face reward-choice__back" variant="outline" seed={`reward-${reward.id}-back`} radius={6} aria-hidden={!isFlipped} inert={!isFlipped}>
+            {preparedBacks.has(reward.id) && <PencilSurface as="div" className="reward-choice__face reward-choice__back" variant="outline" seed={`reward-${reward.id}-back`} radius={6} aria-hidden={!isFlipped} inert={!isFlipped}>
               <div className="reward-choice__back-content">
                 <PencilText as="h3" seed={`reward-${reward.id}-details-title`}>{reward.label}</PencilText>
                 <div className="reward-choice__details-scroll" role="region" aria-label={`${reward.label}详细属性`} tabIndex={0}
@@ -71,7 +76,7 @@ export function RewardChoices({ rewards, onClaim }: Props) {
                   </dl>
                 </div>
               </div>
-            </PencilSurface>
+            </PencilSurface>}
           </div>
         </div>
         <button type="button" className="reward-choice__claim" aria-label={`领取奖励：${reward.label}`} />
@@ -79,5 +84,12 @@ export function RewardChoices({ rewards, onClaim }: Props) {
         </button>
       </article>;
     })}
+  </div>
+    <Button className="reward-choices__refresh" variant="ghost" disabled={!refreshQuote.canRefresh || !rewards[0]} onClick={() => { if (rewards[0]) onRefresh(rewards[0].id); }}
+      aria-label={refreshQuote.freeRemaining > 0 ? `刷新奖励，剩余免费 ${refreshQuote.freeRemaining} 次` : refreshQuote.cost === null ? "刷新奖励不可用" : `刷新奖励，花费 ${refreshQuote.cost} 金币`}>
+      <PencilIcon paths={refreshPaths} sourceSize={24} size={32} seed="reward-refresh" decorative />
+      <PencilText as="span">{refreshQuote.freeRemaining > 0 ? `免费 ${refreshQuote.freeRemaining}` : refreshQuote.cost === null ? "不可用" : String(refreshQuote.cost)}</PencilText>
+      {refreshQuote.freeRemaining === 0 && refreshQuote.cost !== null && <PencilIcon paths={coinPaths} sourceSize={24} size={24} seed="reward-refresh-coin" decorative />}
+    </Button>
   </div>;
 }

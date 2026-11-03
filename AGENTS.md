@@ -8,6 +8,8 @@ work. Use native create_thread for supported OpenAI models; use the admitted
 provider-aware tool for OpenCode Go / deepseek-v4-pro after listing providers.
 Do not use DeepSeek Flash. Do not change user-selected models or healthy tasks.
 This authorization does not authorize contacting unrelated people.
+Use independent native chats for new delegated work; the user's latest preference
+is not to use collaboration subagents. Keep each task's file ownership explicit.
 
 ## Required context
 Read docs/demo-scope.md, docs/architecture.md, docs/development.md, and your

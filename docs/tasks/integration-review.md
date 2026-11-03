@@ -209,3 +209,408 @@
 - flat xp保留累计统计、playerLevel保留首角色alias，同时投影明确experienceMode=perCharacter；每角色显式xp与共用getExperienceProgress结果，level/XP/进度采用同一权威数据。characterLevelUp、character.levelReward及xpCharacterId走事件白名单，未扩张任意内部payload或未知定义披露。
 
 独立仅运行runtime/character-progression.test.ts，3/3通过。另内联窄验构造不改输入checkpoint、battle状态携带旧characterLevelUp后实际tick也不重发赠品、xpCharacterId公开且私有字段剔除、个人进度投影一致，通过。未全仓/视觉验收、未改UI，其他结论保持。
+
+## Beam、新元素与随机奖励根批审（2026-11-04）
+
+结论：本批Sol代码审查通过，无新增阻塞。仅审根表现、编译与奖励组合接线；新战斗/个人XP/死亡metadata、随机抽样策略由原battle/loadout Sol验收，分页/WaveProgress由UI Sol另审，不重做这些领域全套。未动用户浏览器或补发物品。
+
+- BeamEffects只读真实beam固定段/存活时间，实际角色锚点由DOM测量，不派发伤害或使用脉冲timer。useLayoutEffect依赖角色ID集合，先measure，再仅观察容器resize；自身layout状态不会改变容器尺寸，未见循环触发路径，cleanup断开observer。beamVisual拒绝非法/零布局尺寸、无效坐标与过期实体，有限beamWidth夹紧；角色锚点无效拒绝、缺失则用世界坐标fallback。样式只装饰线段、pointer-events:none/aria-hidden，未增加动画命中或操作提示。
+- combatVisuals集中扩展15定义，含shieldRestored；chain/pierce已有hitIds时originWeight=0，后段不重新从hero显示发射。thorn/disc/light/shadow的bolt覆盖形状/颜色并隐藏旧火焰子节点；shield为独立恢复impact。旧seq/坐标防护/expiry资源边界保持，BF普通层排除beam/projectile避免双绘。
+- floorBlood按真实content.element处理新fire/lightning焦黑、water局部洗、dark色，不另猜定义名称；仍读取实际damage/death，局部确定性血迹PRNG与combat RNG隔离，旧cap/游标/缓存边界保持。
+- compileWand将beam纳入攻击百分比，与projectile同样只编译一次；range加成与CD缩减应用真实range/cooldown，CD最大70%。impact/beam结构平铺参数各复制一层足够隔离当前类型，调用方改编译结果不会污染静态content；治疗/护盾未混入攻击增幅。
+- reward wrapper仅提供存档rngState闭包给已验收sampleWaveRewards，抽样真实推进同一rngState；fixture默认种子只用于无闭包直接调用。main注入crypto seedSource，只有fresh/restart调用，恢复checkpoint不会重新取种或重抽现有奖励。随机状态及已生成offers一起保存，正常reload保持抽样结果。
+- claim五类buff验证type、有限value与(0,100]、当前/累加值有限，CD总值cap70且无实际增长则拒绝；在修改前验证，成功统一提交与幂等缓存。maxMana/regen只在领取时更新真实角色并保留原法力缺口，新招募以基础值+run bonus初始化；constructor不重应用加成，reload不重复增长。item使用offer.grade且校验gradeOrder，实例品级与卡片一致。公开runBonuses显式列出五字段，不暴露随机流/整个catalog。
+- 怪物血条改公共Progress，继续使用ratio有限/夹紧值与max100，无显示数字，strokeOptions复用既有材质，本地thin4及registry fallback高度对应；无新玩法规则或可见操作通知。只做代码接入审，不声称视觉已确认。
+
+实际独立仅运行beam-visuals.test.ts与runtime/random-rewards.test.ts，5/5通过。另内联断言验证checkpoint不调用seedSource、未知type/NaN/Infinity/0/>100 buff拒绝状态不变、offer epic确实入实例、beam攻击/range/CD70封顶编译、impact/beam引用隔离、五bonus投影；两份新增/变更表现CSS经PostCSS解析通过。未全仓/重复引擎域/截图或视觉验收；其他结论保持。
+
+## 当前局保留只读核查（2026-11-04）
+
+结论：现有ACK不足以认定用户存档丢失；未发现近期main/session显式自动restart或清键改动。但确认一项既有恢复失败时覆盖原记录的P2数据保留风险，已通知根，未修改实现。当前属性领域仍在开发，本轮不提前全测或验收其规则。
+
+- 实读main、session、preview诊断及diff：近期main改动为fresh/restart seedSource和只读inspection，不更改存储key、checkpoint/schema版本。inspectPreviewInventory仅getState，没有dispatch/save/restart。sessionStorage依标签页与origin分离，独立QA profile/新标签页/不同主机名入口不能直接代表用户页面；初始run id恒为demo，因此多个全新页ACK同demo并不能识别同一局。viewport可辅助区分，但仍宜附只读boot/tab标识、origin与存储读状态，不以现有ACK推断原局丢失。
+- 正常full reload的pagehide仅save，无dispose；HMR仅一个close回调，先置inactive/注销DEV监听，再save，随后移除pagehide、取消订阅/计时器并dispose。独立读取当前安装Vite client实现：HMR先调用disposer，之后importUpdatedModule；新静态import模块暂缺会使新entry无法执行，不自行执行fresh/save。旧close已经保存状态，故可使预览暂时不可用，但代码证据不支持“缺模块自动清存档”。若新构造/迁移抛错，也发生在main首个save前，原blob不会由此直接写成新局。
+- **[P2，已修复；见后续status API与main复核] 无法区分缺存档与拒读，启动立即覆盖原blob。** 原`session.ts:9-27`将不存在、解析/结构/版本拒绝与getItem异常都返回undefined；原`main.tsx:13,26`因此构造fresh并马上save。如果原键存在但可恢复记录被拒，或getItem暂时失败但setItem成功，原记录会被新demo初始状态覆盖。独立内存storage复现版本拒绝/读取异常两种路径，原wave11原文均被wave0替换。该复现证明风险存在，不证明用户实际走过这条路径。建议读取返回missing/restored/rejected/unavailable分类；键存在但拒读先隔离保留原文，未明确恢复策略前禁止fresh自动写原键，避免诊断过程二次覆盖证据。
+- saveRun写失败返回false，但main忽略并更新lastSavedAt，缺乏只读保存诊断；持续受限storage/配额失败可能只保留内存或旧checkpoint。建议记录最后成功保存revision/时间及错误类别用于DEV诊断，不默认增加可见操作提示；遵守用户无默认可见提示基线。未证明本次用户storage失败或配额耗尽。
+
+实际仅内存storage窄验：有效wave11 checkpoint经load→runtime→save仍wave11；未来版本拒绝/模拟getItem异常后同main启动序列会覆盖为wave0；两个新runtime初始id均demo。未触真实sessionStorage、用户IAB、5173页面/profile、inspection recipient或真实赠送，未改main/session/核心/UI；只更新本记录并报告证据与建议。
+
+### 根授权后的最小存储保护修复
+
+本段为后续明确授权范围变化：独占修改`src/runtime/session.ts`与新`src/runtime/session-recovery.test.ts`，未修改main/preview/vite或真实存储。抽取内部parseRun供load/save共用验证，loadRun公开返回保持兼容。saveRun先序列化候选并读原键；原文存在（包括空字符串）但验证拒绝时，先原样保存到`wand-defense:run:recovery:v1`并读回核实，再写新checkpoint。若recovery已有不同原文、读键异常、备份写失败/读回不符，则false且不覆盖原记录；已有相同备份可重试。正常合法旧checkpoint直接保存，不碰既有recovery，单备份槽不做自动淘汰或多版本系统，不打印原文、不加UI通知。
+
+独立执行session-recovery.test.ts与既有session.test.ts，8/8通过；覆盖正常/缺失键、坏JSON/版本/结构/空原文逐字备份、不同recovery拒绝/相同允许、读取/备份写/读回失败保护、主键写失败保留双记录并可重试，及原刷新/重来闭环。限定文件diff --check通过。此修复解决上述P2中无效blob被静默覆盖的路径，并阻止保存阶段读错误；未声称已自动恢复原局或解决所有storage异常。
+
+剩余入口边界已另告根：若启动load读取短暂抛错但save时读取已恢复且原blob合法，单独saveRun仍不能识别错误fresh与显式重来（loadRun的undefined不含原因）。要覆盖该情况，main需保留读取结果/禁止异常fresh自动保存，或引入单独状态读取API；本轮未擅自改main。根已核对新诊断viewport1280×720与用户截图1281×954不同，进一步说明当前ACK不能认定用户原局已丢。角色stats领域尚待battle Sol最终release，未提前批验或全测。
+
+### status API与入口闭环（2026-11-04）
+
+按根再次授权，仅修改session.ts与session-recovery.test.ts：导出RunReadResult/readRun，loaded附checkpoint，null键为empty，存在但不合法（含空字符串）为rejected，storage缺失或getItem异常为unavailable；读取不写任何键。loadRun为兼容wrapper，仍只返回有效checkpoint或undefined。独立session-recovery7+既有session3共10/10通过，新增四状态分类/瞬态读取失败后可读状态保留测试；限定diff-check通过。
+
+根拥有main并已完成消费，现已实际复读：loaded才向runtime传checkpoint；unavailable启动锁persistenceEnabled=false，初始save/后续订阅/pagehide/HMR均走同一gate，不会读恢复后自动覆盖合法旧记录；loaded/empty/rejected可save，rejected由saveRun先保留原文，备份失败不写原键。只有本批game.restarted事件才明确解锁保存；lastSavedAt仅成功save时推进。DEV inspect仅报告原读取status，不写存储。此main差异为静态复核，无真实用户存储或HMR操作；原P2两条已复现路径现有最小保护闭环，不代表已找到/恢复用户原页数据。
+
+## 角色属性根集成最终批审（2026-11-04）
+
+结论：根集成Sol代码审查通过，无新增阻塞。实际阅读contracts属性/装备贡献类型、characters共享视图、constructor/initial/recruit、loadout编译、engine消费调用点、公开projection与root actor测试；未重跑battle负责人已完成的核心21项，未越界改属性/UI文件。
+
+- runtime克隆恢复状态后先normalize个人XP再normalize baseStats；neutral默认attack0/accuracy1/crit0等不替换角色身份、XP、法力或装备，重复恢复不叠加。新初始/招募每次独立创建base与elementBonuses，无共享对象；招募继承run mana增益一次，已有角色存档不重应用。
+- getCharacterStats统一汇总base/equipment/run/sequence/final；装备按双向wand/gear归属与去重校验贡献，基础数据不被装备数值回写。compileWand复用final，把flat attack/range、百分比、品级、奥术和元素分别算一次，projectile/beam附独立attackRoll快照；治疗/护盾不误用攻击/暴击加成。impact/beam/attackRoll仍独立复制。engine既有入口消费相同final mana上限/恢复，实际命中/暴击/击杀幸运使用发射时来源信息，其具体规则以battle Sol域验收为准。
+- runtime成功构筑事务后按新的有效maxMana夹紧当前mana，卸装备不超上限，重装不补满，不修改base；失败事务不触发该副作用，仍复用统一revision/receipt/通知。角色页与Agent的stats均复用共享helper及传入catalog，projectFrame传递同一catalog，不另写属性计算。
+- projection保留个人xp及进度，新增base/equipment/run/sequence/final数值贡献；stats视图仅当前角色有效贡献，不输出整份catalog/随机流。attackMiss/critical等按事件/布尔白名单，未知定义与额外payload继续过滤，普通网络仍不能解锁作弊。
+
+实际独立仅运行runtime/actor-stats.test.ts与agent/projection.test.ts，6/6通过（legacy默认不重置、卸杖容量/不回写base、招募隔离及一次继承、数值贡献/接触事件过滤与原隐私权限）。没有重复loadout/battle全套或运行全仓，没有访问用户浏览器/清存档或视觉验收。session保护代码由本审查按授权实现，main由根实现；其余本批只读审查，其他结论保持。
+
+核心release后的最终静态收敛：根确认battle集中47/47及定向strict TS通过，本审查未重复。实读最终projection：character的baseStats/stats由显式getCharacterStats结果覆盖，wand.statBonuses按九个有限数值字段及九个合法Element白名单重建，额外payload不随新属性透出；attackMiss/critical/beamId仍严格事件字段白名单。只重跑新增恶意属性披露用例（test-name-pattern），1/1通过，包含原state不被投影修改。再次复读main读取状态保存gate保持正确。目标、共享helper分层、角色/装备/符文/序列贡献复用、运行时唯一权威及后续装备扩展接口均通过；UI独立验收、一次完整tests/type/build由根统一安排。本审查无新增阻塞项。
+
+## 下一波预览与授权定向补齐窄审（2026-11-04）
+
+状态：本批Sol复核通过；波次预览通过静态复核，定向补齐的run授权隔离P2已修正关闭。未改核心/UI、未访问用户页面或存储。
+
+- getWaveProgress在ready使用wave+1，同一getWaveSpec生成总数/标记，直接返回progress/defeated=0与cleared=false，忽略上一波存活/剩余计数；battle/reward仍使用当前wave，reward满进度。新增wave/preview显式告知消费者当前语义，无独立UI节点推算。实际阅读新增准备→下一波战斗对应测试，不重复全套。
+- updateAuthorizedPreview要求当前cheats.unlocked、三定义全部存在、精确旧unlock回执executed、新请求backpack回执未executed；仅selected三项+missingOnly走既有dispatch，原enabled=false会在赠送后恢复false。同新请求回执防重复，DEV异步import后runtimeActive守卫阻止已销毁实例操作，生产/普通HTTP无新增解锁入口；没拿到用户前台ACK，不能声称用户run已写入。
+- **[P2，已关闭] 旧授权回执跨run存活，不能证明当前run被授权。** runtime显式重来保留results，因此旧unlock executed也在新run。原独立内存复现精确旧授权unlock→restart→新局手动unlock→update获赠3项。根已增加实际旧ACK对应runId=demo，与精确旧receipt联合授权，重来生成其他id无法匹配；不是单靠通用demo id授权，也不依赖会裁剪的events。已实读修正及新增restart→unlock checkpoint不变断言，独立只运行chain preview目标用例，1/1通过，保留授权局补3/幂等/原toggle恢复与不赠其他定义检查。未替根改preview/main。
+
+本轮仅必要问题窄复现，无全仓/UI测试、截图或用户存档操作；既有角色核心与其他领域验收保持。
+
+## 清波交接性能只读调查（2026-11-04）
+
+本轮是证据与建议，不是改动后的视觉/性能验收。没有本审查既有独立browser profile，按授权只读调用流并做Node小度量，未新开5173页面/profile、不碰用户IAB、未截图、未写App/RewardChoices。
+
+- engine在同一transition中真实damage→enemyKilled→waveCleared，随即phase=reward、entities=[]；runtime同一个同步tick生成reward.offered后仅通知一次最终快照。React没有获得一个独立的最后敌人HP0中间快照；Battlefield和CombatEffects还会据reward阶段移除普通敌人与在途弹体。用户看到的“未呈现死亡就进奖励”可由这条交接解释，不代表引擎在真正致死命中前清波。现有敌人/弹体50ms位置补间可能尚未视觉追上最终结算。
+- 合成fixture（非用户save）：wave11、33items、400历史事件、100命令回执、最后弹体已在真实接触点且敌人1HP。10次预热后100次度量，整个runtime tick含notify、checkpoint克隆、JSON解析/序列化及内存storage save，中位1.520ms、p95 1.821ms、最大2.296ms；其中checkpoint+内存save中位.549ms、p95 .822ms。damage/kill/clear/offer为连续seq401..404，gameTime均50ms。这是整个tick耗时上界，不是单独精确wall-clock kill→offer插桩，且不是浏览器sessionStorage或用户真实大存档；未见此fixture域内1秒等待，不能据此排除具体设备/存档的其他成本。
+- 初次读取RewardChoices正反面均无条件挂载。当前样本四卡有34个PencilText+8个PencilSurface，正面只需8文本+4surface；详情为d项时每卡文本数3+2d，不应直接宣称每次固定40+。本地已安装公开PencilText布局effect中，inViewport文字直接同步paintText→measureLocalTextLines/renderPencilText；inViewport只检查几何裁切，不检查backface-visibility/aria-hidden/inert。因此隐藏背面仍可能同步支付测量/手绘成本，开发StrictMode也可能重复setup。该证据支持首挂主线程成本假设，未用浏览器LongTask/PerformanceObserver证实约1秒具体来源。调查过程中根已开始preparedBacks条件挂载修改，以上数量描述的是初读基线，不冒称最终实现性能。
+
+最小建议已通知根：保持engine phase/HTTP立即权威一致，仅在battle→reward当次UI交接保留末场景或按enemyKilled派生装饰死亡收尾；给最终impact至少一次paint机会（双requestAnimationFrame或等效帧屏障，随后约200~300ms短尾），再挂奖励。单setTimeout/在单rAF中立刻挂大树不能可靠保证先paint；仅延迟卡不保留最后敌人也不会自动出现死亡帧。初次恢复已reward直接展示；run/wave改变、外部领取/重来/新波或卸载取消旧回调，不能晚到覆盖新状态。反面整棵子树首次翻面才挂，之后保留，降低首挂成本并保留交互状态；这是挂载策略优化，不改变手绘组件或伤害逻辑。未触实施文件，交由既定App/UI与RewardChoices负责人收敛。
+
+### 死亡收尾与奖励懒挂载落地窄审
+
+结论：本路径权威/正常交接逻辑通过静态审查；下列两处低风险生命周期建议已另告根。未再开profile或用户IAB，正常点击验证由根唯一自有profile负责，不冒称本审查进行了浏览器交互。
+
+- DeathEffects仅消费新enemyKilled并验证有限坐标，不读预测damage来假设死亡；初始游标跳过历史，换run重置，至多24条，各180ms墙钟expiry并清timeout，不显示虚假HP、不写玩法或延迟领域奖励。CSS为pointer-events:none装饰、reduced-motion仅淡出。
+- useBattleSettlement仅返回显示ready，不改phase/dispatch。id:wave绑定、phase判定使旧readyKey无法让其他局/波次显示奖励；初始checkpoint已reward同步ready，不重复收尾。battle→reward通过rAF后180ms timer再startTransition挂卡，允许末击/死亡先呈现；key/phase变化和卸载取消rAF/timeout，ready/defeat不出旧奖励，外部claim不被延迟。慢设备确切paint/挂卡长任务效果仍待真实浏览器证据。
+- RewardChoices首次flip同时准备back与翻面，未翻过的背面整树不挂，翻回后保留避免重复初始化；事件stopPropagation维持翻面不领取，正常滚动/选文抑制逻辑未变。原双面首挂基线已消除。
+- HUD遮挡修正：game-reward-stage全屏区域pointer-events:none，仅reward-choices恢复auto；关闭MotionPresence仍inert且aria-hidden，退出保留期间不会因子树pointer auto恢复交互。真实入口点击是否可达由根profile验证；本次只审规则与叠层关系。
+- 非阻塞建议1：DeathEffects换run的清空在passive effect，render当前仍直接visuals.map，若重来恰在180ms尸体存活期，旧corpse可能在新run首paint短暂闪现。建议同BloodDecals按run匹配门控渲染，先隐藏再清状态。
+- 非阻塞建议2：MotionPresence保留旧子树280ms，若外部命令极快重来/换波，RewardChoices未显式key且奖励ID可能重用，旧flipped/preparedBacks可能被保留；建议组件key绑定runId:wave，防同奖励ID跨局复用交互状态。正常人类点击间隔不构成领取权威漏洞。
+
+实际仅独立执行death-visuals.test.ts，1/1通过；DeathEffects/RewardChoices CSS经PostCSS解析通过。没有战斗大套或重复此前性能统计，没有修改App/RewardChoices/其他UI；其他验收结论保持。
+
+最终收敛补记：已实际复读DeathEffects新增cursor.run匹配渲染guard，换run的旧corpse闪帧建议关闭；同次最新App读取已确认RewardChoices有key=`state.id:state.wave`，快速换局复用交互状态建议也关闭。根报告唯一自有profile完成正常开始→5倍首波→reward，详情/背包/菜单的elementFromPoint及真实点击均通过；这份交互证据来自根，本审查未重复。只正面首次挂载已代码确认，但优化后具体设备LongTask与“1秒”下降值未测，不作性能幅度承诺。本路径无领域阻塞，视觉确认仍由用户完成。
+
+## Double/Split真实施法与共用布局批审（2026-11-04）
+
+状态：本批根适配通过；两项射线方向问题已修正并经下文窄复核关闭。只读实际compile/castPattern/effects/projectile/beam/contracts与布局适配，不碰正在并行的slot/grantWand、成长或波次模块。
+
+- compile分别保存burstCount与splitCount，double增加时间批次、split增加同批分支，copies总数min64；castPattern集中按120ms生成有界计划，旧仅casts调用保持空间复制兼容。新计划实体立即占projectile512/beam24全局预算和单次64上限，ID包含seq/index并防碰撞，不靠UIsetTimeout造弹。
+- 等待实体无spawn事件、不可视、不耗寿命或首pulse倒计时；advance先扣launchDelay，激活时用原来源角色world anchor重新选活目标，只有本slice激活后的余量推进飞行/寿命/pulse。等待期间pause/backpack冻结，checkpoint字段可序列化；清波/失败沿原模拟清场，pending不阻止清波。launch后丢目标保持记忆点消散，不偷换目标。mana/cooldown只在初次castSpell接受后统一支付一次，延迟激活不再扣费。
+- projectile初始waypoint是真实模拟短分叉，先走独立支路再homing；独特目标优先，单目标支路也有不同路径。beam每批延迟和首pulse钟独立，单目标角度偏移限制在宽度内保证真实接触；多目标分支重复时见下P2。
+- useCombatLayout供两表现层复用，测量真实hero bbox/容器并observe尺寸、角色集合变化时重建、cleanup断开；不写回engine。projectile actual-origin偏移替代固定96px，每个来源使用同一world anchor约定，命中后hitIds避免分支回hero，pending隐藏；CSS仅50ms插值与真实位置读取。
+
+1. **[P2，已关闭] beamVisual逐轴夹端点会扭曲权威射线。** 原表现把targetX/Y各自clamp0..100，不等价于裁剪直线。独立复现50/84→130/4，在1000×800原显示角-52.001°，真实映射角-38.660°。现已去逐轴夹紧，有限端点按真实值映射并交overflow:hidden裁剪；独立角度断言通过。
+2. **[P2，已关闭] beam split分支多于活目标时重叠。** 原launchBeam只有targets.length===1才spread，split4遇2目标仅2个distinct segments。现按每target局部分支index/count做宽度内偏移，独立复现4段均不同且100ms脉冲两目标各受2次5点伤害，真实接触保持。
+
+实际独立仅运行cast-pattern目标3项（延迟/冻结/首pulse/单次mana），3/3通过。额外内联验证pending lifetime在等待期不变、跨120ms仅激活余量消耗、beam首pulse倒计时相同规则、backpack冻结、512pending预留预算拒绝新增与清波清空，通过；另两项P2按纯函数/内存状态复现。未重复全部impact/speed或成长波次套件、未开browser/截图，未修改核心/UI；其他验收保持。
+
+### 用户新ballistic规则后的窄复核
+
+根随后按用户新要求将飞弹改为发射heading快照与真实扫掠碰撞；本段覆盖上一轮“失去预选target飞至记忆点消散”的旧验收语义，不应继续拿旧规则判断当前实现。
+
+- 实读collision helper：以本slice线段与radius1活敌圆求最早进入点，排除已hit IDs、死亡/非enemy与非有限目标位置，近似同距用ID稳定排序；从圆内起飞记distance0。advance截到场地边界再sweep，split waypoint前后两段都sweep，非分叉按heading一直飞，不再追随targetId或因原目标死取消。真实接触才resolveImpact；chain命中后换下一leg heading，pierce保持入射heading与8目标预算，仍消耗同一寿命，不造无限后继弹体。
+- pause/背包/launchDelay、5秒active life、64/512预算与清波清场边界保持。目标死只改变潜在碰撞物集合，不强制换向找离线路敌人。新outOfBounds原因已加入投影固定枚举，未开放任意字符串。
+- 实际独立只运行projectile-collision.test.ts，3/3通过（死目标后继续/离线不追、500速度中途遮挡不穿模、无命中最终出界）；额外内联验证split waypoint途中拦截命中、同距ID tie、两beam修正真实接触与角度，均通过。未重复根39项或成长/波次16项，未改runtime ledger/slot领域或用户页面。
+- 非阻塞表现残留已告根：当前CSS仍用target-position计算朝向，新ballistic越过原目标位置后向量会反向，方向性bolt/尾迹可能与实际heading相反；建议优先用有限headingX/Y做显示角，旧存档再fallback目标向量。本项不影响碰撞/伤害，代码审未冒充视觉确认。
+
+## 累计统计、领地升级修复与怪物体型接线批审（2026-11-04）
+
+结论：本批集成代码复核通过，无新增阻塞；累计统计的数值恢复P2已修正关闭。本批只更新审计记录，未修改业务/UI、未访问用户浏览器或真实存储。
+
+- 累计统计由运行时事务维护，不拿当前金币余额或现存背包充当完整累计数。成功赠送/招募与战斗新增事件累加，合成、消费金币和装备变动不倒扣；boss是敌人击杀子集，跨级按level与previousLevel差累计。回执在checkpoint恢复后仍阻止同命令重复累计；复活保留本局累计，显式重来清零。合法完整统计直接恢复，不重放裁剪历史。旧档只以存活物品、领取历史、个人等级和保留事件恢复可证明下界，重叠证据取max，无法证明完整时complete=false。
+- **[P2，已关闭] 有限小数或不安全整数可带complete=true恢复，公开投影却归零。** 原内存复现1.5在恢复后仍完整、投影为0，导致权威与公开统计不一致。现八字段统一要求非负安全整数，非法旧数据回退不完整下界；所有实时增量复用安全累加helper，溢出饱和并标记不完整。最新补充也将非法characterLevelUp等级事件标记不完整，不再静默跳过而保留complete=true。独立边界两测试2/2通过；另内联覆盖八字段×小数/超安全整数/NaN/Infinity/负数、恢复与投影一致、恰达MAX_SAFE仍完整而再加1转不完整，以及非法升级事件，均通过。负责人报告统计7项及定向strict通过，本审查未重复全套。
+- 领地升级不再受旧玩法等级上限限制，价格与容量继续按共享helper计算，保留安全数值边界。付费修复只补选定wall/shield缺口，不升级或增加上限；满值、余额不足、失败阶段或非法/溢出数值均在提交前拒绝。事务新建状态并统一推进revision/seq、缓存回执；UI报价、Agent能力和实际命令共用同一预览计算。金币消费不会减少coinsEarned。独立内联验证旧level6可升7、wall35缺口报价18与shield26缺口报价8、扣款与输入状态不变、满值/贫穷/defeat/数值越界原子拒绝，均通过。
+- 已阅读根新增repair远程集成用例：真实dispatch、公开报价、重复命令与checkpoint后重试、满值拒绝、事件增量和非法track解析均覆盖。根随后报告repair真实remote integration连同preview/beam/collision定向17/17通过；此为根的执行证据，本审查未重复运行。根全仓277项曾发现的旧追踪断言与growthProfileId恢复差异由根收敛，不能把本批窄审表述为全仓已绿；最新fresh/recruit显式profile已静态核对，最终全仓状态以根报告为准。
+- 怪物定义与合法size覆盖共用尺寸helper，显示像素、血条宽度和真实扫掠半径均从同一预设读取；未知定义/非法覆盖回退normal，资源查询使用own-key，不开放私有catalog。独立只运行新增large monsters collide用例，1/1通过，证明大体型真实接触、普通及显式小体型不误命中。
+
+本批没有重复领域大套、截图或视觉验收；领地、统计与体型规则的其他领域测试以各负责人及根的已报告结果为准。
+
+## 领地被动恢复与时钟接线窄审（2026-11-04）
+
+上一轮最终全量278/278、build与registry TS通过，来自根报告。本轮是其后新增能力的独立窄审，不继承该结果作为新增代码的全仓验收。
+
+业务代码审查通过，未发现新增P1/P2；领域测试夹具仍有一处待负责人收敛，已通知根。仅修改本记录，没有修改恢复模块或UI。
+
+- 壁/盾分别300解锁至level1，后续按当前level×150扣款；共享冻结规则分别给每级1/s与2/s，不共用等级。购买事务仅升级选中轨，不立即补HP/shield，不增加容量；ready/reward及暂停battle可买，活动battle/defeat拒绝。安全整数等级、有限安全价格/资源与revision/seq提交边界均在提交前检查，金币消费不减少累计收入。runtime统一缓存回执，checkpoint恢复后同ID不再扣费或升级，显式restart回两轨0。原即时付费repair独立路由保留。
+- runtime先将输入dt夹至250ms，再乘speed；engine按最多50ms模拟片推进，恢复helper只消费已缩放的step，不再乘speed、不运行独立计时器。phase非battle、paused或backpackOpen均不回。每片先敌攻、再败北检查、再恢复；敌攻归零会立即defeat并break，不会由同片高恢复率救活。hp本来为0时helper也拒绝壁/盾两轨恢复。
+- helper校验资源与恢复等级，缺失旧等级视0；恢复不花金币、不单独发事件，随同engine统一revision/通知。先比较gap/rate再计算乘积，巨大有限dt可安全夹至真实容量；不把Infinity或非法dt当恢复时间。两个轨道独立读取各自rate与capacity，满值不再增长。
+- Agent parser只收合法wall/shield且移除外来rate等字段；command schema、capabilities与实际事务复用同一预览，升级事件仅显式track/level/cost/rate等白名单字段公开，恢复等级跟随territory状态与checkpoint持久化。
+
+实际独立运行territory-recovery-integration.test.ts，1/1通过（解锁、独立升级、2倍恢复、ready/暂停冻结、同ID及恢复后幂等、重来清零）。额外内联通过0.25/1/5倍runtime接线的实际恢复量与gameTime、敌攻致死优先于两轨level1000恢复且50ms即败北、纯step输入隔离、ready/reward/defeat不回、MAX_VALUE有限dt夹容量、远程非法track拒绝与额外rate剔除。内联初次因审查脚本误导入不存在且未使用的projectCapabilities而未执行断言，去掉该导入后全部通过，未修改实现。
+
+待负责人收敛的测试夹具：content/territory-recovery.test.ts中legacy levels用例直接createInitialState后断言wallRepairLevel为undefined，而根已给新初始状态显式0；应先删除两轨字段模拟旧档，再检验默认0。此为实际读取发现的测试与fixture不一致，未重跑领域大套冒充通过；修正及最终全量结果由负责人/根报告后补记。UI图标、价格间距与恢复行由UI负责人及用户视觉验收，本审查不作视觉结论。
+
+## 血迹与缩略图PencilShape接线轻审（2026-11-04）
+
+已实读根的BloodDecals.tsx/.css、floorBlood.ts，以及UI负责人release后的GamePencilShape与WandMiniatures及库实际绘制依赖。本轮未发现新增玩法P1/P2；未改UI或库文件，未重复库负责人Chromium像素验证。根报告血迹规则4/4及两套TS通过，库负责人像素覆盖由根转述，本审查不冒充独立执行。
+
+- 血迹每mark一个公共形状组件，最多96，复用稳定滴落数据生成同向闭合二次曲线compound path，viewBox为0/0/120/120，非零填充。强度、元素颜色、范围、寿命与水洗仍来自呈现规则；水元素以catalog元素识别。形状只负责描绘，不消费game RNG或修改战斗。外span保留位置、宽高、中心定位和opacity，run匹配门控与可选艺术缓存保持。
+- geometry memo依赖id/maxHp/level/grade/effect，不含washed或clock。时间衰减与水洗不重建geometry；库的祖先style观察可能安排paint检查，但内部稳定key会跳过相同绘制。mini实际placement经共享rotateInventoryCells生成cells，宽高随法杖尺寸与36/44px入口缩放，填充/轮廓复用装备视觉字段，flash仅外层CSS，不改施法权威。
+- release适配器具备此前两项修正：legacy cells先减source原点，再按mask剩余空间计算位置；legacy path在源坐标平面clip后按显式目标尺寸scale，当前血迹零原点viewBox适用。候选PencilShape存在时透传公共props，否则用registry PencilSurface兼容，不引入私有Host入口。本轮仅代码审，不替代负责人实际fallback与像素验收。
+- 一项非阻塞且限定范围的体积建议已发根：当前`const inkra = Inkra as ...`传递整体namespace，根构建报告主bundle从764KB增至2480KB、gzip777KB。建议改成直接静态读取`(Inkra as ...).PencilShape`的候选常量，PencilSurface用静态named import或单独静态属性读取，避免整体namespace逃逸。类型cast擦除后留下可静态解析的导出访问，保留旧registry无Shape时的fallback；包sideEffects仅CSS，支持此tree-shaking假设。是否确为体积原因、改后是否下降仍需作者构建验证，本审查未把建议称为已修复或扩大至一般性能优化。
+- 审查中曾向根提出mini新geometry对象可能每tick重绘；继续读完库发现layout effect依赖是shape.key等稳定值，而非shape对象，已立即明确撤回该判断。新geometry只可能触发resolve计算，不能据此断言每tickcanvas重绘，不列问题或要求修改。
+
+本轮只更新审计并给局部源码建议，没有新开浏览器、重跑血迹/库套件、量测真实首屏或作视觉接受结论；最终体积、UI review与用户视觉由对应负责人收敛。
+
+## 装备、药水与击杀掉落核心接线定向审（2026-11-04）
+
+结论：已release核心的源码与根接线定向复核通过，未发现新增P1/P2；UI库存类型/真实DropTarget与外部库指针取消验证仍由对应负责人收敛，不包含在本结论。未修改业务/UI，仅更新审计。
+
+- 内容新增可选gear/items定义与实例registry，8件装备覆盖四部位、3种药水覆盖领地HP/盾及全队法力；旧档缺失字段兼容。工厂生成脱离定义引用的实例，装备只取有限合法属性/元素，药水实例不拷贝可篡改效果；使用时从传入catalog取定义与品级倍率。新知识gearIds/itemIds独立于spell/arcana，不把装备或药水混进法杖物品registry/backpack。
+- 穿戴要求四slot合法、registry键与实例ID一致、装备与角色声明双向唯一。跨角色移动清源声明，目标同slot旧装回到未装备registry，再把新装与目标双向绑定，原子提交；失败不改输入。卸下/丢弃允许清理已移除定义的旧装，但穿戴中不准丢弃。属性计算仅累加有效双向所属装备；runtime成功事务后按最终maxMana夹当前值，装备增加上限不自动补满，不回写baseStats。
+- 药水在ready/reward或暂停battle使用/丢弃，活动battle和defeat拒绝；0HP即使阶段不一致也不能用药复活。HP/盾只补真实缺口，partyMana逐人取共享final.maxMana并计算实际增量，任何非法资源使整笔拒绝，全满不消费。有效使用只删除指定实例，和资源修改在同一commit，不发第二个独立消费事务。
+- loot只处理真实dead enemy，内容pool做own-key与定义结构检查，首次装备发现/合法boss有有界保底与品级下限，普通装备率按幸运有上界，药水率单独判定；抽取沿保存的combat随机流。ID检查所有实例registry、角色/敌人/法杖及背包避免覆盖。成功入库同时发现定义并发lootGranted；调用点在settleDeaths，随即移除死敌，恢复存档不会重放已结算敌人或历史事件。loot validAsset当时仍由owner做最终TS收口，本审查未把中间类型问题扩大为运行时失败，也未冒称替owner跑过TS。
+- 普通projectContent只按gearIds/itemIds导出已发现定义，state.gear/supplies显式重建公开字段；属性贡献仍经数值白名单。事件仅增加合法slot/effectType/kind/grade与已发现definitionId。远程命令对仍存在但未发现的装备/药水拒绝，已被消费或丢弃而缺失的实例交runtime，从而先命中原回执；parse不透传任意效果字段，cheat仍受本地解锁/toggle控制。grantGear/grantSupply与实际装备/药水路由均由根接入，不开放普通网络解锁。
+
+实际独立只做新增内联边界验证：真实remote穿hat(+15)→喝药115→同slot换hood(+10)后110→卸下100，旧hat回未装备registry且只有一个maxMana贡献；discardGear/discardSupply与用完的useItem经checkpoint恢复后重放原executed receipt，state逐字保持；隐藏gear/supply定义与实例secret额外字段均不进入frame，hidden穿戴/使用命令拒绝且状态不变，全部通过。未重复根已报告的真实route2与公开projection等6/6、未重复领域大套。根报告授权用户run demo/wave22获8gear/3supplies且金币/布局保留，本审查未访问该页面或存储，不把根ACK作为本审查操作结果。
+
+此前被动恢复legacy测试夹具已再次实读确认先delete两轨等级再断言undefined，源码层面的夹具修正关闭；未重跑旧套件。最终全量测试、build/TS与UI视觉仍以根/各负责人最终结果为准。
+
+### 根后续收敛状态补记
+
+根报告新全量346项中344通过、2失败，定位为旧金币/死亡元数据用例假定死亡只消费一次随机数，与新增loot真实消费冲突。已实际读取actor-combat与death-metadata对应两用例：新增局部coinOnlyContent清空gear/items目录，并把该用例全部step调用传入同一目录；原金币结果、捕获的sourceLuck、固定seed与死亡元数据断言均保留，没有更改玩法随机算法或放宽expected seed。该测试隔离符合各自验证金币/元数据路径的范围，完整loot路径仍由其专属域用例及根真实死亡接线覆盖。根此时正执行定向复验，本审查未重复运行或声称全346已绿。
+
+同时已静态核对八件装备shape均改为单格；适配器已按建议分别静态读取PencilShape候选和PencilSurface，不再给整个namespace建别名。根改后build报告814.98KB、gzip261.26KB通过，相对前次2480KB/gzip777KB体积确实回落；此构建证据来自根，本审查未另测首屏性能。最终TS、旧registry兼容和UI仍由负责人收口，不据本次build推断全部验证完成。
+
+根随后完成最新一次全量npm test，351/351通过，覆盖此前金币RNG夹具隔离；根另报告新增clearWand真实remote事务及receipt重放5/5通过。本审查只读核对`../../work/wand-defense-final-tests.log`尾部，确认tests351/pass351/fail0、无取消/跳过，不重复执行测试，也不把本记录更新算作clearWand源码复核。此结果替代上段344/346的旧测试状态；UI/库bounds/actions接线仍进行中，最终build及两种TS待稳定后由根统一验证，本次不宣称已完成。
+
+## 开战起点持久化与战中刷新重试窄审（2026-11-04）
+
+本段按用户最新要求替换此前500ms合并保存审计；旧结论中“战中暂停编辑/控制立即保存、pagehide保存精确中途状态”已不适用于普通浏览器自动存档。最新实现源码复核通过，未发现新增P1/P2。仅阅读main/session、现有3项autosave测试与必要调用路径，未运行测试或UI性能检查，不沿用先前351项结果宣称新策略已经过全量验证。
+
+- shouldPersistRunChange只在非battle或本次新事件含waveStarted时允许保存。普通战斗效果、暂停构筑、药水/领地/装备操作、速度和作弊控制即使成功，也不替换已保存起点；这是用户明确选择的战中整体回滚语义，不再以旧“事务即时持久化”标准当作退化。运行时事务、receipt与HTTP即时权威不受影响，非battle的准备/奖励领取/败北/显式重来继续同步保存。
+- beginWave同步将wave加1、phase置battle、entities清空、waveSpawnRemaining设完整getWaveSpec.count、spawnRemainingMs设0，然后发waveStarted；没有首tick推进或先生成敌人。dispatch先把startWave结果写入results再notify，main保存的完整checkpoint含开战receipt与此前波次全部进度。刷新直接恢复battle起点，不再dispatch startWave，不把当前22波变23波，也不重置整局或前21波金币。
+- checkpoint包含整个state、pausedBeforeBackpack及results。恢复使用该快照并恢复随机流，不合并后来的内存数据；因此中途金币/XP、升级赠品、loot与其发现、累计统计、药水消费/装备变动及中途命令receipt随同回滚，不会仅重刷敌人而保留已拿收益。恢复后的同start命令由已保存receipt挡住重复开波；已结算reward/defeat会保存结算状态，随后刷新不把已保存收益再按起点发一次。
+- 初始save、pagehide与HMR close统一改走saveOutsideBattle，在battle（含paused/backpack）都不写，不因刷新/热更新覆写波起点；普通订阅只使用本次seq增量事件，历史waveStarted不会被后续tick误当新开波。没有新增timer或捕获旧快照。原unavailable保护与拒读原文备份仍保留，显式restart先解锁保护再保存ready。存储失败/受限时仍以原保护逻辑为准，本轮不作存储必定成功的承诺。
+- 通用runtime.checkpoint/saveRun并未改成起点快照，旧或手工保存的精确战中checkpoint仍可按原样恢复；本次改变限定在浏览器main自动保存策略，未擅自迁移或清除旧记录。
+- autosave测试覆盖battle事件与空事件（pagehide/HMR gate）拒绝、waveStarted允许、ready/reward/defeat允许，以及真实runtime+内存storage的wave21→22与restart保存。根已按审查建议补真实战斗收益：tick至enemiesDefeated>0且XP增长、仍处battle，写入数仍仅ready与开战两次；恢复state与entry深相等、保留原coins152，并重放start-22得到原receipt且state不变。本审查已实读这些最终断言，先前真实收益/开战回执覆盖提示关闭；不冒称做过真实浏览器刷新。
+
+根报告autosave+session+recovery定向13/13通过，本审查只读核对`../../work/wand-defense-autosave-tests.log`尾部tests13/pass13/fail0、无取消/跳过，没有重复执行。此为根执行证据，不是新增全量或最终build/TS结论。本轮只有审计文档变更，无实现修改、无重复全量/大矩阵、无用户页面或存档访问；UI独立性能检查仍由原负责人完成。
+
+## 神话法杖授权赠送与场外入场窄审（2026-11-04）
+
+状态：正常授权/重入/战斗起点门控源码通过；本轮发现的部分赠送checkpoint恢复P2经根修复，已按下文源码与新增用例复核关闭。仅审查及此前内存复现，未改业务/UI、未触用户页面或存储。根随后取得实际用户赠送ACK，本审查只读核对`.local/targeted-preview-result.json`：executed、run demo、wave25、3根mythic/Lv50/5×5，preservedCoins/Layouts均true；此为根实际赠送的回传证据，不是本审查执行结果，恢复修复另有下文依据。
+
+- grantWand可选grade经remote枚举与runtime再校验，可选level须正安全整数；仍要求原cheats解锁与enabled，未知模板拒绝。工厂创建空且未装备的新法杖，不迁移原法术或改金币。授权helper要求既定demo run、cheats.unlocked及精确旧人类unlock成功receipt，重来换run无法沿用；本请求固定3根5×5神话Lv50，不开放普通网络解锁。
+- battle包括暂停时均延后赠送，不覆盖已保存波起点；main复用现有save订阅，仅非battle通知触发onDurablePhase，没有新增每tick完整snapshot listener。grantingWands防helper内dispatch触发通知重入；后续接入newMagic后不再单凭wands完成清回调，而由两helper各自complete guard防重复，以免遗漏新增魔法。HMR close仍清onDurablePhase，异步import也检查runtimeActive。正常路径在非battle每次dispatch后保存，全部完成receipt仍防重复赠送。
+- **[P2，已修复关闭] 部分赠送存档恢复后不能完成请求且遗留临时作弊开关。** 原因是每次子dispatch均会保存，合法中断checkpoint可含prefix:enable及wand:0/1成功回执；恢复补第三根后，本次added仅1，不满足严格等3，后续永远partial。临时enabled=true也会误作原开关。修复前已独立纯内存复现3根齐而partial、无complete且enabled=true。根现用enable-from-disabled/enabled成功回执持久标记首次开关，恢复时优先读marker；完成度改查prefix:wand:0..2三条executed回执，单次added只作为报告增量。已实读新增marker+2根checkpoint恢复用例：只新增1、总3、executed、toggle恢复false，后续helper不再变化；源码complete guard仍让此前已经完成的generic-enable旧赠品不重发。本审查未改owned实现，也未声称能从没有原开关marker的任意历史半途档推断原值。
+- 已读mythic-preview与原wand-grant测试及根日志：根mythic/preview/wandgrant定向10/10通过，日志尾部pass10/fail0、无跳过/取消已核对；现有用例覆盖正常赠送/重复、战中不动、重来授权隔离、公开gate及非法品级/等级，尚未覆盖上述部分恢复。未重复运行目标套或全仓。
+- 场外入场改动只让spawn y按共享体型像素取负，advance的y下界为min(0,原y)，保持真实负坐标逐片向场内走，不在首片夹回0；x与场内上界仍受限，目标路线不新增随机抽取。五档碰撞半径均为旧值×1.8（1.35/1.8/2.7/3.6/4.5），仍由getMonsterSize共享返回，未各处叠乘。现有large graze用例偏移2.8与新半径区分相符。已读offscreen测试覆盖普通/三档boss场外连续移动及后续无额外RNG；根报告该批目标20/20通过，本审查未重复执行或做视觉验收。
+
+同轮根继续新增grantAuthorizedNewMagic，本审查已实际读取：仍要求同一demo+精确旧人类receipt授权、非battle与自己的complete guard；先确认8定义全部存在，只补3种area法术与5种modifier（thunder-strike/frost-ring/earth-spikes/haste/efficiency/reach/velocity/area），完成按当前拥有定义判断，不按单次新增数，正常结束恢复原enabled且不改旧布局/金币。main同一granting guard顺序调用两helper，无新增battle监听；配方DAG与自动发现尚不在本轮release审查内。新增magic已同步采用enable-from-disabled/enabled持久marker，位于grantPreviewMagic临时enable之前，恢复原toggle不再只猜半途state。未额外重复全量或认定其实际赠送ACK已到。
+
+根修复后mythic/preview/wandgrant目标日志已更新为11/11，本审查只读核对尾部tests11/pass11/fail0、无取消/跳过，未重新执行；新增恢复用例及源码足以关闭本次已报P2，不扩大为全量/真实中断浏览器验收。
+
+## 配方发现接线最终窄审（2026-11-04）
+
+结论：本轮recipeKnowledge与runtime接线源码复核通过，无新增P1/P2。只读实现、相关测试及根状态证据，不执行测试、不修改业务/UI、不作视觉验收。
+
+- discoverAvailableRecipes以已有recipeIds为起点做有序去重，保留旧已发现配方；新增配方要求inputs非空、全部输入已在spell/arcana知识中且是传入catalog own-key，产物也必须实际存在。只返回新recipeIds，不改spellIds/arcanaIds、不取随机数，不把产物知识递归加入下一层，故不会凭输入自动揭开整个DAG。保留既有配方和新发现的判定区分明确。
+- constructor在恢复克隆/规范化后补recipeIds，discover()在真实赠送、招募赠品、升级赠品及可见奖励定义发现后复算；成功loadout事务也复算，使成功合成发现产物后能解锁下一层配方，失败事务不新增发现。已知定义集合不会因合成消耗或丢弃而减少，重复调用/恢复结果稳定，不重复抽奖励或回放赠送。
+- Agent projectContent仍仅导出已知recipeIds，并按已知spell/arcana过滤inputs、保留unknownInputCount，只有产物定义已知才公开output；配方变已知不等于产物变已知。已读真实recipe-discovery用例：先给lightning-bolt不足以发现thunder-strike路线，再给focus才发现，产物spellIds与公开spells/output仍不出现，checkpoint恢复知识相同。根报告配方/赠品恢复相关7项通过，本审查未重复执行。
+- 已读20配方/29spells内容测试，断言唯一ID与唯一output、保留原fireball路线、所有材料存在、9基础法术加20产物覆盖完整法术目录及DFS无环；本段只是读取已有验证，并非本审查完整重验内容域。
+- 最新`.local/targeted-preview-result.json`已只读核对为user-area-arcana-20261104-01、executed、demo/wave25、granted8/definitions8，preservedCoins/Layouts与unchangedRun均true。由根实际赠送回传，替代此前新魔法ACK待到状态，不代表界面视觉已接受。
+- 根全量日志当时388项中387通过、1失败，本审查核对日志状态并阅读修正后的projectile-speed断言：固定20单位路程、normal敌半径1.8加bolt半径0.4，接触行程17.8；速度72需约247.2ms，50ms片落250，速度144需约123.6ms落150。因此normal期望300→250符合已接受的新接触语义，fast150、speed72/144、CD700、mana96等断言保留，不是放宽速度/频率规则。根正在执行speed/autosave/discovery目标7项；截至本段未收到其最终结果，不把旧全量1失败写成已全绿。
+
+本轮仅更新审计记录，最终全量、build/两种TS与UI/库收口仍以根及对应负责人结果为准。
+
+### 本批最终验证状态补记
+
+根已完成旧批最新整批npm test 390/390，本审查只读核对`../../work/wand-defense-final-tests.log`尾部tests390/pass390/fail0、无取消/跳过，替代此前388中387通过1失败状态。根报告recipegift7/7、mythic11/11及speed/autosave/discovery7/7目标均已通过；本审查不重复执行。另只读核对`../../work/wand-defense-final-build.log`，local build成功，JS860.30KB/gzip275.99KB。根同时明确旧registry TS仍有WandBoard:117的getItemContentPlacement旧类型bridge问题，已交UI修，不宣称两种TS均通过。
+
+用户随后提出碰怪/到射程后持续领域damage，根已另开有界机制实施批；该新增field能力尚不属于上述390测试及本批源码验收范围。本次仅同步旧批验证记录，没有审查新源码或运行任何测试/构建。
+
+## 完整魔法图稿数据与公共工厂分层源审（2026-11-04）
+
+结论：本轮限定的magic-artwork/types.ts、fire-earth.ts、water-wood.ts、other-arcana.ts纯数据源审通过，无新增P1/P2。公共generic factory由UI负责人后续接入，本段对其接入约定给出审查意见，不把计划视为已经完成的实现验收。只更新本记录，未改UI源、未重复执行者已报告的三套typecheck/diff，也不看截图评价审美。
+
+- 每definition暴露完整paths与filledPaths，内容为PencilIconPath标量路径数据；stroke/wash仅在模块初始化创建普通对象，不实现笔刷。三份稿件只有type import，没有catalog/runtime实例引用、Math.random/时钟/DOM/动画循环或自写renderer。模块级数组与对象引用稳定，readonly数组/readonly catalog约束只读消费；没有声称这些数据已做运行时deep-freeze。
+- 24源单位对应一格，但绘图在整件source box中完成：长条可跨至72单位，2×2为48、3×3为72，多格/T/L稿件有跨格曲线和整体轮廓，不是将单个小图逐格复制。已实读根修后的regrowth/renewal：右臂叶片/洗色位于上部y≤24，下方主茎位于左臂x≤24，避免L形右下缺格。根先前已做明显bbox修正，本审查不重复几何大矩阵，也不以纯坐标阅读承诺最终像素裁切或审美效果。
+- 尚未进入当前catalog的field/quadruple/sextuple等future ID只是数据对象字符串key，没有提前执行catalog[id].shape等读取，因此导入数据本身不依赖不存在定义。不得在通用注册时把这些预备稿无条件解引用成缺失定义；实际factory需先按传入catalog own-key找到spell/arcana定义，缺失时安全跳过。
+- 公共API计划分层合理：单一factory统一由定义派生shape、24单位viewBox、cellSize24的clipGeometry及colour，保留稿件path数组原引用，定义对象在模块初始化或稳定缓存创建；页面只传definitionId、尺寸/variant与实例rotation。整件路径一次交公共PencilIcon，以同一原坐标裁切和整体旋转表现，不能按每cell各放一图，也不应因普通battle state/clock通知重建paths/clip来触发无意义重画。
+- 当前magicPresentationIcons仍有旧六种presentation与公共viewport/clip入口，本审查按根说明视作正在被generic factory替换的中间接线，不以未覆盖新稿提前报失败。完整目录覆盖、未知ID fallback、实例旋转后的bbox/裁切、性能依赖与UI最终视觉仍需UI负责人release后核对；本轮只确认新增数据边界及接入方案，不宣称全部页面已使用或已视觉验收。
+
+本轮未开启任何子agent或新聊天；后续协作按用户最新偏好执行。本审查只给根源码结论与约定，不替其后续安排独立聊天或修改UI实现。
+
+## 共享魔法特效纹理与调用接线源审（2026-11-04）
+
+结论：已实读MagicEffectArt.tsx/.css及当前CombatEffects、BeamEffects、ChainEffects、AreaEffects接入，源码窄审通过，无新增P1/P2。仅更新审计，未改UI/库，不重复全矩阵或视觉验收；调用方若随后继续变更，最终release仍由对应负责人确认。
+
+- 缓存key只由规范化素材种类及seed哈希四槽组成，别名flame/ring/impact等先折叠、未知kind回退impact；实际最多15种规范资源×4=60 entries。颜色、显示尺寸、实体ID不进入key，seed最多读128字符后折槽，没有无限实体/尺寸缓存。fallbackMask同样按有限kind缓存。PNG保留为data URL，不创建需revoke的Object URL；固定96源图与库有界DPR，不随领域半径创建巨型canvas。
+- 同key通过成员集合选一个owner，临时挂载公共PencilIcon或PencilLine生成黑色alpha；TextureSource memo与稳定kind/slot/onReady避免位置/时间更新反复挂绘制器。capture先检查真实非空alpha再toDataURL，成功后断开observer、发布PNG并卸载源渲染；无自写笔刷或rAF绘画循环。多个实例直接共享URL，颜色由外层mask背景色给出。缓存保留有限可复用资源，不要求每个弹体卸载时丢纹理。
+- 未完成owner卸载时从其余members选接任者，无成员则清owner以待下次；effect清理删除member，useSyncExternalStore取消订阅，TextureSource卸载断开MutationObserver且finished阻止迟到回调。ready只允许当前owner发布。无context/透明未就绪/读像素或序列化异常时保留静态SVG几何alpha fallback，不阻断游戏；没有无限轮询重试。尺寸非有限/非正不呈现素材，也不加入生产成员。
+- public API边界已核对：组件只用PencilIcon的paths/variant/size/sourceSize/seed/decorative及canvas ref，或PencilLine的orientation/weight/seed与普通style；读取本地旧registry备份d.ts确认这些字段及PencilIconPath.fillRule实际存在，未依赖新PencilShape/viewport能力。旧canvas不可用回退是同一作者路径的普通SVG mask，不是另一套手绘算法。本次是源码/类型声明阅读，不声称实际旧registry像素或浏览器上下文丢失测试通过。
+- Chain当前使用lightning+variant impact，因此选横向0→64路径，再按真实屏幕dx/dy长度及角度变换，不误用竖直lightning-up投射图；其最多64条短弧取真实chainArc事件，按gameTimeMs衰减，暂停不前进，非battle清除。Beam固定源纹理由外层权威segment长度/厚度拉伸和旋转，不改变射线或命中。Area最多32实体，半径按真实场地两轴映射，windup/active、持续进度/环/旋涡角度来自launchDelay/remainingMs及模拟gameTime，装饰motes/spikes数量固定，不新增目标选择或伤害。
+- Combat真实弹体仍读取engine实体位置/heading及同一布局源偏移；素材不做追踪、碰撞或消耗。短impact保留既有performance.now/timeout呈现寿命并按speed缩短、暂停清除，仅是有限32条外观收尾，不作为领域时钟或伤害依据。MagicEffectArt自身无game clock、随机流、runtime dispatch或命中逻辑，所有层aria-hidden/pointer-events none，CSS仅呈现和无障碍降级。
+
+根报告新机制整套416/416及Battle Sol真实集成4/4+TS冻结，本审查未重复执行，也不把该领域结果当成新纹理视觉验收。根合成混合fixture（60敌/300弹/32area/32chain/512history、5倍、120样本）p50 6.47ms/p95 7.96ms是其已报告域内度量，不能称为真实浏览器FPS或证明canvas首挂成本。本轮无新增量测、浏览器/截图或用户存储操作。
+
+## 血迹游标ref与装饰缓存节写窄审（2026-11-04）
+
+结论：只读BloodDecals.tsx本次改动及必要的advanceBloodMemory返回语义，源码复核通过，无新增P1/P2。未修改或重验floorBlood纯规则，也未重复广测、浏览器profile或性能fixture；只更新审计。
+
+- latest ref始终接收advanceBloodMemory最新结果；effect仍在run、nextEventSeq、500ms模拟clock或wave变化时处理，因此仅游标变化虽不再setMemory，下一次事件仍从最新cursor消费，不会用落后的显示state重放击杀/水洗。新增死敌血迹、有效水洗、过期淘汰/预算替换均产生不同marks引用，仍触发React可见更新；纯cursor对象变化不再触发第二次render。
+- 可见血迹列表仍来自memory.marks，但opacity每次父state render直接用当前clock与wave计算；500ms衰退不依赖cursor写Reactstate，纯时间未淘汰血迹时仍能更新透明度。gameTime暂停则clock不动，未引入墙钟衰退。水洗只更新washed相关mark，BloodMark原稳定geometry memo保持，不因washed或时间重建形状。
+- memory.runId===state.id渲染门控保持，换run首render即隐藏旧血迹；advance检测run变化重置latest并提交新列表。effect顺序先推进latest再保存，保存effect还依赖state.phase，转ready/reward/defeat时读取最新cursor/marks，而非旧显示快照；只非battle写可选艺术cache，不在活动/暂停战斗频繁同步写，不增加pagehide战中保存，与当前波起点重试语义一致。缓存错误仍被捕获，不影响玩法或游戏checkpoint。
+- 根同一开发profile fixture（128敌/512弹/32area/24beam/64chain/32hit）报告60次更新由5.909s降至4.861s，React p95由33.2ms降至26.6ms，longtask由18条/968ms降至2条/114ms，Maximum update depth警告1→0；这些是根执行证据，本审查未测量。旧effect依赖不含memory，不能仅由本处源码证明其自身存在无限自激循环；本次可确认去除了纯cursor的每tick状态更新，同fixture警告消失不等于穷尽所有场景成因。rAF数据不支持直接宣称FPS提升，本段不作该结论。
+
+## 怪物有限seed与血迹分帧挂载窄审（2026-11-04）
+
+结论：已读取monsterPresentationIcons有限seed改动；开始本轮时原计划等待的血迹patch也已出现在当前BloodDecals文件，故对该具体源码版本一并窄审，未发现新增P1/P2。最终release与预热测量仍由作者/根报告；本轮只更新审计，不改源、不广测或截图。此前Combat坐标/transform优化仍待最终release单独审，不混入本结论。
+
+- 怪物稳定hash(entityId)%4仅决定四个材质槽，seed为icon.definitionId+槽，不再含每只怪完整唯一ID；不同种类仍有不同paths/filledPaths/颜色与种类seed，size仍从原调用参数传递，未改monsterDefinitions或游戏碰撞。Battlefield活体与DeathEffects都传原definitionId和entityId，同一怪死亡沿用同种同槽，不随机换图。这里只保证seed维度有限，库cache另有图形/尺寸/主题维度与容量淘汰，不声称暖槽后任何场景均零绘制。
+- 血迹新增visible ID列表与revealed ref仅控制挂载，latest/memory仍由原advanceBloodMemory完整维护；保存继续读完整latest，绝不保存visible子集。rAF callback只取尚未显示的最多4个mark ID，保持原队列次序，仍有待显ID时才排下一帧。已有ID不重挂，同ID水洗/衰退读取当前memory里的mark与原clock，不按显示时刻重置出生时间/寿命/几何随机数/颜色。
+- marks变化先过滤不再有效的visible ID，过期/预算淘汰会从显示与待显集合排除；effect依赖run/marks/paused，清理cancel待执行frame，暂停不排新帧、解除后继续补未显示项，卸载取消。换run重置revealed、清旧visible，原memory.runId门控继续立即隐藏旧局血迹。恢复缓存的未显示marks也走相同分批队列，不假称已有缓存会在首帧全部显示。
+- 全部rAF仅装饰挂载，不dispatch、不删权威memory、不改变击杀、水洗、衰退或游戏checkpoint。根报告60新怪ID出生约2.2s与6,218,567 strokes、同ID重挂14ms；60真实击杀血迹约111ms与286k strokes，是其定位首绘成本的执行证据。本审查没有运行这些profile，也未把四槽/分帧源码推断成已验证的性能下降幅度；待作者预热全槽及新ID复验后再记录结果。
+
+### 非战斗暂停存档的血迹恢复展示补查
+
+根随后明确要求区分历史血迹hydrate与战斗暂停冻结。本审查实际复读确认当前展示恢复缺口：visible初始为空，队列仅!state.paused时运行；runtime在ready/reward打开背包也会设paused=true并保存，因此恢复这些非battle存档时，完整memory已存在但血迹整片不可见，直到关闭背包或解除暂停。此前已注明缓存marks仍分批显示，本段进一步指出非battle不应被暂停标志无限阻挡；问题限装饰展示，非memory或玩法数据丢失。
+
+已通知根交UI负责人最小修正：队列门控改为`state.phase !== "battle" || !state.paused`，同时effect依赖增加state.phase，保留每帧4、取消回调与权威memory/保存逻辑。这样准备/奖励/败北可在不推进模拟时钟的情况下渐进恢复历史图，活动battle paused仍停止新挂载。手工精确paused-battle checkpoint的首帧hydrate若要另作例外，需独立定义初始化策略，不擅自扩张本次非battle方案。截止本段源码尚未修正，待作者落地复读后关闭；本审查未改源或广测，其他water/eviction/run取消结论保持。
+
+## 同轮奖励重复恢复的根接线窄审（2026-11-04）
+
+结论：本轮仅根runtime/index constructor与统一随机流/知识发现/领取调用路径复核通过，无新增P1/P2。内容域有限不放回规则由Battle Sol独立审，本审查只读取helper输入输出及ID契约以核对根接线，不重复其域验收。只更新审计，未改源或跑全矩阵。
+
+- constructor先structuredClone输入checkpoint，沿用原恢复与卡片文案规范化；仅phase=reward且语义key集合小于卡数时修复。独特或空奖励不进helper、不消耗随机流，ready/battle/defeat也不凭历史offers重抽。修复保留每种首张已有选项与原ID，重复槽的新卡采用不同ID，不把旧pending claim自动解释成另一奖励。
+- nextRewardDraw从现有state.rngState推进原LCG并写回，修复与正常prepareRewards共用同一入口，没有Math.random或第二个未保存流。修复checkpoint已去重，后续恢复不再抽取。main既有初始saveOutsideBattle在reward同步保存修复后完整checkpoint，订阅保存策略不把战斗起点变成中途帧。
+- 根只替换state.rewards、补当前真正可见定义的spell/arcana知识，再统一计算可发现配方；不调用giveItem、不写领取历史或累计收入、不直接发放金币/物品。原wave、金币、角色/法杖/物品/布局与历史/stat保持。产物发现仍按原规则，未把整份catalog提前公开。
+- claimReward仍从当前offers按ID查找，已被替换的旧ID找不到即拒绝且不draw；新合法领取沿既有事务记history/清offers/进ready。dispatch先查results，故同命令重复返回原executed回执，不重复buff/币/历史。本次不改notify隔离、订阅顺序或手工checkpoint结构。
+- 已实读unique-reward-recovery两项：wave31/coins781、两range与两coins修复，保首卡和输入checkpoint、保build/history/stat、新可见定义发现、后续恢复深相等；旧ID拒绝且rng不变、新合法领取重复checkpoint不变；unique/empty不变rng。只读核对`../../work/wand-defense-unique-reward-recovery.log`尾部tests2/pass2/fail0、无取消/跳过，归根执行证据，未重复运行或认定实际用户存档已被写入。
+
+OnHitSpec等共享typed optional尚不表示engine/index与projection接线已完成，后续根两处需另行release窄审；当前运行时克隆测量及UI性能也不在本段验收范围。
+
+## 事件摘要订阅与通知隔离架构窄审（2026-11-04）
+
+结论：RuntimeSummary/subscribeEvents及runtime通知、main与Agent连接的本次源码复核通过，无新增P1/P2。根为性能取证CPU窗口尚未运行新增3测试，本审查仅实读用例，不同时跑测试或全矩阵；只更新审计，无实现修改。
+
+- RuntimeSummary是id/phase/wave/revision/gameTimeMs五个标量，不包含嵌套state引用。RuntimePort方法可选，实际GameRuntime必备；旧适配器不被迫实现，createBrowserConnection优先事件摘要、缺方法仍回退原subscribe。连接仅收集events，真正上传仍getState后经公开projection，不把摘要误作完整帧或放宽内容知识边界。
+- state/events监听统一注册在同一个有序Set，每kind+callback去重，off捕获对应entry，和原callback Set重复注册/任一off移除该注册的语义一致；同callback跨两kind属于独立注册。每次notification以完整state/events深拷贝入队，再按该批注册顺序分发，不把两类监听分成先后两轮。已展开监听列表的新增/注销行为保持原实现语义。
+- fullstate监听继续收到每人独立深拷贝；events监听每人得到独立事件深拷贝和从该notification.state提取的新摘要对象。回调改summary或事件不能污染其他监听、runtime或队列；前一监听重入dispatch产生的state2排入新notification，当前后续监听仍看到state1对应摘要/快照。异常仍逐监听捕获，finally解除notifying，未取消已有重入保护或共享可变全状态来换性能。
+- main只将存档订阅换为subscribeEvents，shouldPersistRunChange仍只需phase和新events，game.restarted解锁gate及非battle durable callback条件保留；save读取完整checkpoint，波起点/非battle持久化策略未变。pagehide/HMR和初始保存路径保持，不因事件摘要额外保存战斗帧。
+- 已实读event-subscriptions三用例：混合监听重入顺序与state1/state2、摘要字段/事件/fullstate变更隔离；3个full监听对比1full+2event时完整state克隆计数4→2；同callback重复注册、注销与dispose后不再接收。该4→2是用例的预期且与源码路径一致，截至本段未执行，不能写成测试已通过。
+
+根当前低实体真实3订阅profile报告notify clone占tick约65–75%，另在取敌均26/峰弹113等压力证据；本审查未重复量测，事件订阅减少复制不直接等同于已验证FPS收益。advanceEnemyStatuses/settleDeaths的新engine接线与尚未完成的status projection白名单需另批复核，不以本通知架构通过宣称新状态机制已全部完成。
+
+## 状态效果公开投影与根引擎接线补审（2026-11-04）
+
+本段在根新增status projection后补齐上一段明确未涵盖的两处接线；源码窄审通过，无新增P1/P2。只读根实现、新用例及必要的status emit/伤害调用契约，未重复Battle Sol领域测试，不占其性能窗口运行矩阵，也未改源。
+
+- projectEnemyStatus不spread存档状态，只显式构造正有限slow multiplier/remainingMs及最多4个有效burn的damage/tickMs/remainingMs；burn定义仅在已知spell/arcana集合中才输出。返回新对象/数组，不透出状态ID、原施法者/物品ID、sourceLuck、tick内部游标或任意附加字段。缺status旧实体返回undefined，对既有snapshot兼容；投影不把原onHit配置包随entity暴露。
+- statusApplied/statusExpired/knockback及周期damage只通过公开事件类型与固定字段白名单，sourceKind仅status，statusType仅slow/burn/knockback，数值须有限。已检查实际emit契约：burn apply/expire/periodic都含其definitionId作为effect，因此未知effect时statusId也被过滤，避免burn ID编码的隐藏法术名间接透出；slow到期无effect，其合法ID仅slow:target不含施法来源。未知额外secret与状态来源luck不因新字段透出。
+- 根stepBattle先推进敌行动并做territory归零败北检查，再advanceEnemyStatuses并立即settleDeaths，之后才恢复与其他弹体/施法。状态不绕过败北、暂停/背包/phase gate或模拟step，也不再次乘speed。burn通过共享damage发真实致死事件，transition的pendingKills捕获原来源，紧接同一死亡结算负责XP/金币/loot并移除敌人，避免另起奖励路径或历史事件重放。普通接触miss直接返回，只有真实正伤害且敌仍活才applyOnHitEffects，周期伤害不重掷accuracy/critical或再套on-hit。
+- 已实读新增projection最后用例：unknown burn spell在status与event中均不可见，slow/burn公开数值保留，投影slow修改不影响输入；亦读取status-integration的真实wind/slow/burn及miss断言。Battle此前独立3/3通过来自根报告，新增projection和miss此时未执行；本审查不把源码审通过表述为测试已通过。
+
+本轮不涉及新UI状态图标、全量/build/TS最终验收或实际FPS量测；最新相关测试待根可用窗口统一执行后再补记录。
+
+## 隐藏战斗面板memo与画质设置集成静态审查（2026-11-04）
+
+结论：当时AppMemoBoundaries/App候选、graphicsSettings、MenuPages/MenuSettings及消费者集成源码窄审通过，无新增P1/P2。UI Sol已审叶子，本轮补集成边界，不重复视觉/CPU测试。**最终memo候选已撤回**：根未得到有效浏览器A/B，已完整删除AppMemoBoundaries及App wrapper接线，不计入最终优化；其余App改动未回退。下列memo分析仅为当时已撤回候选的审查历史，不代表交付仍有该边界或证明性能收益。仅修改审计文档。
+
+- memo comparator仅在相同run、前后均battle且前后active=false时跳过父props更新；Inventory的active包含战斗中背包打开且无菜单，打开背包/关闭菜单重新可见必然接最新props；离battle或切run也不能复用旧快照。Inventory另以run作key重建，正常同run隐藏保留原分页/布局组件实例，不因每tick重挂；恢复更新仍走原角色/分类/目标测量effects。WandBoard本来battle全inert且不可见，其最新状态在离battle时恢复。Battlefield、角色mini、CharacterPage和Menu没有包入该边界，仍消费最新state；未暂停runtime或改通知顺序。
+- graphicsSettings是独立localStorage偏好store，不进GameState/checkpoint。读取时校验preset/布尔项、bloodBudget夹0..96整数、resolution归.5/.75/1；命名preset与字段不符改标custom。setPreset整组应用，单项更新/显式自定义保存custom，刷新可恢复；同值不publish避免无意义通知，写失败仍保内存有效。storage事件更新不回写，跨页同步无反复写入环；默认medium值与medium预设一致。
+- Menu画面页的低/中/高/自定义、血迹开关/数量、死亡残影、尾迹、命中效果、区域细节及特效分辨率均连到实际store setter。公共Select/Switch/Slider/Tabs字段校验与受控值一致，设置分栏保留菜单暂停/恢复、inert与焦点逻辑；MenuSettings用最小尺寸、可收缩列与窄屏覆盖，无新玩法操作。原reduceMotion/textEffects/音乐偏好另key保留，音乐源未接入有明确文案，不把只保存音量偏好表述为已实际控制音频。
+- consumers只影响绘制：blood/budget裁displayMarks而不删latest/memory或改变保存；death关闭时仍推进事件cursor并清装饰，impact关闭过滤命中粒子但保heal/shield反馈及游标，尾迹只控制额外子图；areaDetails只关spikes/motes等细节，真实区域基础coverage/进度/实体保持。Projectile/Beam/Chain/Area与状态装饰均传effectResolution，MagicEffectArt再规范化三档并加入共享cache key，固定源像素按档缩放、实际显示尺寸不变，当前有限上限为15种×4槽×3档=180资源。没有修改engine实体、攻击/命中/射程/随机流/模拟时钟。
+- 血迹此前“非battle paused存档整片历史图不显示”的补查项现已实读关闭：队列gate为phase非battle或未paused，effect依赖含phase，准备/奖励/败北可渐进显示、active battle paused仍冻结新挂载。每帧4、water/eviction/run取消与完整存储语义保持，不把画质关闭当作删掉血迹数据。
+
+根报告本批14项相关测试与local TS已通过，本审查未执行或读取未提供的测试日志，不将其扩大为最终整仓check/旧registry全绿或真实交互验收。当前浏览器A/B由根/作者占CPU取证，本轮没有截图、运行测试/构建或写生产源码。
+
+## 菜单返回、局部滚动与已知配方手册批次静态审查（2026-11-04）
+
+结论：已实读最新MenuPages.tsx、MenuPages.css、MenuSettings.css及HelpManual.tsx/.css，源码窄审通过，无新增P1/P2。UI负责人已做源/DOM检查由根报告，本审查不重复截图、CPU或实际交互验证，只更新审计。App角色stage可用区域居中尚由owner修正，待sourcefreeze后单扫小差异，不把中间CSS当最终验收。
+
+- 全菜单只有公共顶部header左箭头，无X与底部返回按钮；点击和未被子控件消费的Escape均调用goBack。menu/legacy character/null关闭回游戏，graphics/music/controls/debug/accessibility回settings，settings/help/agent回menu，标签对应层级。Esc尊重defaultPrevented并阻止继续冒泡，避免Select等控件已处理Esc后又退两层。原菜单关闭动画/inert/暂停恢复仍走App既有close，不新增玩法命令。
+- menu/settings选项共用MenuLinks，列表项之间用公共PencilLine，不另画分隔器。菜单根为header auto加body minmax(0,1fr)两行，overflow隐藏约束外壳；settings/help内部再用tabs auto加局部panel滚动，header和tabs不随长正文滚走。Agent保持原组件挂载，所在局部区域滚动，inactive仍inert/aria-hidden。CSS用min-width/min-height与窄屏列约束防撑开；paper/ink/muted沿主题语义，不加暗色专用硬编码背景。此处为布局源码检查，不承诺实际所有屏幕像素无溢出。
+- Help只展示knowledge.recipeIds中已发现路线，未知路线只报数量；MagicToken先known判断再取定义名称/图稿，未知材料或产物显示“未知”且不调用图标，未知产物归neutral不提前泄露元素。原recipe.name不直接渲染为未知产物标题，React内部key也未输出成公开DOM属性。已知图稿使用共享MagicPresentationIcon，无自写笔刷或按格重复绘制。
+- prerequisites只从已知输入寻找已发现前置配方，并用visited阻止环；details未展开不挂详情及递归子树。recipes/grades/arcana各内容由activeTab条件挂载，arcana示例compile也仅该tab计算；根已关闭帮助时卸载HelpManual，不让隐藏大树继续绘制。短标题/材料名/品质/提示用PencilText，长说明保留普通段落。宽屏groups采用auto-fit多列，窄屏单列并允许公式换行，不把全手册做一个不可滚动的大图。
+
+本轮无生产源码修改或新测试执行，最终导航真实DOM、暗色视觉和角色居中小diff由根/owner收敛后补证据。
+
+### 中央workspace与天赋滚动链CSS补审
+
+根随后确认App.css尾部shared ready-area/workspace变量与TalentPanel.css修正已落，本审查只读当前两份CSS及必要的Battlefield环尺寸/PanelBackdrop结构，未发现新增P1/P2。只审本版本静态几何及约束，owner仍在做实际DOM确认，最终sourcefreeze及像素接受不由本段替代。
+
+- 以当前scene高度H计，ready-center=(H+top-bottom)/2，workspace-height=max(0,H-top-bottom)，stage top取center再translateY(-50%)，非负可用区域正好落在top与H-bottom之间，与同一ready中心一致。下界扣defense bottom、vitals高度、12px、heroDiameter及额外12px，给经验环上方留12px；560px断点hero clamp与Battlefield一致，600px断点增加top容纳第二行HUD。inventory改变scene bottom时，百分比中心跟实际scene缩短，padding公式也扣scene-inventory-space，不固定用整屏中心。
+- 所有尺寸用border-box；stage给height/max-height与min-height0、单个minmax(0,1fr)网格行，覆盖此前固定inset的top/bottom。角色content/PanelBackdrop/其content逐层允许收缩并max-height100%，最终panel内容overflow auto，overscroll contain；动态padding按剩余区域夹0..40、panel内至多16，不以固定40px把短屏内容挤出可用区。没有改App显示/指针门控或背包布局数据。
+- Talent专门将backdrop撑满可用高，包裹层grid与overflow hidden传递可收缩高度，talent-panel自身auto标题+minmax(0,1fr)正文，waves min-height0/overflow-y auto，长历史只滚列表不滚走标题；非Talent面板仍由通用panel content滚动。极短屏可用高被夹0时不产生负尺寸，本段不承诺任意零可用空间仍能显示内容。
+
+根报告最新整仓448/448与registry兼容TS已通过，旧fixture抽取顺序断言已修、无生产失败；本审查不重复执行。顺手读取的旧final-tests.log当时仍425/425，未拿该旧日志冒充448实核证据，最新448与registry TS明确归根报告。DOM/最终UI freeze仍由owner/根收敛。
+
+### workspace最终冻结差异收尾
+
+已只读复核最终尾部workspace-bottom/top/height及top夹紧公式，未发现新增缺陷。bottom=max(0,H-ready-area-bottom)保持环上边界；top在常规ready-area-top与“不低于HUD inset、争取距bottom72px”间取小，height再夹非负。正常空间足够时退化回此前ready-center；不足时中心随新上下界向上回退，底边仍贴workspace-bottom，不向下越过经验环间距。72px是回退目标，并非硬撑高度：根明确320×568背包场景只余56px紧凑窗口，保环边界，完整交互需专门的小屏设计；本次不把该已知限制当作完整小屏可用性保证。原min-height0/max-height/内部滚动链保持，未改HUD位置。
+
+Help最后CSS补minmax(0,1fr)列、tabs/content min-width0/max-width100%及420px间距收缩，静态上消除grid隐式min-content撑宽路径，未改知识过滤或懒挂载。根转述UI作者实际DOM验证：桌面及320×740、背包开/关三stage中心对齐并留12px环间距，36条历史末项可达、角色点击通过，Help窄/宽最终复验无溢出。本审查未重复这些DOM/截图/CPU检查，只将其归为作者执行证据；sourcefreeze后的本轮静态收尾通过。
+
+### 根最终交付状态
+
+根最终报告448/448、registry TS、local TS及Vite build均通过，git diff check通过；日志位于`../../work/wand-defense-final-settings-*.log`。菜单/Help/stage已冻结，实际DOM验收依据上文作者报告。未取得有效浏览器A/B的隐藏battle memo候选已完整撤回，不计作优化成果；此前对该候选的静态通过不改变此最终处置。本审查按根要求仅更新记录，不再读生产源码、运行检查或复测；最终结果明确归根执行与交付报告。
+
+## 奖励刷新、幸运与采集经济根集成窄审（2026-11-04）
+
+结论：新一批rewardRefresh、runtime/index/initial/contracts、engine金币接线及Agent协议投影源码复核通过，未发现具体P1/P2。内容采样与构筑经济领域由既定Sol独立审，本轮核对其共享helper契约及根调用，不重复领域测试。仅更新审计，无生产源码修改、CPU压力/截图或全量运行；尚未冻结的UI刷新/角色/库存消费待后批。
+
+- 免费次数按floor(wave/10)，normalize只在wave变化清freeUsed，paidCount与refreshCount跨波保留。报价为纯函数，不抽数/扣款；免费优先且不推高付费次数，付费按1/3/9/27…指数并有安全整数上限，超限nextPaidCost为null但有免费余额仍可刷新。缺失旧字段与非法计数默认0，同波存档不重置，initial显式置零，restart新局恢复初始值。
+- refresh事务先验证reward阶段、非空offers、当前首卡offerId与可负担报价；抽样使用局部rng变量，只有正好4张且语义unique才提交state。阶段/token/余额拒绝或候选不足均不提交随机流、费用、计数或卡片；外层仍缓存命令回执，拒绝不视作玩法状态改变。成功统一扣费用、写rng/counters、按refreshCount给新卡ID、发现真实可见magic并更新recipe知识，然后发refreshed/offered，最后统一revision/receipt/notify。异commandid重复旧offer被token挡住，同commandid直接原receipt，旧claim找不到被替换ID不会误领新卡。
+- 刷新在reward非战斗，main既有持久化入口保存完整counter/cards/rng/receipt；重载同组不重复抽样或重置付费阶梯，跨波免费预算重置只由normalize处理。刷新不调用grant/claim、不写奖励历史或累计获得，费用支出不经过采集入账helper，不消耗/改变小数carry。
+- 幸运与采集buff进入claim与snapshotRewardOption历史白名单；luck只加state.luck，采集加runBonuses.gatheringPercent，领取receipt阻止重复加成，恢复只读取状态/历史不再应用。施法attackRoll.sourceLuck来自final.luck个人贡献，不含全局state.luck，击杀币与loot再分别加state.luck一次，没有全局幸运双算。
+- grantCoinIncome是击杀币、清波币和金币卡的唯一正收入入口，各源只调用一次。队伍采集汇总个人base与有效双向所属equipment，角色ID去重，run采集只加一次，不再乘队伍人数或混用sourceLuck。helper不消费随机流或自行写event/stat，有限值/余额/溢出拒绝在变更前完成；小数carry持久保存至后续正收入，不把支出或零掉币判定变成采集收益。旧档缺字段以0处理，保留原合法小数余额；restart清carry与run加成。
+- 引擎event.coins取helper实际amount，runtime战斗统计只计该tick正余额差一次，不再从击杀与清波event重复加；金币卡统计直接granted.amount，history保留原卡base amount。所有支出路线直接扣balance而不倒扣coinsEarned、不受采集倍率折扣。已阅读真实击杀+清波carry用例（2+7实际到账9、统计9）、金币卡10→11及付费refresh不改carry/stat断言。
+- Agent parser仅收合法offerId与通用命令ID，不接受客户端费用、次数或随机数；投影公开同一报价与采集贡献数值，装备采集经原属性白名单，run字段显式列出，未透出carry/rng或未知catalog。refreshed事件仅wave/cost/paidCount/freeRemaining等数值白名单，实际新卡仍按发现知识公开。未改runtime订阅隔离/重入顺序以换取性能。
+
+本审查只读核对根`../../work/wand-defense-refresh-focused.log`为16/16、`../../work/wand-defense-economy-integration.log`为6/6，均fail0、无取消/跳过，未重新执行。相关用例已读免费/付费/跨波/刷新恢复、stale claim/offer与幂等、幸运采集历史、真实收入/carry及新局清零；不能将这些定向结果或此前448项扩大为本批新整仓/最终UI通过。最终全量由根统一安排。
+
+### 开战/复活刷新计数同步补审
+
+根首轮全量467项中462通过、5失败，报告其中4项为wave变化后rewardRefresh.wave未同步、constructor恢复时normalize改变快照，另1项为目录新增第9件采集符而preview测试仍固定8。已只读确认根在startBattle返回后、复活设置failedWave-1后各同步normalizeRewardRefresh；使用原rewardRefresh作为输入，所以仅wave/freeUsed按新波次重置，合法paidCount与refreshCount原值保留，无金币/RNG/报价抽取副作用。两处都发生在统一receipt/notify前，开战保存起点与随后constructor恢复现在采用一致的计数表示，不通过放宽等价断言掩盖差异。
+
+亦已读preview断言改为Object.keys(demoContent.gear??{}).length验证当前全装备目录，仍要求真实grantedGear和gearKinds均覆盖，而非删掉赠品完整性校验。根正在定向回归后再做整仓，截至本补审不宣称467已全绿；本审查未重跑测试或改源，只补审计，无新增P1/P2。
+
+## 角色、库存与奖励刷新冻结UI批静态验收（2026-11-04）
+
+结论：当前冻结CharacterPage.tsx/.css、InventoryDock.tsx/.css、RewardChoices及App刷新报价/定位、MenuPages.css集成静态复核通过，未发现具体P1/P2。仅更新本记录，不修改生产源码，不做浏览器/截图/CPU或测试，根最终test/build/registry由根统一执行。
+
+- 角色六tab职责独立：overview短摘要，Radar十轴直接取共享stats.final或其明确变换（攻速为cooldownMultiplier倒数、法力为maxMana），轴值保持真实单位、参考区间独立且超出自适应；未拼造归一化“属性分数”。属性行取同一stats来源，历史法力无法拆分时明确combined/—而不虚构基础/本局。采集单行用getGatheringStats全队helper及base/equipment/run三来源，不拿当前单人值或把run重复乘队伍人数；元素仅独立tab，途径只显示当前角色pathway的已知sequence。
+- 属性Tooltip使用公共受控Root/Trigger/Portal，行可聚焦并含来源说明；pointer记录打开前状态、click阻止默认后切换，避免focus先打开使首次touch反而关掉，键盘清pointer快照。十个来源说明与Radar参考值一致，六tab列有显式320px与受可用高约束的overflow，保留小屏可收缩内容与scroll链；源码阅读不冒称新增真实触屏验证。
+- 库存四类同一measure/边距与48px cell计算（扣公共8px padding）、同一5行viewport高度/board额外空间。分别保spell/equipment/gear/supply布局缓存，未测有效宽前不提交布局，仍按原位置优先投影；只有用户点击整理才新建紧凑布局。各类共享最大rows/页段，pageCount收缩时clamp，分类与显式换页先cancelDrag；没有借统一宽高重排全部库存或丢手工位置。法杖整体bounds预览、外置clear actions、overflow visible与独立pointer/z层保留，不靠遮挡层吞按钮。
+- App用getRewardRefreshQuote当前state直接传刷新按钮，按钮disabled由同一canRefresh及非空offers决定，显示剩余免费或当前真实费用；点击携当次首卡ID，不由客户端递增费用/扣金币。异命令双击旧组仍由runtime offer token拒绝，同命令回执幂等；新卡ID不沿用旧翻面状态，原run:wave组件key保持。reward stage按ready可用边界safe center、可溢出滚动，刷新按钮相对整组下方布局，不改奖励权威或存档时机；Menu根选项也改单列safe居中，溢出回起始滚动。
+- 根转述UI负责人真实DOM/runtime UI验证：free1时coins100保持，paid1→3使coins99→96且报价3→9，stale offer无扣款，coins2/price27禁用；26列×5行六根法杖分页5+1、卸载点击可达；角色324px viewport六tab列320px、当前path独立、十值真实来源。上述为负责人执行证据，本审查未重复，不将其扩大为全部尺寸/真实触屏或最终新整仓通过。
+
+本批UI源码审无新增阻塞，最终全量/build/registry结果待根汇总；此前467项中5失败的修复验证状态不由这份静态UI结论替代。
+
+根随后最终报告新批467/467、单回归14/14通过，开战/复活恢复4项与gear目录计数1项失败已实际消除；local TS/Vite生产构建、registry兼容TS及git diff check均通过，日志为`../../work/wand-defense-refresh-final-tests.log`、`../../work/wand-defense-refresh-final-build.log`、`../../work/wand-defense-refresh-final-registry.log`。UI原子刷新联测、角色六页与统一库存DOM通过并sourcefreeze。此为根最终执行/交付报告，替代本批先前462/467与待结果状态；本审查按要求只补记录，不作额外check、日志复测或长追踪。最终静态批审通过，无新增P1/P2，转idle。
+
+## Pages/PWA、持久存档迁移与最高品级赠品新批源审（2026-11-04）
+
+结论：workflow ready后已只读本批实际workflow/script/vendor说明、main/session迁移、PWA及grant扩展与当前max-catalog helper，未发现明确P1/P2。仅写审计文档，未切用户node_modules link、部署、操作浏览器/存档或重跑整仓；根独立clean npm ci及gift负责人测试当时仍在进行，max gift尚未由根显式激活，不能称实际部署/离线安装/当前局新赠品已完成。
+
+- readPersistentRun优先localStorage，只有主键确为empty才读取有效session旧档并尝试迁移。已有合法新局（包括wave0）、rejected原文或暂不可读local均不会被旧tab覆盖；不删除session记录。迁移写失败仍返回有效tab checkpoint供内存继续并保旧tab证据，后续沿main非battle/开战边界保存重试；原unavailable gate与坏原文备份保持。只改变同origin持久介质，通用精确checkpoint及战中刷新回起点策略未变，没有声称能自动跨localhost/Pages origin搬存档。已读取4项迁移测试，未自行执行。
+- PWA生产环境才注册，base与scope均/wand-defense/，注册在load后且失败不干扰游戏。manifest id/start_url/scope均相对当前项目，图标和index链接随BASE_URL。SW只拦同origin且项目scope内GET；broker/写请求与游戏存储不纳缓存。没有skipWaiting、clients.claim、controllerchange reload或自动刷新当前run，更新不强制替换正在玩的页面。
+- shell预缓存解析HTML直接入口JS/CSS、CSS中同域hashed字体/图片及manifest/icons，全部成功后才替offline HTML；网络断开导航回缓存shell，hashed资源cache-first，导航成功时可安全更新shell。当前已见构建产物是单JS/单CSS与3个hashed字体，符合此直接依赖模型；不把该模型泛称为任何未来lazy chunk/外部服务都已离线。cache按scope前缀区分，shell更新时保护本次依赖并清旧资源至预算；捕获/注册失败仍以游戏在线入口为准。此为源码审，不替代真实安装/断网/升级生命周期验收。
+- Pages workflow在main push/手动运行，npm ci后显式选择冻结公开候选包，再test/build并上传dist，部署job单独有pages/id-token权限，主构建contents只读；concurrency不取消进行中的部署。脚本先核SHA256，再解到独立.local临时目录，复用已有可逆inkra-local脚本，不引用开发者绝对路径。正常本机link没有被本审查执行脚本替换。归档README保MIT/第三方/OFL来源与冻结说明，不称私有Host替代方案。
+- 已只读计算归档SHA256，完整等于脚本/README的de0c8e9c03929bbb49dc267ce5a64e8773a399b27b153fded1724d6033336239。另对HEAD与当前lock共同package条目核对version/integrity变化均0；排除resolved后仅根package元数据不同，另有1个新增条目、无删除，因此不把整个工作树差异夸称为“所有字节仅换URL”。当前resolved为公共registry，搜索未见内网域/开发绝对路径；clean npm ci实际结果由根另报，本审查不重复安装。
+- grantSpell/Item/Gear/Supply现与Wand同样接受可选grade/level，parser枚举与正安全整数校验、runtime复核都在对应写入之前，原local unlock+enabled gate未放宽。Gear/Supply先由工厂创建脱离定义引用的实例再覆盖元数据level并入库，既有品级倍率沿原helper，未凭Lv50另造额外强度公式。普通协议只公开可用字段schema，未放开网络unlock或任意payload。
+- 当前max-catalog helper仅显式新request入口可触发，另要求已确认target run（当时仍demo）及精确旧人类unlock receipt；默认旧pending列表不包含新整目录批。只在ready/reward执行，battle延后，defeat也不直接赠送。遍历实际目录各一份mythic/Lv50，法杖单独仅2根5×5空且未装备，旧物品/角色/法杖布局不升级或移动，金币/余数/随机流/进度保持。原toggle先记持久marker，try/finally恢复；每礼物独立成功receipt，失败用后续attempt ID重试，complete guard防整批重发，不把本次新增delta误作全部完成。
+- 已读max-catalog测试正常开关两态、全部类别与两根法杖、旧布局/资源保留、重复/恢复幂等、未知激活/无权限/重来/战中拒绝，以及故障单礼物后恢复补齐的断言；负责人仍测试/修改阶段，不抢写preview，也不据源码断言用户当前fresh run目标已最终确认或已收到赠品。实际激活/ACK由根确认后补记。
+
+此前467项及最终UI freeze不覆盖本新部署批，独立clean构建、目标测试与真实Pages/PWA结果仍待对应负责人报告。本轮无全量/截图或新生产源码改动。
+
+### 本批显式授权、实际赠送与clean构建补审
+
+根确认前台fresh存档是demo/wave0/ready、只有spark/amplify且无旧人类receipt，因此本请求新增独立成功unlock receipt。已实读main补接：仅DEV&&hot且env精确匹配user-max-catalog-20261104-01时才取第三参；只demo且ready/reward才发本批unlock。grantAuthorizedMaxCatalog仅本分支接受新prefix unlock或旧既定授权，shared authorizedPreview旧global guard未变；默认apply列表仍不能用本批receipt触发历史3wand/其他赠品。第三参未知request拒绝，重来新run ID不匹配，battle仍延后、HMR/重入guard/完成停止callback保持。此窄审通过，无新增P1/P2；已读新增fresh授权与旧批隔离测试，未执行。
+
+已只读核对`.local/targeted-preview-result.json`实际前台ACK为executed、demo/wave0、mythic/Lv50：33spell+11arcana共44magic、9gear、3supply、2根5×5 wand，expectedTotal与executedGiftReceipts均58，全部preserved字段及restoredCheatToggle均true。这是根实际赠送的回传，不是本审查发放；替代前段未激活/ACK待到状态。根报告发放后立即清理一次性env开关，生产包无preview模块；源码DEV分支隔离已读，本审查未另启用户页面或操作env/存档。
+
+根报告本新批实际全量476/476通过；独立公共npm ci日志已只读核对安装成功、0 vulnerabilities，clean构建日志末尾built成功，冻结包校验/独立link之后的clean生产build通过且原本机link未改。测试476与生产无preview模块归根执行证据，本审查不重复测试/构建。Pages实际run和PWA最终浏览器离线验收仍未完成，不能把clean构建与赠送ACK写成已上线/离线安装成功；后续结果由根汇总。
+
+### 本地生产包真实离线验收补记
+
+根随后报告已在独立本地production origin `http://127.0.0.1:4173/wand-defense/` 使用CUA CDP确认SW activated、scope正确及缓存key独立；仅将该测试tab设为Network offline后reload，真实游戏root、HP、法杖与开始按钮正常渲染。随后恢复online并关闭测试tab，未修改用户实际游戏页面的网络。此为根执行的真实浏览器离线验收，替代前段“最终浏览器离线验收仍未完成”的状态；本审查仅补记录，未自行复测。waiting更新的证据仍为UI负责人早期浏览器测试与后续静态审查，不声称根本轮重测waiting或完成新的安装验收。公共registry与vendor的独立clean生产构建及476项通过沿用上述证据。根准备发布main，截至此补记GitHub Pages实际workflow run与线上部署仍待结果，不称已上线。

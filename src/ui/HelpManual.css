@@ -1,0 +1,31 @@
+.help-manual { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 16px; width: 100%; min-width: 0; min-height: 0; }
+.help-manual__tabs { max-width: 100%; }
+.help-manual__content { display: grid; align-content: start; gap: 20px; min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 16px; }
+.help-manual__content section { display: grid; align-content: start; gap: 8px; min-width: 0; }
+.help-manual h3 { margin: 0; font-size: var(--inkra-text-md); font-weight: 400; color: var(--inkra-ink-muted); }
+.help-manual p { margin: 0; }
+.help-manual__roots { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.help-manual__groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; gap: 20px 24px; }
+.help-manual__routes { display: grid; gap: 4px; }
+.help-manual__route { min-width: 0; }
+.help-manual__route summary { cursor: pointer; padding: 4px 0; min-height: 44px; }
+.help-manual__route summary:focus-visible { outline: 2px solid var(--inkra-accent); outline-offset: 2px; }
+.help-manual__formula, .help-manual__term, .help-manual__token { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.help-manual__formula { flex-wrap: wrap; gap: 4px 8px; vertical-align: middle; }
+.help-manual__token canvas { flex: none; }
+.help-manual__operator, .help-manual__muted, .help-manual__route-detail { color: var(--inkra-ink-muted); }
+.help-manual__route-detail { padding: 4px 0 8px 20px; font-size: var(--inkra-text-sm); }
+.help-manual__combination { display: grid; gap: 4px; }
+.help-manual__grades { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.help-manual__grades li { display: inline-flex; align-items: center; gap: 4px; }
+.help-manual__grades li:not(:last-child)::after { content: "→"; margin-left: 8px; color: var(--inkra-ink-muted); }
+@media (max-width: 480px) { .help-manual { gap: 8px; } .help-manual__groups { grid-template-columns: minmax(0, 1fr); gap: 16px; } }
+.help-manual__content[hidden] { display: none; }
+.help-manual__content p, .help-manual__muted { font-family: var(--inkra-font-body); }
+.help-manual { grid-template-columns: minmax(0, 1fr); }
+.help-manual__tabs, .help-manual__content { min-width: 0; max-width: 100%; box-sizing: border-box; }
+@media (max-width: 420px) {
+  .help-manual { --inkra-tabs-padding: 8px; }
+  .help-manual [role="tablist"][data-divided] { gap: 8px; }
+  .help-manual [role="tab"] > .inkra-tabs__divider[data-orientation="vertical"] { inset-inline-start: -8px; }
+}

@@ -1,17 +1,39 @@
 .battlefield { --game-vitals-height: 28px; --field-ink: var(--inkra-ink); --field-muted: var(--inkra-ink-muted); position: absolute; inset: 0; min-width: 0; color: var(--field-ink); }
 .battlefield__field { position: relative; isolation: isolate; overflow: hidden; width: 100%; height: 100%; background: var(--inkra-paper); }
-.battlefield__field::after { position: absolute; z-index: -1; content: ""; inset: auto 0 calc(var(--game-defense-bottom) + var(--game-vitals-height)); border-top: 1px dashed color-mix(in srgb, var(--field-ink) 25%, transparent); pointer-events: none; }
 .battlefield__unit { position: absolute; z-index: 2; display: grid; justify-items: center; gap: 3px; transform: translate(-50%, -50%); transition: left 50ms linear, top 50ms linear; }
-.battlefield__unit-mark { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid currentColor; border-radius: 50%; background: var(--inkra-paper); font-size: 17px; }
+.battlefield__unit-mark { position: relative; isolation: isolate; display: grid; place-items: center; width: var(--unit-monster-size, 32px); height: var(--unit-monster-size, 32px); border: 1px solid currentColor; border-radius: 50%; background: var(--inkra-paper); font-size: calc(var(--unit-monster-size, 32px) * .52); }
+.battlefield__unit-mark-icon { position: relative; z-index: 1; display: grid; place-items: center; width: 100%; height: 100%; pointer-events: none; }
+.battlefield__unit-mark-icon > svg { width: 100%; height: 100%; }
+.battlefield__unit-mark-icon.is-slowed { filter: hue-rotate(145deg) saturate(.68); }
+.battlefield__status-frost { position: absolute; z-index: 0; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: .28; }
+.battlefield__status-spark { position: absolute; z-index: 2; }
+.battlefield__status-spark--one { top: -16%; right: -12%; animation: battlefield-status-spark 760ms ease-in-out infinite alternate; }
+.battlefield__status-spark--two { bottom: -9%; left: -13%; animation: battlefield-status-spark 610ms ease-in-out infinite alternate-reverse; }
+@keyframes battlefield-status-spark {
+  from { opacity: .64; transform: translateY(1px) scale(.92) rotate(-5deg); }
+  to { opacity: 1; transform: translateY(-2px) scale(1.06) rotate(6deg); }
+}
+.battlefield__unit-mark[data-attacked="true"] { animation: battlefield-enemy-attack-bob 420ms ease-out 1 both; transform-origin: center bottom; }
+@keyframes battlefield-enemy-attack-bob {
+  0%, 100% { transform: translateY(0) scale(1); }
+  28% { transform: translateY(-4px) scale(.96, 1.03); }
+  58% { transform: translateY(1px) scale(1.02, .97); }
+  78% { transform: translateY(-1px) scale(.99, 1.01); }
+}
 .battlefield__unit--enemy { color: var(--inkra-danger-foreground); }
 .battlefield__unit--player { color: var(--inkra-success-foreground); }
 .battlefield__unit--building .battlefield__unit-mark { border-radius: 5px; }
 .battlefield__unit--projectile .battlefield__unit-mark { width: 10px; height: 10px; color: var(--inkra-warning-foreground); background: currentColor; border: 0; }
-.battlefield__unit-health { display: block; overflow: hidden; width: 34px; height: 4px; border-radius: 4px; background: color-mix(in srgb, var(--field-ink) 14%, transparent); }
-.battlefield__unit-health i { display: block; height: 100%; background: var(--inkra-danger-pigment); }
-.battlefield__heroes { position: absolute; z-index: 1; left: 50%; bottom: calc(var(--game-defense-bottom) + var(--game-vitals-height) + 12px); display: flex; align-items: end; gap: var(--inkra-space-3); transform: translateX(-50%); }
-.battlefield__hero { position: relative; width: 96px; height: 96px; padding: 0; border: 0; border-radius: 50%; color: var(--inkra-success-foreground); background: transparent; font: inherit; cursor: pointer; }
-.battlefield__hero-wash { position: absolute !important; z-index: 0; inset: 16px !important; display: block; border-radius: 9999px; clip-path: circle(50%); opacity: 0; pointer-events: none; transition: opacity var(--game-motion-duration) var(--game-motion-ease); }
+.battlefield__unit-health { display: block; width: var(--unit-health-width, 34px); height: 4px; min-height: 0; }
+.battlefield__unit-health .inkra-progress__content { display: none; }
+.battlefield[data-progress-mode="fallback"] .battlefield__unit-health .inkra-progress__body { height: 4px; }
+.battlefield[data-progress-mode="fallback"] .battlefield__unit-health .inkra-progress__outline { visibility: hidden; }
+.battlefield[data-progress-mode="fallback"] .battlefield__unit-health .inkra-progress__fill { --inkra-selection-pigment: var(--inkra-danger-foreground); }
+.battlefield__heroes { position: absolute; z-index: 1; left: 0; right: 0; bottom: calc(var(--game-defense-bottom) + var(--game-vitals-height) + 12px); height: 96px; pointer-events: none; }
+.battlefield__hero-group { position: absolute; bottom: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.battlefield__hero-mini { position: absolute; top: calc(100% + var(--game-vitals-height) + 24px); left: 50%; height: 44px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.battlefield__hero { --hero-diameter: 96px; position: relative; width: var(--hero-diameter); height: var(--hero-diameter); pointer-events: auto; padding: 0; border: 0; border-radius: 50%; color: var(--inkra-success-foreground); background: transparent; font: inherit; cursor: pointer; }
+.battlefield__hero-wash { position: absolute !important; z-index: 0; inset: calc(var(--hero-diameter) / 6) !important; display: block; border-radius: 9999px; clip-path: circle(50%); opacity: 0; pointer-events: none; transition: opacity var(--game-motion-duration) var(--game-motion-ease); }
 .battlefield__hero.is-selected .battlefield__hero-wash, .battlefield__hero:focus-visible .battlefield__hero-wash { opacity: 1; }
 .battlefield__hero-mark { position: absolute; z-index: 1; inset: 0; display: grid; place-items: center; font-size: 30px; pointer-events: none; }
 .battlefield__hero .battlefield__xp, .battlefield__hero .battlefield__mana { z-index: 1; pointer-events: none; }
@@ -21,10 +43,19 @@
 .battlefield__empty { position: absolute; top: 43%; left: 50%; margin: 0; color: var(--field-muted); font-size: var(--inkra-text-sm); transform: translate(-50%, -50%); }
 .battlefield__pause { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: var(--inkra-overlay); color: var(--inkra-ink); font-size: var(--inkra-text-xl); }
 .battlefield__field.is-paused .battlefield__unit { filter: saturate(.55); transition: none; }
-@media (max-width: 560px) { .battlefield__unit-mark { width: 28px; height: 28px; } .battlefield__heroes { gap: var(--inkra-space-1); } }
-@media (prefers-reduced-motion: reduce) { .battlefield *, .battlefield *::before, .battlefield *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+.battlefield__field.is-paused .battlefield__status-spark { animation-play-state: paused; }
+@media (max-width: 560px) { .battlefield__unit:not(.battlefield__unit--enemy) .battlefield__unit-mark { width: 28px; height: 28px; } .battlefield__hero { --hero-diameter: clamp(44px, 20vw, 76px); } }
+@media (prefers-reduced-motion: reduce) {
+  .battlefield *, .battlefield *::before, .battlefield *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .battlefield__unit-mark[data-attacked="true"] { animation: none !important; }
+  .battlefield__status-spark { animation: none !important; }
+}
+html[data-game-reduce-motion="true"] .battlefield__unit-mark[data-attacked="true"] { animation: none !important; }
+html[data-game-reduce-motion="true"] .battlefield__status-spark { animation: none !important; }
 
 .battlefield[data-progress-mode="local"] { --game-vitals-height: 20px; }
 /* Absolute positioning otherwise shrink-wraps both rings to half the hero width. */
-.battlefield__hero .battlefield__xp[data-shape="circular"] { inline-size: 96px; max-inline-size: none; }
-.battlefield__hero .battlefield__mana[data-shape="circular"] { inline-size: 76px; max-inline-size: none; }
+.battlefield__hero .battlefield__xp[data-shape="circular"] { inline-size: var(--hero-diameter); block-size: var(--hero-diameter); max-inline-size: none; }
+.battlefield__hero .battlefield__mana[data-shape="circular"] { inline-size: calc(var(--hero-diameter) * .7916667); block-size: calc(var(--hero-diameter) * .7916667); max-inline-size: none; }
+.battlefield__hero-mark .character-presentation-icon { width: 70%; height: 70%; }
+.battlefield__unit--enemy .battlefield__unit-mark { border: 0; border-radius: 0; background: transparent; }

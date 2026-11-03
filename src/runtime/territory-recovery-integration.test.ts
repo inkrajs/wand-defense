@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { createGameRuntime } from './index';
+import { dispatchRemote } from '../agent/protocol';
+
+test('independent recovery unlocks and upgrades follow the shared simulation clock and durable receipts',()=>{
+  const checkpoint=createGameRuntime().checkpoint();
+  checkpoint.state.coins=1000;checkpoint.state.territory.hp=40;checkpoint.state.territory.shield=0;
+  const runtime=createGameRuntime(undefined,checkpoint);
+  const unlock={id:'unlock-wall',type:'upgradeTerritoryRecovery',track:'wall'};
+  assert.equal(dispatchRemote(runtime,unlock).status,'executed');
+  const wall=runtime.getState();assert.equal(wall.territory.wallRepairLevel,1);
+  assert.equal(wall.territory.shieldRepairLevel??0,0);assert.equal(wall.territory.hp,40);
+  dispatchRemote(runtime,unlock);assert.deepEqual(runtime.getState(),wall);
+  assert.equal(dispatchRemote(runtime,{id:'unlock-shield',type:'upgradeTerritoryRecovery',track:'shield'}).status,'executed');
+  assert.equal(dispatchRemote(runtime,{id:'wall-level2',type:'upgradeTerritoryRecovery',track:'wall'}).status,'executed');
+  assert.equal(runtime.getState().coins,250);
+  runtime.tick(250);assert.equal(runtime.getState().territory.hp,40);
+  runtime.dispatch({id:'speed',type:'setSpeed',speed:2});runtime.dispatch({id:'battle',type:'startWave'});
+  runtime.tick(250);
+  assert.ok(Math.abs(runtime.getState().territory.hp-41)<1e-8);
+  assert.ok(Math.abs(runtime.getState().territory.shield!-1)<1e-8);
+  runtime.dispatch({id:'pause',type:'setPaused',paused:true});const paused=runtime.getState();
+  runtime.tick(250);assert.deepEqual(runtime.getState(),paused);
+  assert.equal(runtime.getState().runStatistics!.coinsEarned,0);
+  const restored=createGameRuntime(undefined,runtime.checkpoint());
+  assert.deepEqual(restored.getState(),paused);dispatchRemote(restored,unlock);assert.deepEqual(restored.getState(),paused);
+  restored.dispatch({id:'restart',type:'restart'});
+  assert.equal(restored.getState().territory.wallRepairLevel??0,0);
+  assert.equal(restored.getState().territory.shieldRepairLevel??0,0);
+});

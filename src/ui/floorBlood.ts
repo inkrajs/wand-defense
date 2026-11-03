@@ -1,5 +1,6 @@
 import type { GameEvent, GameState, Grade } from "../contracts";
 import { gradeOrder } from "../content/grades";
+import { demoContent } from "../content/demo";
 
 export const BLOOD_LIMIT = 96;
 export const BLOOD_STORAGE_KEY = "wand-defense:blood:v1";
@@ -20,11 +21,12 @@ const pigments: Record<Grade, string> = {
 export function bloodAppearance(mark: BloodDecal) {
   const rank = Math.max(0, gradeOrder.indexOf(mark.grade));
   const strength = Math.min(6, Math.log2(1 + mark.maxHp / 18) + Math.log2(1 + mark.level) * .35 + rank * .65);
-  const charred = mark.effect === "spark" || mark.effect === "fireball" || mark.effect === "lightning-bolt";
+  const element = demoContent.spells[mark.effect]?.element;
+  const charred = element === "fire" || element === "lightning";
   const spread = mark.effect === "rock-shot" ? 1.55 : mark.effect === "wind-blade" ? 1.2 : 1;
   return {
     strength,
-    color: charred ? (mark.effect === "lightning-bolt" ? "#41343e" : "#34302b") : pigments[mark.grade],
+    color: charred ? (element === "lightning" ? "#41343e" : "#34302b") : element === "dark" ? "#54334e" : pigments[mark.grade],
     diameter: Math.min(116, (30 + strength * 9) * spread),
     opacity: Math.min(.78, .4 + strength * .045 + rank * .018),
     lifetimeMs: 70_000 + strength * 27_000,
@@ -56,6 +58,23 @@ export function bloodSpots(mark: BloodDecal) {
   });
 }
 
+/** Shape data only; the component library owns pigment, grain and rendering. */
+export function bloodGeometry(mark: BloodDecal) {
+  const point=(x:number,y:number)=>`${x.toFixed(3)} ${y.toFixed(3)}`;
+  const d=bloodSpots(mark).map(spot=>{
+    const rotation=spot.angle*Math.PI/180,cos=Math.cos(rotation),sin=Math.sin(rotation);
+    const points=Array.from({length:10},(_,index)=>{
+      const angle=index*Math.PI/5;
+      const edge=.87+.13*Math.sin(index*2.7+spot.x*.31+spot.y*.17);
+      const x=Math.cos(angle)*spot.rx*edge,y=Math.sin(angle)*spot.ry*edge;
+      return {x:spot.x+x*cos-y*sin,y:spot.y+x*sin+y*cos};
+    });
+    const middle=(a:typeof points[number],b:typeof points[number])=>point((a.x+b.x)/2,(a.y+b.y)/2);
+    return `M${middle(points.at(-1)!,points[0])}`+points.map((p,index)=>`Q${point(p.x,p.y)} ${middle(p,points[(index+1)%points.length])}`).join("")+"Z";
+  }).join("");
+  return {type:"path" as const,d,viewBox:{width:120,height:120},fillRule:"nonzero" as const};
+}
+
 function deathMark(event: GameEvent, scene: Scene): BloodDecal | undefined {
   const data = event.data;
   if (typeof data.x !== "number" || !Number.isFinite(data.x) || typeof data.y !== "number" || !Number.isFinite(data.y)) return;
@@ -67,13 +86,13 @@ function deathMark(event: GameEvent, scene: Scene): BloodDecal | undefined {
     maxHp: finite(data.maxHp, 18, 1, 1e9), level: finite(data.level, Math.max(1, scene.wave), 1, 1e6),
     grade: gradeOrder.includes(data.grade as Grade) ? data.grade as Grade : "common",
     effect: typeof data.effect === "string" ? data.effect.slice(0, 80) : "",
-    washed: data.effect === "water-bolt" ? .4 : 0,
+    washed: demoContent.spells[String(data.effect)]?.element === "water" ? .4 : 0,
   };
 }
 
 /** Real water hits wash nearby marks; stronger blood resists each local rinse. */
 function washMarks(marks: BloodDecal[], event: GameEvent): BloodDecal[] {
-  if (event.type !== "damage" || event.data.effect !== "water-bolt" || typeof event.data.amount !== "number"
+  if (event.type !== "damage" || demoContent.spells[String(event.data.effect)]?.element !== "water" || typeof event.data.amount !== "number"
     || !Number.isFinite(event.data.amount) || event.data.amount <= 0) return marks;
   const { x, y } = event.data;
   if (typeof x !== "number" || !Number.isFinite(x) || typeof y !== "number" || !Number.isFinite(y)) return marks;

@@ -1,12 +1,21 @@
-import { packInventory, type DockItem, type InventoryLayout } from "./inventoryAdapter";
+import { INVENTORY_PAGE_ROWS, packInventory, type DockItem, type InventoryLayout } from "./inventoryAdapter";
 import type { GameEvent } from "../contracts";
 
 const MAX_LAYOUT_ITEM_BUDGET = 10_000;
+
+/** Zero-width startup renders are provisional and must not seed cached positions. */
+export function hasMeasuredInventoryWidth(width: number): boolean {
+  return Number.isFinite(width) && width > 0;
+}
 
 /** Session-only UI memory; stale entries let an item reclaim its old spot if it returns. */
 export type InventoryLayoutState = {
   columns: number;
   positions: InventoryLayout;
+  /** IDs moved by the player; generated packing coordinates are intentionally excluded. */
+  manualIds?: string[];
+  /** Legacy coordinates whose author is unknown; keep them until reviewed. */
+  unclassifiedIds?: string[];
   activeIds: string[];
   /** Greatest validated layout extent; bounds cached coordinates after removals. */
   extentRows: number;
@@ -25,9 +34,10 @@ export function projectInventoryLayout(
   items: DockItem[],
   columns: number,
   previous?: InventoryLayoutState,
-  minRows = 3,
+  minRows = INVENTORY_PAGE_ROWS,
 ): InventoryLayoutProjection {
-  const previousState = previous ?? { columns, positions: {}, activeIds: [], extentRows: minRows, itemBudget: Math.max(1, items.length) };
+  const previousState = previous ?? { columns, positions: {}, manualIds: [], unclassifiedIds: [], activeIds: [], extentRows: minRows, itemBudget: Math.max(1, items.length) };
+  const unclassifiedIds = previous?.unclassifiedIds ?? (previous && previous.manualIds === undefined ? Object.keys(previous.positions) : []);
   const itemBudget = Math.max(1, Math.min(MAX_LAYOUT_ITEM_BUDGET, Math.max(previousState.itemBudget ?? 0, previousState.activeIds.length, items.length)));
   const validatedExtent = Math.max(minRows, Math.min(
     Number.isSafeInteger(previousState.extentRows) && previousState.extentRows > 0 ? previousState.extentRows : minRows,
@@ -51,7 +61,7 @@ export function projectInventoryLayout(
   return {
     packed,
     widthChanged: previousState.columns !== columns,
-    state: { columns, positions, activeIds: [...liveIds], extentRows, itemBudget },
+    state: { columns, positions, manualIds: previousState.manualIds ?? [], unclassifiedIds, activeIds: [...liveIds], extentRows, itemBudget },
   };
 }
 
@@ -62,12 +72,16 @@ export function carryMergeLayout(state: InventoryLayoutState, event: GameEvent):
   if (typeof targetItemId !== "string" || typeof sourceItemId !== "string" || typeof outputItemId !== "string") return state;
   const positions = { ...state.positions };
   const targetPosition = positions[targetItemId];
+  const targetWasManual = state.manualIds?.includes(targetItemId) ?? false;
+  const targetWasUnclassified = state.unclassifiedIds?.includes(targetItemId) ?? state.manualIds === undefined;
   delete positions[targetItemId];
   delete positions[sourceItemId];
   if (targetPosition) positions[outputItemId] = targetPosition;
   return {
     ...state,
     positions,
+    manualIds: [...(state.manualIds ?? []).filter(id => id !== targetItemId && id !== sourceItemId), ...(targetWasManual && targetPosition ? [outputItemId] : [])],
+    unclassifiedIds: [...(state.unclassifiedIds ?? []).filter(id => id !== targetItemId && id !== sourceItemId), ...(targetWasUnclassified && targetPosition ? [outputItemId] : [])],
     activeIds: [...state.activeIds.filter(id => id !== targetItemId && id !== sourceItemId), outputItemId],
     extentRows: Math.max(state.extentRows, targetPosition ? targetPosition.y + 1 : 0),
   };
@@ -83,6 +97,8 @@ export function rememberInventoryPosition(
   return {
     ...state,
     positions: { ...state.positions, [itemId]: { ...position } },
+    manualIds: state.manualIds?.includes(itemId) ? state.manualIds : [...(state.manualIds ?? []), itemId],
+    unclassifiedIds: (state.unclassifiedIds ?? []).filter(id => id !== itemId),
     activeIds: state.activeIds.includes(itemId) ? state.activeIds : [...state.activeIds, itemId],
     extentRows: Math.max(state.extentRows, position.y + 1),
   };
@@ -92,5 +108,5 @@ export function rememberInventoryPosition(
 export function forgetInventoryLayoutItem(state: InventoryLayoutState, itemId: string): InventoryLayoutState {
   const positions = { ...state.positions };
   delete positions[itemId];
-  return { ...state, positions, activeIds: state.activeIds.filter(id => id !== itemId) };
+  return { ...state, positions, manualIds: (state.manualIds ?? []).filter(id => id !== itemId), unclassifiedIds: (state.unclassifiedIds ?? []).filter(id => id !== itemId), activeIds: state.activeIds.filter(id => id !== itemId) };
 }

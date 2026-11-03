@@ -49,7 +49,7 @@ test("spawn makes real projectile entities without applying damage or consuming 
   assert.equal(state.characters[0].mana, 100);
 });
 
-test("projectile follows its selected live target and only damages on contact", () => {
+test("projectile retains its launch aim and only damages a moving target on actual contact", () => {
   const state = projectileState();
   const { events, emit } = recorder();
   spawn(state, emit);
@@ -58,7 +58,7 @@ test("projectile follows its selected live target and only damages on contact", 
   advanceProjectiles(state, 100, emit);
   assert.equal(state.entities.find(entity => entity.id === "target")?.hp, 100);
   const bullet = state.entities.find(entity => entity.kind === "projectile")!;
-  assert.deepEqual([bullet.targetX, bullet.targetY], [50, 68]);
+  assert.deepEqual([bullet.targetX, bullet.targetY], [50, 70]);
   assert.equal(events.some(event => event.type === "damage"), false);
 
   advanceProjectiles(state, 1000, emit);
@@ -67,7 +67,7 @@ test("projectile follows its selected live target and only damages on contact", 
   assert.equal(events.filter(event => event.type === "damage").length, 1);
 });
 
-test("a dead target is never retargeted and its projectile expires at the remembered position", () => {
+test("a dead target leaves its projectile flying until it contacts another enemy", () => {
   const state = projectileState();
   const { events, emit } = recorder();
   spawn(state, emit);
@@ -75,16 +75,16 @@ test("a dead target is never retargeted and its projectile expires at the rememb
   state.entities.find(entity => entity.id === "target")!.hp = 0;
 
   advanceProjectiles(state, 100, emit);
-  assert.equal(state.entities.find(entity => entity.id === "bystander")?.hp, 100);
+  assert.equal(state.entities.find(entity => entity.id === "bystander")?.hp, 89);
   const bullet = state.entities.find(entity => entity.kind === "projectile")!;
   assert.equal(bullet.targetId, "target");
   assert.deepEqual([bullet.targetX, bullet.targetY], [50, 70]);
-  assert.ok(bullet.hp > 0);
+  assert.equal(bullet.hp,0);
 
   advanceProjectiles(state, 5000, emit);
-  assert.equal(state.entities.find(entity => entity.id === "bystander")?.hp, 100);
+  assert.equal(state.entities.find(entity => entity.id === "bystander")?.hp, 89);
   assert.equal(state.entities.some(entity => entity.kind === "projectile" && entity.hp > 0), false);
-  assert.equal(events.some(event => event.type === "damage"), false);
+  assert.equal(events.filter(event => event.type === "damage").length,1);
 });
 
 test("each double cast creates its own projectile and contact emits one damage per hit", () => {

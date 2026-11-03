@@ -18,9 +18,10 @@ server：HTTP broker；cli：Playlink CLI；skills/playlink：Agent 使用说明
 完整类型见 src/contracts/index.ts；mock 见 src/runtime/mock.ts。
 GameState 为唯一权威状态，所有实体有独立实例 ID，定义 ID 与实例 ID 分开。
 命令有唯一 id，返回 accepted/executed/rejected（accepted 不表示执行成功）。
-事件有递增序号、游戏时钟和语义 type。RuntimePort 提供 getState/dispatch/subscribe。
+事件有递增序号、游戏时钟和语义 type。RuntimePort 提供 getState/dispatch/subscribe；实际运行时另提供 subscribeEvents，向存档阶段监听和Agent缓冲发送轻量标量摘要与独立事件副本，避免复制无用的完整状态。该能力在公共端口中可选，旧适配器继续使用subscribe。
 UI 和协议依赖 RuntimePort；mock 可用于并行开发，交付需明确是否已接真实运行时。
 所有 snapshot 均不可由调用方修改来绕过 dispatch；最终运行时需做幂等与权限校验。
+状态订阅与事件订阅共用有序通知队列；重入命令不会改变已排队的历史快照，各监听器不能相互修改事件或状态。
 engine.stepBattle(state, dtMs, content) 返回新 state 和事件，不含奖励领取 UI。
 loadout.applyLoadoutCommand(state, command, content) 返回 CommandResult 与 state/events。
 布局变化提交后刷新编译施法效果；同一物品只能有一个位置，合成须先完整校验再原子提交。

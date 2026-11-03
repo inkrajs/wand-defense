@@ -1,0 +1,5 @@
+.magic-effect-art { position: relative; display: block; overflow: hidden; pointer-events: none; user-select: none; }
+.magic-effect-art__source { position: absolute; display: block; left: 0; top: 0; width: 96px; height: 96px; opacity: 0; pointer-events: none; }
+.magic-effect-art__ink { position: absolute; display: block; inset: 0; mask-repeat: no-repeat; mask-position: center; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; }
+/* Static artwork: reduced motion needs no alternate animation or wall-clock loop. */
+@media (forced-colors: active) { .magic-effect-art__ink { forced-color-adjust: none; background-color: Highlight !important; } }

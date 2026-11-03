@@ -9,7 +9,12 @@ import { projectState } from "../agent/projection";
 function rewardRun(wave=7) {
   const seed = createGameRuntime().checkpoint();
   seed.state.phase="reward";seed.state.wave=wave;
-  seed.state.rewards=createWaveRewards(wave,1,1,demoContent);
+  seed.state.rewards=[
+    {id:"attack",kind:"buff",grade:"rare",label:"攻击提升20%",effect:{type:"attackPercent",value:20}},
+    {id:"item",kind:"item",definitionId:"metal-needle",grade:"rare",label:"金针"},
+    {id:"character",kind:"character",grade:"rare",label:"同行者"},
+    {id:"wand",kind:"wand",grade:"uncommon",label:"备用法杖"},
+  ];
   return seed;
 }
 
@@ -50,7 +55,9 @@ test("reward choices put each kind in its real destination and preserve grade", 
 
 test("tier data reaches orange mythic and malformed buffs reject without consuming the choice", () => {
   assert.deepEqual(rewardGrades.map(tier => tier.attackPercent),[10,15,20,30,40,50]);
-  assert.equal(createWaveRewards(16,3,6,demoContent)[0].grade,"mythic");
+  // The finite offer pool draws kind, unique candidate, then grade.
+  let drawIndex=0;const draws=[0,0,.9999];
+  assert.equal(createWaveRewards(1,3,6,demoContent,()=>draws[drawIndex++%draws.length])[0].grade,"mythic");
   const seed=rewardRun();seed.state.rewards[0].effect={type:"attackPercent",value:Infinity};
   const runtime=createGameRuntime(demoContent,seed),before=runtime.getState();
   assert.equal(runtime.dispatch({id:"invalid",type:"claimReward",rewardId:before.rewards[0].id}).status,"rejected");

@@ -1,11 +1,25 @@
 import { rotateInventoryCells, type InventoryItem } from "@inkra/react/inventory-grid";
-import type { Element, Grade, ItemInstance, WandInstance } from "../contracts";
+import type { Element, GearDefinition, GearInstance, Grade, ItemInstance, SupplyDefinition, SupplyInstance, WandInstance } from "../contracts";
 import { demoContent } from "../content/demo";
+import { gearDefinitions } from "../content/gear";
+import { supplyDefinitions } from "../content/supplies";
 import { resolveAsset } from "./assets";
 
-export type DockItem = InventoryItem & ({ kind: ItemInstance["kind"]; definitionId: string; grade: Grade; element?: Element } | { kind: "wand"; wandId: string; grade: Grade });
-export function inventoryDefinition(item: Pick<ItemInstance, "kind" | "definitionId">) {
-  return item.kind === "spell" ? demoContent.spells[item.definitionId] : demoContent.arcana[item.definitionId];
+export type DockItem = InventoryItem & (
+  | { kind: ItemInstance["kind"]; definitionId: string; grade: Grade; element?: Element }
+  | { kind: "wand"; wandId: string; grade: Grade }
+  | { kind: "gear"; gearId: string; definitionId?: string; slot: GearInstance["slot"]; grade: Grade }
+  | { kind: "supply"; supplyId: string; definitionId: string; grade: Grade }
+);
+export const INVENTORY_PAGE_ROWS = 5;
+export function inventoryDefinition(item: Pick<ItemInstance, "kind" | "definitionId">): typeof demoContent.spells[string] | typeof demoContent.arcana[string];
+export function inventoryDefinition(item: DockItem): typeof demoContent.spells[string] | typeof demoContent.arcana[string] | GearDefinition | SupplyDefinition | undefined;
+export function inventoryDefinition(item: Pick<ItemInstance, "kind" | "definitionId"> | DockItem) {
+  if (item.kind === "wand") return undefined;
+  if (item.kind === "spell") return demoContent.spells[item.definitionId];
+  if (item.kind === "arcana") return demoContent.arcana[item.definitionId];
+  if (item.kind === "gear") return item.definitionId ? gearDefinitions[item.definitionId] : undefined;
+  return supplyDefinitions[item.definitionId];
 }
 export function quarterTurn(rotation: number): 0 | 1 | 2 | 3 {
   return (((rotation / 90) % 4 + 4) % 4) as 0 | 1 | 2 | 3;
@@ -17,6 +31,37 @@ export function makeGridItem(item: ItemInstance, position: { x: number; y: numbe
 }
 export function makeWandGridItem(wand: WandInstance, position: { x: number; y: number }, rotatable = false): DockItem {
   return { id: wand.id, wandId: wand.id, kind: "wand", grade: wand.grade, label: wand.name, cells: Array.from({ length: wand.width * wand.height }, (_, index) => ({ x: index % wand.width, y: Math.floor(index / wand.width) })), position, rotatable };
+}
+
+export function makeGearGridItem(gear: GearInstance, position: { x: number; y: number }): DockItem {
+  const definition = gear.definitionId ? gearDefinitions[gear.definitionId] : undefined;
+  return {
+    id: gear.id,
+    label: definition?.name ?? gear.name,
+    cells: [{ x: 0, y: 0 }],
+    position,
+    rotatable: false,
+    kind: "gear",
+    gearId: gear.id,
+    definitionId: gear.definitionId,
+    slot: gear.slot,
+    grade: gear.grade,
+  };
+}
+
+export function makeSupplyGridItem(supply: SupplyInstance, position: { x: number; y: number }): DockItem {
+  const definition = supplyDefinitions[supply.definitionId];
+  return {
+    id: supply.id,
+    label: definition?.name ?? supply.definitionId,
+    cells: definition?.shape?.length ? definition.shape : [{ x: 0, y: 0 }],
+    position,
+    rotatable: true,
+    kind: "supply",
+    supplyId: supply.id,
+    definitionId: supply.definitionId,
+    grade: supply.grade,
+  };
 }
 
 export type InventoryLayout = Record<string, { x: number; y: number; rotation: 0 | 90 | 180 | 270 }>;
@@ -39,9 +84,9 @@ export function columnsForInventoryWidth(width: number, minColumns: number, cell
 }
 
 /** UI-only packing of real shapes into fixed-width inventory rows. */
-export function packInventory(items: DockItem[], columns: number, rows = 3, saved: InventoryLayout = {}) {
+export function packInventory(items: DockItem[], columns: number, rows = INVENTORY_PAGE_ROWS, saved: InventoryLayout = {}) {
   columns = Math.max(1, Math.min(MAX_CONTAINER_CELLS, Math.floor(columns)));
-  const baseRows = Math.max(3, Math.floor(rows));
+  const baseRows = Math.max(INVENTORY_PAGE_ROWS, Math.floor(rows));
   const segmentRowLimit = Math.max(1, Math.floor(MAX_CONTAINER_CELLS / columns));
   const heightBudget = items.reduce((total, item) => {
     const rotations = (item.rotatable === false ? [0] : [0, 90, 180, 270]) as (0 | 90 | 180 | 270)[];
@@ -77,6 +122,8 @@ export function packInventory(items: DockItem[], columns: number, rows = 3, save
     rotateInventoryCells(item.cells, rotation).map(cell => ({ x: cell.x + x, y: cell.y + y }));
   const fits = (cells: {x:number;y:number}[]) => {
     if (!cells.length || cells.some(cell => cell.x < 0 || cell.x >= columns || cell.y < 0 || cell.y >= height || occupied.has(`${cell.x},${cell.y}`))) return false;
+    const page = Math.floor(cells[0].y / INVENTORY_PAGE_ROWS);
+    if (cells.some(cell => Math.floor(cell.y / INVENTORY_PAGE_ROWS) !== page)) return false;
     const segment = Math.floor(cells[0].y / segmentRowLimit);
     return cells.every(cell => Math.floor(cell.y / segmentRowLimit) === segment);
   };
@@ -90,23 +137,30 @@ export function packInventory(items: DockItem[], columns: number, rows = 3, save
     else remaining.push(item);
   }
   const unplaced: DockItem[] = [];
-  let cursorY = 0;
-  let cursorX = 0;
+  const nextSearchByShape = new Map<string, { y: number; x: number }>();
   for (const item of remaining) {
     let found = false;
     const rotations: (0 | 90 | 180 | 270)[] = item.rotatable === false ? [0] : [0, 90, 180, 270];
-    for (let y = cursorY; y < height && !found; y++) {
-      for (let x = y === cursorY ? cursorX : 0; x < columns && !found; x++) {
+    const fitsAnyPage = rotations.some(rotation => {
+      const shape = rotateInventoryCells(item.cells, rotation);
+      return shape.length > 0
+        && Math.max(...shape.map(cell => cell.x)) - Math.min(...shape.map(cell => cell.x)) + 1 <= columns
+        && Math.max(...shape.map(cell => cell.y)) - Math.min(...shape.map(cell => cell.y)) + 1 <= INVENTORY_PAGE_ROWS;
+    });
+    if (!fitsAnyPage) { unplaced.push(item); continue; }
+    const shapeKey = `${item.rotatable === false ? "fixed" : "rotatable"}:${JSON.stringify(item.cells)}`;
+    const start = nextSearchByShape.get(shapeKey) ?? { y: 0, x: 0 };
+    for (let y = start.y; y < height && !found; y++) {
+      for (let x = y === start.y ? start.x : 0; x < columns && !found; x++) {
         for (const rotation of rotations) if (fits(cellsAt(item, x, y, rotation))) {
           add(item, x, y, rotation);
-          cursorY = y;
-          cursorX = x + 1;
-          if (cursorX >= columns) { cursorY += 1; cursorX = 0; }
+          nextSearchByShape.set(shapeKey, x + 1 < columns ? { y, x: x + 1 } : { y: y + 1, x: 0 });
           found = true;
           break;
         }
       }
     }
+    if (!found) nextSearchByShape.set(shapeKey, { y: height, x: 0 });
     if (!found) unplaced.push(item);
   }
   const usedRows = placed.reduce((bottom, item) => Math.max(bottom, item.position.y + Math.max(...rotateInventoryCells(item.cells, item.rotation).map(cell => cell.y)) + 1), baseRows);

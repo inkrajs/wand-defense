@@ -1,0 +1,30 @@
+.menu-page .menu-page__items { width: min(280px, 100%); }
+.menu-page .menu-page__row { grid-template-columns: 32px minmax(0, 1fr); }
+.menu-settings { --inkra-tabs-icon-size: 32px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 16px; height: 100%; min-height: 0; text-align: start; min-width: 0; }
+.menu-settings [role="tablist"] { max-width: 100%; }
+.menu-settings [role="tab"] { min-width: 44px; min-height: 44px; }
+.menu-settings [role="tabpanel"] { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-block: 4px; }
+.menu-settings__fields { display: grid; gap: 12px; min-width: 0; }
+.menu-settings__fields > .inkra-switch { min-height: 44px; min-width: 0; }
+.menu-settings__select-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(112px, 160px); align-items: center; gap: 12px; min-height: 44px; }
+.menu-settings__select-row [role="combobox"] { min-height: 44px; width: 100%; }
+.menu-settings__select-options [role="option"] { min-height: 44px; }
+.menu-settings__slider-row { display: grid; gap: 4px; }
+.menu-settings__slider-row > label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.menu-settings__slider-row .inkra-slider { min-height: 44px; }
+.menu-settings__slider-row [role="slider"] { min-width: 44px; min-height: 44px; }
+.menu-settings__note { margin: 0; color: var(--inkra-ink-muted); }
+.menu-settings__shortcuts { display: grid; gap: 12px; margin: 4px 0 0; }
+.menu-settings__shortcuts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 12px; }
+.menu-settings__shortcuts dt, .menu-settings__shortcuts dd { margin: 0; }
+.menu-settings__shortcuts dd { color: var(--inkra-ink-muted); }
+.menu-settings__shortcuts kbd { font: inherit; }
+.menu-settings__announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 420px) {
+  .menu-page .menu-page__content { width: 100%; }
+  .menu-settings { --inkra-tabs-padding: 8px; }
+  .menu-settings [role="tablist"][data-divided] { gap: 16px; }
+  .menu-settings [role="tab"] > .inkra-tabs__divider[data-orientation="vertical"] { inset-inline-start: -12px; }
+  .menu-settings__select-row { grid-template-columns: minmax(0, 1fr) 112px; }
+}
+.menu-page__content { min-width: 0; }

@@ -3,11 +3,20 @@ import { compileWand } from "../loadout";
 import { experienceThreshold } from "../content/progression";
 import { castSpell } from "./effects";
 import { advanceProjectiles } from "./projectiles";
+import { advanceBeams } from "./beams";
+import { advanceAreaEffects } from "./areaEffects";
+import { advanceChains } from "./chains";
+import { advanceEnemyStatuses } from "./statusEffects";
+import { nextCombatRandom } from "./random";
+import { getCharacterStats } from "../content/characters";
 import { advanceEnemies, beginWave } from "./waves";
+import { advanceTerritoryRecovery } from "./territoryRecovery";
+import { grantEnemyLoot } from "./loot";
+import { grantCoinIncome } from "../content/economy";
 
 export const BATTLE_STEP_MS = 50;
 type Emit = (type: string, data: Record<string, unknown>) => void;
-type KillCause = { effect?: string; sourceItemId?: string; sourceCharacterId?: string };
+type KillCause = { effect?: string; sourceItemId?: string; sourceCharacterId?: string; sourceLuck?: number };
 type PendingKills = Map<string, KillCause>;
 
 function transition(source: GameState, run: (state: GameState, emit: Emit, pendingKills: PendingKills) => void): Transition {
@@ -22,6 +31,7 @@ function transition(source: GameState, run: (state: GameState, emit: Emit, pendi
         ...(typeof data.effect === "string" ? { effect: data.effect } : {}),
         ...(typeof data.sourceItemId === "string" ? { sourceItemId: data.sourceItemId } : {}),
         ...(typeof data.sourceCharacterId === "string" ? { sourceCharacterId: data.sourceCharacterId } : {}),
+        ...(typeof data.sourceLuck === "number" && Number.isFinite(data.sourceLuck) && data.sourceLuck !== 0 ? { sourceLuck: data.sourceLuck } : {}),
       });
     }
     const event: GameEvent = { seq: state.nextEventSeq++, type, gameTimeMs: state.gameTimeMs, data };
@@ -41,16 +51,16 @@ export function startBattle(state: GameState, _content: ContentCatalog): Transit
   return transition(state, (next, emit) => beginWave(next, emit));
 }
 
-function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills): void {
+function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills, content: ContentCatalog): void {
   const beneficiaries = new Set<CharacterInstance>();
   for (const entity of state.entities) {
     if (entity.hp > 0 || entity.kind !== "enemy") continue;
     const xp = Math.max(1, Math.round(entity.maxHp / 8));
     state.xp += xp;
-    state.rngState = (Math.imul(state.rngState, 1664525) + 1013904223) >>> 0;
-    const coins = state.rngState / 0x100000000 < Math.min(0.8, Math.max(0.1, 0.25 + state.luck * 0.01)) ? 1 : 0;
-    state.coins += coins;
     const cause = pendingKills.get(entity.id);
+    const sourceLuck = cause?.sourceCharacterId ? Math.max(0,cause.sourceLuck ?? 0) : 0;
+    const baseCoins = nextCombatRandom(state) < Math.min(0.8,Math.max(0.1,0.25+(state.luck+sourceLuck)*0.01)) ? 1 : 0;
+    const coins = grantCoinIncome(state,baseCoins,content).amount;
     pendingKills.delete(entity.id);
     // Projectiles retain their firing character even if their wand changes hands in flight.
     const beneficiary = cause?.sourceCharacterId
@@ -64,6 +74,7 @@ function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills):
     emit("enemyKilled", { entityId: entity.id, definitionId: entity.definitionId, xp, coins,
       x: entity.x, y: entity.y, maxHp: entity.maxHp, level, grade: entity.grade ?? "common", wave: state.wave,
       ...cause, ...(beneficiary ? { xpCharacterId: beneficiary.id } : {}) });
+    grantEnemyLoot(state,entity,sourceLuck,content,emit);
   }
   state.entities = state.entities.filter(entity => entity.hp > 0 && (entity.remainingMs === undefined || entity.remainingMs > 0));
   // Each character owns a cumulative pool. The team tally never drives upgrades.
@@ -71,6 +82,8 @@ function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills):
     while ((character.xp ?? 0) >= experienceThreshold(character.level)) {
       const previousLevel = character.level;
       character.level++;
+      // The new level's growth and currently owned equipment determine the refill cap.
+      character.mana = getCharacterStats(state, character.id, content)?.final.maxMana ?? character.maxMana;
       emit("characterLevelUp", { characterId: character.id, level: character.level, previousLevel });
     }
   }
@@ -88,21 +101,31 @@ export function stepBattle(state: GameState, dtMs: number, content: ContentCatal
       const step = Math.min(BATTLE_STEP_MS, remaining);
       next.gameTimeMs += step;
       remaining -= step;
-      settleDeaths(next, emit, pendingKills);
+      settleDeaths(next, emit, pendingKills, content);
       advanceEnemies(next, step, emit);
       // Enemy attacks are resolved before casting; a fallen territory cannot be revived.
       if (next.territory.hp <= 0) {
         next.territory.hp = 0;
         next.phase = "defeat";
-        next.entities = next.entities.filter(entity => entity.kind !== "projectile");
+        next.entities = next.entities.filter(entity => entity.kind !== "projectile" && entity.kind !== "beam" && entity.kind !== "chain" && entity.kind !== "area");
         emit("defeat", { wave: next.wave });
         break;
       }
+      advanceEnemyStatuses(next, step, emit);
+      settleDeaths(next, emit, pendingKills, content);
+      advanceTerritoryRecovery(next,step);
       // Advance only existing projectiles. New casts start flying on the next slice.
+      const areasAtEntry = next.entities.filter(entity => entity.kind === "area");
       advanceProjectiles(next, step, emit);
-      settleDeaths(next, emit, pendingKills);
+      advanceBeams(next, step, emit);
+      advanceChains(next, step, emit);
+      advanceAreaEffects(next, step, emit, areasAtEntry);
+      settleDeaths(next, emit, pendingKills, content);
       for (const character of next.characters) {
-        character.mana = Math.min(character.maxMana, character.mana + character.manaRegen * step / 1000);
+        const view = getCharacterStats(next,character.id,content);
+        if (!view) continue;
+        const stats = view.final;
+        character.mana = Math.min(stats.maxMana, character.mana + stats.manaRegen * step / 1000);
         for (const wand of next.wands.filter(wand => wand.characterId === character.id && character.wandIds.includes(wand.id))) {
           for (const itemId of Object.keys(wand.cooldowns)) {
             wand.cooldowns[itemId] = Math.max(0, wand.cooldowns[itemId] - step);
@@ -117,11 +140,13 @@ export function stepBattle(state: GameState, dtMs: number, content: ContentCatal
           }
         }
       }
-      settleDeaths(next, emit, pendingKills);
+      settleDeaths(next, emit, pendingKills, content);
       if (next.waveSpawnRemaining <= 0 && !next.entities.some(entity => entity.kind === "enemy" && entity.hp > 0)) {
-        const coins = 5 + next.wave * 2;
-        next.coins += coins;
-        for (const character of next.characters) character.mana = character.maxMana;
+        const coins = grantCoinIncome(next,5+next.wave*2,content).amount;
+        for (const character of next.characters) {
+          const view = getCharacterStats(next,character.id,content);
+          if (view) character.mana = view.final.maxMana;
+        }
         next.phase = "reward";
         next.entities = [];
         emit("waveCleared", { wave: next.wave, coins });
