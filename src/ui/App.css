@@ -1,0 +1,15 @@
+.game-shell { box-sizing: border-box; max-width: 1280px; margin: auto; padding: 24px; color: var(--inkra-ink); font-family: var(--inkra-font-body); }
+.game-shell *, .game-shell *::before, .game-shell *::after { box-sizing: border-box; }
+.game-header { display: flex; align-items: end; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--inkra-ink-muted); padding-bottom: 16px; }
+.game-header h1 { font-size: 28px; font-weight: 400; margin: 0; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; color: var(--inkra-ink-muted); margin: 0 0 4px; }
+.game-meta, .game-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.game-meta { font-size: 15px; }
+.game-actions { padding: 16px 0; }
+.status { color: var(--inkra-ink-muted); }
+.game-content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.reward-panel { padding: 20px; border: 1px solid var(--inkra-ink-muted); border-radius: 6px; }
+.reward-panel h2 { margin: 0; font-size: 24px; font-weight: 400; }
+.reward-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.game-message { color: var(--inkra-danger, #9b2424); }
+@media (max-width: 600px) { .game-shell { padding: 16px; } .game-header { align-items: start; flex-direction: column; gap: 12px; } .game-meta { gap: 12px; } }

@@ -9,6 +9,7 @@ export interface SpellDefinition extends Growth {
   id: Id; name: string; element: Element; shape: Cell[]; asset: AssetRef;
   effect: EffectType; power: number; manaCost: number; cooldownMs: number;
   range: number; durationMs?: number; hp?: number; speed?: number;
+  summonBehavior?: "attack" | "heal";
 }
 export interface ArcanaDefinition extends Growth {
   id: Id; name: string; shape: Cell[]; asset: AssetRef;
