@@ -1,0 +1,8 @@
+.menu-page { position: absolute; z-index: 30; inset: 0; overflow: auto; overscroll-behavior: contain; display: grid; place-items: center; padding: max(var(--inkra-space-4), env(safe-area-inset-top)) var(--inkra-space-4) max(var(--inkra-space-4), env(safe-area-inset-bottom)); background: var(--inkra-paper); }
+.menu-page[hidden] { display: none; }
+.menu-page__content { width: min(680px, 100%); text-align: center; }
+.menu-page__content h2 { margin: 0 0 var(--inkra-space-6); font-size: var(--inkra-text-2xl, 24px); font-weight: 400; }
+.menu-page__items, .menu-page__detail { display: grid; gap: var(--inkra-space-3); }
+.menu-page__items[hidden], .menu-page__detail[hidden] { display: none; }
+.menu-page__detail { margin-bottom: var(--inkra-space-4); text-align: start; }
+.menu-page__detail h3 { font-weight: 400; }

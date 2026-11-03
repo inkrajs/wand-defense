@@ -1,0 +1,36 @@
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+.game-shell { --game-board-space: min(42dvh, 200px); --game-hud-inset: max(var(--inkra-space-4), env(safe-area-inset-top), env(safe-area-inset-right), env(safe-area-inset-bottom), env(safe-area-inset-left)); position: relative; isolation: isolate; width: 100%; height: 100vh; height: 100dvh; overflow: hidden; color: var(--inkra-ink); font-family: var(--inkra-font-body); background: var(--inkra-paper); }
+.game-shell *, .game-shell *::before, .game-shell *::after { box-sizing: border-box; }
+.game-shell--battle { --game-board-space: 24px; }
+.game-scene { position: absolute; inset: 0; }
+.game-header { position: absolute; z-index: 5; inset: var(--game-hud-inset) 0 auto; display: flex; justify-content: center; align-items: center; pointer-events: none; }
+.game-meta, .game-coins { font-size: var(--inkra-text-sm); }
+.game-coins { position: absolute; left: var(--game-hud-inset); display: flex; align-items: center; gap: var(--inkra-space-1); }
+.game-battle-actions { position: absolute; z-index: 6; top: calc(var(--game-hud-inset) + 56px); left: var(--game-hud-inset); }
+.game-corner-actions { position: absolute; z-index: 6; left: var(--game-hud-inset); bottom: var(--game-hud-inset); display: flex; gap: var(--inkra-space-2); }
+
+.game-settings { position: absolute; z-index: 6; right: var(--game-hud-inset); top: var(--game-hud-inset); }
+.territory-vitals { position: absolute; z-index: 5; left: 0; bottom: max(0px, calc(13% - 52px)); width: 100%; display: grid; gap: var(--inkra-space-1); }
+.territory-vitals__bar .inkra-progress__body { position: relative; display: block; }
+.territory-vitals__bar .inkra-progress__fill-clip { clip-path: inset(0 calc((100% - var(--inkra-progress-value)) / 2) 0 calc((100% - var(--inkra-progress-value)) / 2)); }
+.territory-vitals__hp { --inkra-selection-pigment: var(--inkra-danger-pigment); --inkra-selection-foreground: var(--inkra-danger-foreground); }
+.territory-vitals__shield { --inkra-selection-pigment: var(--inkra-info-pigment); --inkra-selection-foreground: var(--inkra-info-foreground); }
+.territory-vitals__bar .inkra-progress__outline { visibility: hidden; }
+.game-overlay { position: absolute; z-index: 10; inset: 0; background: var(--inkra-overlay); }
+.game-overlay--loadout { display: flex; justify-content: flex-end; }
+.game-overlay--loadout .loadout { width: min(900px, 100%); height: 100%; overflow: auto; overscroll-behavior: contain; }
+.game-overlay--center { display: grid; place-items: center; padding: var(--inkra-space-4); pointer-events: none; }
+.game-overlay--ready { background: transparent; }
+.game-overlay--ready > button { pointer-events: auto; }
+.reward-stack { display: grid; justify-items: center; gap: var(--inkra-space-3); width: min(480px, 100%); max-height: 85dvh; pointer-events: auto; }
+.reward-panel { pointer-events: auto; width: min(480px, 100%); max-height: 75dvh; overflow: auto; padding: var(--inkra-space-5); }
+.reward-stack .reward-panel { width: 100%; }
+.reward-panel h2 { margin: 0; font-size: var(--inkra-text-2xl); font-weight: 400; }
+.reward-list { display: flex; flex-wrap: wrap; gap: var(--inkra-space-2); }
+.eyebrow { font-size: var(--inkra-text-xs); color: var(--inkra-ink-muted); margin: 0 0 var(--inkra-space-1); }
+.game-message { position: absolute; z-index: 12; top: 80px; left: var(--game-hud-inset); max-width: calc(100% - 32px); padding: var(--inkra-space-2); background: var(--inkra-paper); color: var(--inkra-danger-foreground); }
+
+.game-workbench { position: absolute; z-index: 7; left: 50%; bottom: var(--game-hud-inset); transform: translateX(-50%); width: max-content; max-width: calc(100% - 2 * var(--game-hud-inset)); max-height: var(--game-board-space); overflow: auto; }
+.game-workbench--battle { overflow: visible; }
+.game-workbench--battle .game-workbench__grid { width: max-content; transform: scale(.1); transform-origin: top left; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .game-workbench__grid { transition: none; } }

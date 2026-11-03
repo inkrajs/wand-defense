@@ -9,6 +9,7 @@ export interface SpellDefinition extends Growth {
   id: Id; name: string; element: Element; shape: Cell[]; asset: AssetRef;
   effect: EffectType; power: number; manaCost: number; cooldownMs: number;
   range: number; durationMs?: number; hp?: number; speed?: number;
+  summonBehavior?: "attack" | "heal";
 }
 export interface ArcanaDefinition extends Growth {
   id: Id; name: string; shape: Cell[]; asset: AssetRef;
@@ -57,7 +58,7 @@ export interface GameState {
   schemaVersion: 1; id: Id; revision: number; phase: "ready" | "battle" | "reward" | "defeat";
   gameTimeMs: number; paused: boolean; backpackOpen: boolean;
   wave: number; waveSpawnRemaining: number; spawnRemainingMs: number; rngState: number;
-  territory: { hp: number; maxHp: number };
+  territory: { hp: number; maxHp: number; shield?: number; maxShield?: number };
   coins: number; xp: number; playerLevel: number; luck: number;
   characters: CharacterInstance[]; wands: WandInstance[]; items: Record<Id, ItemInstance>;
   backpack: Id[]; entities: CombatEntity[]; rewards: RewardOption[];

@@ -13,6 +13,10 @@ This authorization does not authorize contacting unrelated people.
 Read docs/demo-scope.md, docs/architecture.md, docs/development.md, and your
 module's task file. Design snapshots retain confirmed/draft distinctions.
 This is an Inkra consumer; do not alter Inkra library repositories.
+For interface work also read docs/ui-guidelines.md. Use the installed public
+Inkra components and typography; keep the user's latest layout decisions.
+Current main excludes summons/buildings; those live only on the separate
+feature/summons-buildings checkout and must not be merged without user direction.
 
 ## Boundaries
 Work in this repository by absolute path. Shared checkout, disjoint file

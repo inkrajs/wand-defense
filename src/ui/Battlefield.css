@@ -1,0 +1,21 @@
+.battlefield { --field-ink: var(--inkra-ink); --field-muted: var(--inkra-ink-muted); position: absolute; inset: 0; bottom: calc(var(--game-board-space) + var(--game-hud-inset) + var(--inkra-space-2)); min-width: 0; color: var(--field-ink); }
+.battlefield__field { position: relative; isolation: isolate; overflow: hidden; width: 100%; height: 100%; background: var(--inkra-paper); }
+.battlefield__field::after { position: absolute; z-index: -1; content: ""; inset: auto 0 13%; border-top: 1px dashed color-mix(in srgb, var(--field-ink) 25%, transparent); pointer-events: none; }
+.battlefield__unit { position: absolute; z-index: 2; display: grid; justify-items: center; gap: 3px; transform: translate(-50%, -50%); }
+.battlefield__unit-mark { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid currentColor; border-radius: 50%; background: var(--inkra-paper); font-size: 17px; }
+.battlefield__unit--enemy { color: var(--inkra-danger-foreground); }
+.battlefield__unit--player { color: var(--inkra-success-foreground); }
+.battlefield__unit--building .battlefield__unit-mark { border-radius: 5px; }
+.battlefield__unit--projectile .battlefield__unit-mark { width: 10px; height: 10px; color: var(--inkra-warning-foreground); background: currentColor; border: 0; }
+.battlefield__unit-health { display: block; overflow: hidden; width: 34px; height: 4px; border-radius: 4px; background: color-mix(in srgb, var(--field-ink) 14%, transparent); }
+.battlefield__unit-health i { display: block; height: 100%; background: var(--inkra-danger-pigment); }
+.battlefield__heroes { position: absolute; z-index: 1; left: 50%; bottom: calc(13% + 12px); display: flex; align-items: end; gap: var(--inkra-space-3); transform: translateX(-50%); }
+.battlefield__hero { display: grid; justify-items: center; gap: 2px; min-width: 42px; color: var(--inkra-success-foreground); }
+.battlefield__hero-mark { display: grid; place-items: center; width: 40px; height: 44px; font-size: 30px; }
+.battlefield__mana { width: 56px; --inkra-selection-pigment: var(--inkra-info-pigment); --inkra-selection-foreground: var(--inkra-info-foreground); }
+.battlefield__mana .inkra-progress__outline { visibility: hidden; }
+.battlefield__empty { position: absolute; top: 43%; left: 50%; margin: 0; color: var(--field-muted); font-size: var(--inkra-text-sm); transform: translate(-50%, -50%); }
+.battlefield__pause { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: var(--inkra-overlay); color: var(--inkra-ink); font-size: var(--inkra-text-xl); }
+.battlefield__field.is-paused .battlefield__unit { filter: saturate(.55); }
+@media (max-width: 560px) { .battlefield__unit-mark { width: 28px; height: 28px; } .battlefield__heroes { gap: var(--inkra-space-1); } }
+@media (prefers-reduced-motion: reduce) { .battlefield *, .battlefield *::before, .battlefield *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
