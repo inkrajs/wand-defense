@@ -1,0 +1,16 @@
+{
+  "name": "@inkrajs/wand-defense",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "LicenseRef-Inkra-Game-Source-Available",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts server/**/*.test.ts",
+    "broker": "tsx server/index.ts",
+    "playlink": "tsx cli/index.ts"
+  }
+}
+
