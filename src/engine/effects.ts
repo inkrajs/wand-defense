@@ -1,4 +1,5 @@
 import type { ContentCatalog, GameState } from "../contracts";
+import { spawnProjectiles } from "./projectiles";
 
 export interface CastSpec {
   itemId: string;
@@ -21,15 +22,7 @@ function findSourceCharacter(state: GameState, itemId: string, characterId: stri
   return character;
 }
 
-function nearestTarget(state: GameState, range: number) {
-  return state.entities
-    .filter((entity) => entity.kind === "enemy" && entity.faction === "enemy" && entity.hp > 0)
-    .map((entity) => ({ entity, distance: Math.hypot(entity.x - 50, entity.y - 84) }))
-    .filter((entry) => entry.distance <= range)
-    .sort((a, b) => a.distance - b.distance || a.entity.id.localeCompare(b.entity.id))[0]?.entity;
-}
-
-/** Applies direct damage or territory healing. Mana and wand cooldowns belong to the caller. */
+/** Launches real projectiles or heals territory. Caller owns mana and cooldowns. */
 export function castSpell(
   state: GameState,
   characterId: string,
@@ -45,15 +38,7 @@ export function castSpell(
   const casts = Math.max(1, Math.floor(spec.casts));
   const amount = Math.max(0, spec.power);
   if (spell.effect === "projectile") {
-    let hit = false;
-    for (let index = 0; index < casts; index++) {
-      const target = nearestTarget(state, Math.max(0, spec.range));
-      if (!target) break;
-      target.hp = Math.max(0, target.hp - amount);
-      emit("damage", { targetId: target.id, sourceCharacterId: characterId, sourceItemId: spec.itemId, amount, effect: spell.id });
-      hit = true;
-    }
-    return hit;
+    return spawnProjectiles(state, characterId, { ...spec, speed: spell.speed ?? 72 }, emit);
   }
 
   if (spell.effect === "heal") {
@@ -63,7 +48,7 @@ export function castSpell(
       const healed = Math.min(amount, state.territory.maxHp - state.territory.hp);
       if (healed <= 0) break;
       state.territory.hp += healed;
-      emit("heal", { targetId: "territory", sourceCharacterId: characterId, sourceItemId: spec.itemId, amount: healed, effect: spell.id });
+      emit("heal", { targetId: "territory", sourceCharacterId: characterId, sourceItemId: spec.itemId, amount: healed, effect: spell.id, x: 50, y: 84 });
       applied = true;
     }
     return applied;

@@ -1,11 +1,11 @@
 ---
 name: playlink
-description: Observe and control a player's active Wand Defense session through the Playlink CLI, respecting player-known information and local cheat permissions.
+description: Observe and control a player's active 无尽巫师 session through the Playlink CLI, respecting player-known information and local cheat permissions.
 ---
 
 # Playlink session skill
 
-Use the Playlink CLI to observe or control the player's active Wand Defense session through the broker. The broker is a relay; the browser runtime remains the only game authority.
+Use the Playlink CLI to observe or control the player's active 无尽巫师 session through the broker. The broker is a relay; the browser runtime remains the only game authority.
 
 ## Player-visible information
 
@@ -47,3 +47,5 @@ npm run playlink -- result agent-001
 `accepted` means the broker received and queued the command; the game may not have received it yet, and it does not mean the action executed successfully. Check `result <commandId>` for the final `executed` or `rejected` status. If a request times out, retry the exact same command with the same id and identical payload. Never reuse an id for a different payload; the broker treats that as a conflict.
 
 Cheats are controlled by the player in the local game UI. Never send `unlockCheats` over the network. Cheat actions are available only after the player has locally unlocked and enabled cheats; an agent must not claim or assume cheat access.
+
+Territory upgrades are ordinary player actions, not cheats. Read `capabilities.territoryUpgrades` for each track’s current level, next cost, increase and availability, then send `{"id":"agent-upgrade-001","type":"upgradeTerritory","track":"wall"}` (or `shield`). Prices and phase restrictions belong to the game; do not hard-code them in an agent.

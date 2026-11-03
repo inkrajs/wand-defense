@@ -1,16 +1,31 @@
 import type { Command, CommandResult, ContentCatalog, GameEvent, GameState, Id, RuntimePort } from "../contracts";
 import { demoContent } from "../content/demo";
+import { createWaveRewards } from "../content/rewards";
 import { startBattle, stepBattle } from "../engine";
 import { applyLoadoutCommand } from "../loadout";
 import { createInitialState } from "./initial";
+import { GAME_SPEEDS } from "../contracts";
+import { applyTerritoryUpgrade } from "./territory";
 
-export interface GameRuntime extends RuntimePort { tick(dtMs: number): void; dispose(): void }
-export function createGameRuntime(content: ContentCatalog = demoContent): GameRuntime {
-  let state = createInitialState();
-  let pausedBeforeBackpack = false;
+export interface RuntimeCheckpoint {
+  checkpointVersion: 1;
+  state: GameState;
+  pausedBeforeBackpack: boolean;
+  results: [Id, CommandResult][];
+}
+export interface GameRuntime extends RuntimePort {
+  tick(dtMs: number): void;
+  checkpoint(): RuntimeCheckpoint;
+  dispose(): void;
+}
+export function createGameRuntime(content: ContentCatalog = demoContent, checkpoint?: RuntimeCheckpoint): GameRuntime {
+  let state = checkpoint ? structuredClone(checkpoint.state) : createInitialState();
+  // Older tab checkpoints predate speed controls.
+  if (!GAME_SPEEDS.includes(state.speed)) state.speed = 1;
+  let pausedBeforeBackpack = checkpoint?.pausedBeforeBackpack ?? false;
   let disposed = false;
   const listeners = new Set<(s: GameState, e: GameEvent[]) => void>();
-  const results = new Map<Id, CommandResult>();
+  const results = new Map<Id, CommandResult>(checkpoint ? structuredClone(checkpoint.results) : []);
   const notifications: {state: GameState; events: GameEvent[]}[] = [];
   let notifying = false;
   function emit(type: string, data: Record<string, unknown> = {}) {
@@ -43,37 +58,46 @@ export function createGameRuntime(content: ContentCatalog = demoContent): GameRu
     const definition = content.spells[definitionId] ?? content.arcana[definitionId];
     if (!definition) return false;
     const id = "item-" + state.revision + "-" + state.nextEventSeq + "-" + Object.keys(state.items).length;
-    state.items[id] = {id, definitionId, kind: content.spells[definitionId] ? "spell" : "arcana", level: 1, grade: "common"};
+    state.items[id] = {id, definitionId, kind: content.spells[definitionId] ? "spell" : "arcana", level: definition.level, grade: definition.grade};
     state.backpack.push(id);
     discover(definitionId);
     return true;
   }
   function prepareRewards() {
-    const ids = ["amplify", "double", "regrowth", "metal-needle", "split", "focus"];
-    const definitionId = ids[(state.wave - 1) % ids.length];
-    const definition = content.spells[definitionId] ?? content.arcana[definitionId];
-    state.rewards = [
-      {id: "reward-" + state.wave + "-item", kind: "item", definitionId, label: "获得 " + (definition?.name ?? "构筑材料")},
-      {id: "reward-" + state.wave + "-heal", kind: "heal", amount: 35, label: "领地恢复 35 点生命"}
-    ];
-    if (state.characters.length < 3 && (state.wave === 1 || state.wave % 3 === 0)) {
-      state.rewards.push({id: "reward-" + state.wave + "-character", kind: "character", label: "招募一名同行者"});
-    } else if (state.wands.length < state.characters.length * 2) {
-      state.rewards.push({id: "reward-" + state.wave + "-wand", kind: "wand", label: "获得一根额外法杖"});
-    } else {
-      state.rewards.push({id: "reward-" + state.wave + "-coins", kind: "coins", amount: 20, label: "获得 20 金币"});
-    }
+    state.rewards = createWaveRewards(state.wave,state.characters.length,state.wands.length,content);
     // Reward offers are visible discoveries; unoffered definitions stay undisclosed.
-    if (definition) discover(definitionId);
+    for (const reward of state.rewards) if (reward.definitionId) discover(reward.definitionId);
     emit("reward.offered", {wave: state.wave, rewards: structuredClone(state.rewards)});
   }
   function applyLocal(command: Command): string | undefined {
     switch (command.type) {
+      case "restart": {
+        const previous = state;
+        state = createInitialState();
+        state.id = globalThis.crypto?.randomUUID?.() ?? "run-" + Date.now() + "-" + previous.nextEventSeq;
+        state.revision = previous.revision;
+        state.nextEventSeq = previous.nextEventSeq;
+        // Keep the transport cursor monotonic while starting a fresh gameplay run.
+        state.events = [];
+        pausedBeforeBackpack = false;
+        emit("game.restarted", {gameId: state.id});
+        return;
+      }
       case "startWave": {
-        if (state.phase !== "ready" || state.backpackOpen || state.paused) return "WAVE_NOT_READY";
+        if (state.phase !== "ready" || state.territory.hp <= 0) return "WAVE_NOT_READY";
+        if (state.backpackOpen) emit("backpack.changed",{open:false});
+        if (state.paused) emit("pause.changed",{paused:false});
+        state.backpackOpen = false;
+        state.paused = false;
+        pausedBeforeBackpack = false;
         state = startBattle(state, content).state;
         return;
       }
+      case "setSpeed":
+        if (!GAME_SPEEDS.includes(command.speed)) return "INVALID_SPEED";
+        state.speed = command.speed;
+        emit("speed.changed", {speed: state.speed});
+        return;
       case "setPaused":
         if (state.backpackOpen && !command.paused) return "BACKPACK_REQUIRES_PAUSE";
         state.paused = command.paused;
@@ -92,6 +116,10 @@ export function createGameRuntime(content: ContentCatalog = demoContent): GameRu
         if (!reward) return "REWARD_NOT_AVAILABLE";
         if (reward.kind === "item") {
           if (!reward.definitionId || !giveItem(reward.definitionId)) return "REWARD_NOT_AVAILABLE";
+        } else if (reward.kind === "buff") {
+          const effect = reward.effect;
+          if (effect?.type !== "attackPercent" || !Number.isFinite(effect.value) || effect.value <= 0 || effect.value > 100) return "REWARD_NOT_AVAILABLE";
+          state.runBonuses = {attackPercent:(state.runBonuses?.attackPercent ?? 0) + effect.value};
         } else if (reward.kind === "heal") {
           state.territory.hp = Math.min(state.territory.maxHp, state.territory.hp + (reward.amount ?? 0));
         } else if (reward.kind === "coins") {
@@ -102,18 +130,15 @@ export function createGameRuntime(content: ContentCatalog = demoContent): GameRu
           const characterId = "character-" + index, wandId = "wand-" + (state.wands.length + 1);
           const sequenceId = index === 2 ? "wood-9" : "metal-9";
           state.characters.push({id: characterId, name: "同行者 " + index, sequenceId,
-            level:1,grade:"common",wandIds:[wandId],mana:100,maxMana:100,manaRegen:12});
+            level:1,grade:reward.grade ?? "common",wandIds:[wandId],mana:100,maxMana:100,manaRegen:12});
           state.wands.push({id:wandId,name:"同行法杖",characterId,level:1,grade:"common",
             width:3,height:3,placements:[],cooldowns:{}});
           if (!state.knowledge.sequenceIds.includes(sequenceId)) state.knowledge.sequenceIds.push(sequenceId);
           giveItem(index === 2 ? "regrowth" : "metal-needle");
         } else if (reward.kind === "wand") {
-          const owner = state.characters.find(c => c.wandIds.length < 2);
-          if (!owner) return "WAND_SLOTS_FULL";
           const id = "wand-" + (state.wands.length + 1);
-          state.wands.push({id,name:"备用法杖",characterId:owner.id,level:1,grade:"common",
+          state.wands.push({id,name:"备用法杖",characterId:null,level:1,grade:reward.grade ?? "common",
             width:3,height:3,placements:[],cooldowns:{}});
-          owner.wandIds.push(id);
         }
         state.rewards = [];
         state.phase = "ready";
@@ -132,9 +157,9 @@ export function createGameRuntime(content: ContentCatalog = demoContent): GameRu
       case "cheat":
         if (!state.cheats.unlocked || !state.cheats.enabled) return "CHEATS_LOCKED";
         if (command.action === "heal") state.territory.hp = state.territory.maxHp;
-        else if (command.action === "grantSpell") {
-          if (!command.definitionId || !content.spells[command.definitionId]) return "CHEAT_UNAVAILABLE";
-          giveItem(command.definitionId);
+        else if (command.action === "grantSpell" || command.action === "grantItem") {
+          if (!command.definitionId || (command.action === "grantSpell" && !content.spells[command.definitionId]) ||
+            !giveItem(command.definitionId)) return "CHEAT_UNAVAILABLE";
         } else return "CHEAT_UNAVAILABLE";
         emit("cheat.executed", {action:command.action});
         return;
@@ -144,14 +169,19 @@ export function createGameRuntime(content: ContentCatalog = demoContent): GameRu
   }
   return {
     getState: () => structuredClone(state),
+    checkpoint: () => structuredClone({checkpointVersion: 1, state, pausedBeforeBackpack, results: [...results]}),
     dispatch(command) {
       if (disposed) return {commandId:command.id,status:"rejected",revision:state.revision,code:"DISPOSED"};
       const previous = results.get(command.id);
       if (previous) return structuredClone(previous);
       const oldRevision = state.revision, afterSeq = state.nextEventSeq - 1;
       let result: CommandResult;
-      if (["placeItem", "removeItem", "mergeRecipe", "equipWand"].includes(command.type)) {
+      if (["placeItem", "removeItem", "mergeRecipe", "mergeItems", "equipWand", "unequipWand"].includes(command.type)) {
         const transition = applyLoadoutCommand(state, command, content);
+        state = transition.state;
+        result = transition.result;
+      } else if (command.type === "upgradeTerritory") {
+        const transition = applyTerritoryUpgrade(state, command);
         state = transition.state;
         result = transition.result;
       } else {
@@ -169,7 +199,7 @@ export function createGameRuntime(content: ContentCatalog = demoContent): GameRu
       const afterSeq = state.nextEventSeq - 1;
       const oldRevision = state.revision;
       const oldLevel = state.playerLevel;
-      state = stepBattle(state, Math.min(dtMs, 250), content).state;
+      state = stepBattle(state, Math.min(dtMs, 250) * state.speed, content).state;
       for (let level = oldLevel + 1; level <= state.playerLevel; level++) {
         const candidates = ["amplify", "regrowth", "double"];
         const definitionId = candidates[(level - 2) % candidates.length];

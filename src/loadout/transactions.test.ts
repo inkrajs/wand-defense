@@ -95,3 +95,17 @@ test("wand transfer updates both owners without changing layout and rejects dupl
   assert.equal(rejected.result.code, "WAND_OWNERSHIP_INVALID");
   assert.equal(rejected.state, state);
 });
+
+test("removing then placing on another wand transfers the largest cooldown without resetting it", () => {
+  const state = pausedState();
+  state.wands[0].cooldowns['spark-1'] = 600;
+  state.wands.push({ ...structuredClone(state.wands[0]), id: 'wand-2', placements: [], cooldowns: { 'spark-1': 200 } });
+  state.characters[0].wandIds.push('wand-2');
+  const removed = applyLoadoutCommand(state, { id: 'detach', type: 'removeItem', wandId: 'wand-1', itemId: 'spark-1' }, content);
+  assert.equal(removed.result.status, 'executed');
+  assert.equal(removed.state.wands[0].cooldowns['spark-1'], 600);
+  const placed = applyLoadoutCommand(removed.state, { id: 'reattach', type: 'placeItem', wandId: 'wand-2', itemId: 'spark-1', x: 0, y: 0, rotation: 0 }, content);
+  assert.equal(placed.result.status, 'executed');
+  assert.equal(placed.state.wands[1].cooldowns['spark-1'], 600);
+  assert.equal(placed.state.wands[0].cooldowns['spark-1'], undefined);
+});

@@ -1,5 +1,7 @@
 import type { CommandResult, ContentCatalog, GameEvent, GameState } from '../contracts';
 import { remoteCommandTypes, sanitizeResult } from './protocol';
+import { gradeOrder } from '../content/grades';
+import { getTerritoryUpgrade } from '../content/territory';
 
 /** Only known definitions are exported. Catalog construction stays in the authoritative game. */
 export function projectContent(state: GameState, catalog?: ContentCatalog) {
@@ -32,14 +34,19 @@ export function projectState(state: GameState) {
   const items = Object.fromEntries(Object.entries(state.items).filter(([,i])=>known.has(i.definitionId)).map(([id,i])=>[id,structuredClone(i)]));
   return {
     schemaVersion:state.schemaVersion,id:state.id,revision:state.revision,phase:state.phase,
-    gameTimeMs:state.gameTimeMs,paused:state.paused,backpackOpen:state.backpackOpen,wave:state.wave,
+    gameTimeMs:state.gameTimeMs,speed:state.speed,paused:state.paused,backpackOpen:state.backpackOpen,wave:state.wave,
     territory:{...state.territory},coins:state.coins,xp:state.xp,playerLevel:state.playerLevel,luck:state.luck,
+    runBonuses:{attackPercent:state.runBonuses?.attackPercent ?? 0},
     characters:state.characters.map(c=>({...structuredClone(c),sequenceId:state.knowledge.sequenceIds.includes(c.sequenceId)?c.sequenceId:undefined})),
     wands:state.wands.map(w=>({...structuredClone(w),placements:w.placements.filter(p=>!!items[p.itemId]).map(p=>({...p})),
       cooldowns:Object.fromEntries(Object.entries(w.cooldowns).filter(([id])=>!!items[id]))})),
     items,backpack:state.backpack.filter(id=>!!items[id]),
     entities:state.entities.map(e=>({id:e.id,kind:e.kind,faction:e.faction,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,
-      ...(known.has(e.definitionId)?{definitionId:e.definitionId}:{}),element:e.element,remainingMs:e.remainingMs})),
+      ...(typeof e.level === 'number' && Number.isFinite(e.level) ? {level:e.level} : {}),
+      ...(gradeOrder.some(grade=>grade === e.grade) ? {grade:e.grade} : {}),
+      ...(known.has(e.definitionId)?{definitionId:e.definitionId}:{}),element:e.element,remainingMs:e.remainingMs,
+      speed:e.speed,moveSpeed:e.moveSpeed,originX:e.originX,originY:e.originY,targetX:e.targetX,targetY:e.targetY,
+      sourceCharacterId:e.sourceCharacterId,sourceItemId:e.sourceItemId,targetId:e.targetId})),
     rewards:state.rewards.map(r => r.definitionId && !known.has(r.definitionId)
       ? {id:r.id,kind:r.kind,label:'未发现的奖励',amount:r.amount}
       : structuredClone(r)),
@@ -54,9 +61,10 @@ const publicEventTypes = new Set(['waveStarted','waveCleared','enemyKilled','ter
   'wave.started','wave.cleared','enemy.killed','territory.damaged','reward.claimed','spell.cast',
   'reward.offered','pause.changed','backpack.changed','cheats.unlocked','cheats.changed','cheat.executed',
   'damage','heal','spawn','despawn','playerLevelUp','player.levelReward','enemyAttacked','territoryAttacked','bossSpawned','enemySpawned',
-  'loadout.placed','loadout.removed','loadout.merged','loadout.equipped']);
-const numericFields = new Set(['wave','amount','damage','hp','maxHp','coins','xp','level','x','y','territoryHp','territoryShield','shieldAbsorbed','hpDamage','bossTier']);
-const idFields = new Set(['itemId','wandId','characterId','entityId','targetId','sourceItemId','rewardId','commandId','sourceCharacterId','sourceEntityId','enemyId','outputItemId','fromCharacterId']);
+  'loadout.placed','loadout.removed','loadout.merged','loadout.equipped','game.restarted','wandUnequipped','speed.changed',
+  'projectileSpawned','projectileExpired','itemsMerged','territoryUpgraded']);
+const numericFields = new Set(['wave','amount','damage','hp','maxHp','coins','xp','level','cost','increase','x','y','originX','originY','targetX','targetY','territoryHp','territoryShield','shieldAbsorbed','hpDamage','bossTier','speed']);
+const idFields = new Set(['itemId','wandId','characterId','entityId','targetId','sourceItemId','targetItemId','projectileId','rewardId','commandId','sourceCharacterId','sourceEntityId','enemyId','outputItemId','fromCharacterId','gameId']);
 export function projectEvents(state: GameState, events: GameEvent[]): GameEvent[] {
   const known = new Set([...state.knowledge.spellIds,...state.knowledge.arcanaIds,...state.knowledge.recipeIds,...state.knowledge.sequenceIds]);
   return events.map(event=>{
@@ -65,23 +73,29 @@ export function projectEvents(state: GameState, events: GameEvent[]): GameEvent[
       if (numericFields.has(key) && typeof value === 'number' && Number.isFinite(value)) data[key]=value;
       else if (idFields.has(key) && typeof value === 'string') data[key]=value;
       else if (['paused','open','enabled'].includes(key) && typeof value === 'boolean') data[key]=value;
+      else if (key === 'grade' && gradeOrder.some(grade => grade === value)) data[key]=value;
+      else if (key === 'track' && (value === 'wall' || value === 'shield')) data[key]=value;
+      else if (key === 'reason' && typeof value === 'string' && ['timeout','targetLost','invalidPosition'].includes(value)) data[key]=value;
       else if (['definitionId','spellId','recipeId','sequenceId','effect'].includes(key) && typeof value === 'string' && known.has(value)) data[key]=value;
     }
     return {seq:event.seq,gameTimeMs:event.gameTimeMs,type:publicEventTypes.has(event.type)?event.type:'stateChanged',data};
   });
 }
 const commandSchemas = {
-  startWave:{},setPaused:{paused:'boolean'},setBackpack:{open:'boolean'},
+  startWave:{},restart:{},setPaused:{paused:'boolean'},setSpeed:{speed:'0.25|0.5|0.75|1|2|3|5'},setBackpack:{open:'boolean'},
+  upgradeTerritory:{track:'wall|shield'},
   placeItem:{wandId:'id',itemId:'id',x:'integer',y:'integer',rotation:'0|1|2|3'},
   removeItem:{wandId:'id',itemId:'id'},mergeRecipe:{wandId:'id',recipeId:'known recipe id',itemIds:'id[]'},
-  claimReward:{rewardId:'id'},equipWand:{wandId:'id',characterId:'id'},
-  setCheats:{enabled:'boolean'},cheat:{action:'heal|grantSpell',definitionId:'id (required for grantSpell)'},
+  mergeItems:{sourceItemId:'owned item id',targetItemId:'owned matching definition and grade item id'},
+  claimReward:{rewardId:'id'},equipWand:{wandId:'id',characterId:'id'},unequipWand:{wandId:'id'},
+  setCheats:{enabled:'boolean'},cheat:{action:'heal|grantSpell|grantItem',definitionId:'id (required for grants)'},
 };
 /** All commands also require a unique string id; accepted is queued, not executed. */
 export function projectFrame(state: GameState, events: GameEvent[], results: CommandResult[], catalog?: ContentCatalog) {
   return {
     state:projectState(state),events:projectEvents(state,events),results:results.map(sanitizeResult),
     capabilities:{protocolVersion:1,commands:remoteCommandTypes.filter(t=>!['cheat','setCheats'].includes(t) || state.cheats.unlocked),
+      territoryUpgrades:{wall:getTerritoryUpgrade(state,'wall'),shield:getTerritoryUpgrade(state,'shield')},
       commandSchemas:Object.fromEntries(Object.entries(commandSchemas).filter(([t])=>!['cheat','setCheats'].includes(t) || state.cheats.unlocked)),
       cheats:{...state.cheats},events:{cursor:true,sse:true},authority:'browser'},
     content:projectContent(state,catalog),

@@ -1,39 +1,12 @@
 import type {
-  Cell, Command, CommandTransition, ContentCatalog, GameEvent, GameState,
+  Cell, Command, CommandTransition, ContentCatalog, GameState,
   ItemInstance, Placement, WandInstance
 } from "../contracts";
 import { areAdjacent, placementCells, validatePlacement } from "./geometry";
 
-type LoadoutCommand = Extract<Command, { type: "placeItem" | "removeItem" | "mergeRecipe" | "equipWand" }>;
-
-function reject(state: GameState, command: Command, code: string, message: string): CommandTransition {
-  return {
-    state,
-    events: [],
-    result: { commandId: command.id, status: "rejected", revision: state.revision, code, message }
-  };
-}
-
-function commit(state: GameState, command: LoadoutCommand, changes: Partial<GameState>, type: string, data: Record<string, unknown>): CommandTransition {
-  const event: GameEvent = {
-    seq: state.nextEventSeq,
-    type,
-    gameTimeMs: state.gameTimeMs,
-    data: { commandId: command.id, ...data }
-  };
-  const next: GameState = {
-    ...state,
-    ...changes,
-    revision: state.revision + 1,
-    nextEventSeq: state.nextEventSeq + 1,
-    events: [...state.events, event]
-  };
-  return {
-    state: next,
-    events: [event],
-    result: { commandId: command.id, status: "executed", revision: next.revision }
-  };
-}
+import { commit, reject, maxItemCooldown } from "./transition";
+import { applyMergeItemsCommand } from "./merge-items";
+import { applyWandEquipmentCommand } from "./equipment";
 
 function shapeFor(item: ItemInstance, content: ContentCatalog): Cell[] | undefined {
   const def = item.kind === "spell" ? content.spells[item.definitionId] : content.arcana[item.definitionId];
@@ -81,7 +54,7 @@ function multisetEquals(a: string[], b: string[]): boolean {
 }
 
 export function applyLoadoutCommand(state: GameState, command: Command, content: ContentCatalog): CommandTransition {
-  if (!["placeItem", "removeItem", "mergeRecipe", "equipWand"].includes(command.type)) {
+  if (!["placeItem", "removeItem", "mergeRecipe", "equipWand", "unequipWand", "mergeItems"].includes(command.type)) {
     return reject(state, command, "UNSUPPORTED_COMMAND", "此模块不处理该命令");
   }
   if (state.phase === "defeat") return reject(state, command, "DEFEAT", "失败后不能调整构筑");
@@ -101,9 +74,14 @@ export function applyLoadoutCommand(state: GameState, command: Command, content:
       const cells = placementCells(shape, placement);
       const checked = validatePlacement(wand.width, wand.height, cells, occupiedCells(state, wand, content, item.id));
       if (!checked.valid) return reject(state, command, checked.code ?? "INVALID_PLACEMENT", "该位置超出法杖或与其他物品重叠");
-      const wands = state.wands.map(w => w.id !== wand.id ? w : {
-        ...w, placements: [...w.placements.filter(p => p.itemId !== item.id), placement],
-        cooldowns: source.from === "wand" ? w.cooldowns : Object.fromEntries(Object.entries(w.cooldowns).filter(([id]) => id !== item.id))
+      const remaining = maxItemCooldown(state, [item.id]);
+      const wands = state.wands.map(w => {
+        const cooldowns = { ...w.cooldowns };
+        delete cooldowns[item.id];
+        if (w.id === wand.id) cooldowns[item.id] = remaining;
+        return w.id === wand.id
+          ? { ...w, placements: [...w.placements.filter(p => p.itemId !== item.id), placement], cooldowns }
+          : { ...w, cooldowns };
       });
       const backpack = source.from === "backpack" ? state.backpack.filter(id => id !== item.id) : state.backpack;
       return commit(state, command, { wands, backpack }, "itemPlaced", { itemId: item.id, wandId: wand.id, x: placement.x, y: placement.y, rotation: placement.rotation });
@@ -115,8 +93,7 @@ export function applyLoadoutCommand(state: GameState, command: Command, content:
       if (!source.ok) return reject(state, command, source.code, source.message);
       if (source.from !== "wand") return reject(state, command, "ITEM_NOT_ON_WAND", "物品不在指定法杖上");
       const wands = state.wands.map(w => w.id !== wand.id ? w : {
-        ...w, placements: w.placements.filter(p => p.itemId !== command.itemId),
-        cooldowns: Object.fromEntries(Object.entries(w.cooldowns).filter(([id]) => id !== command.itemId))
+        ...w, placements: w.placements.filter(p => p.itemId !== command.itemId)
       });
       return commit(state, command, { wands, backpack: [...state.backpack, command.itemId] }, "itemRemoved", { itemId: command.itemId, wandId: wand.id });
     }
@@ -171,21 +148,11 @@ export function applyLoadoutCommand(state: GameState, command: Command, content:
       };
       return commit(state, command, { items, wands, backpack: [...state.backpack, outputId], knowledge }, "recipeMerged", { recipeId: recipe.id, consumedItemIds: [...command.itemIds], outputItemId: outputId });
     }
-    case "equipWand": {
-      const wand = state.wands.find(w => w.id === command.wandId);
-      const target = state.characters.find(c => c.id === command.characterId);
-      if (!wand) return reject(state, command, "WAND_NOT_FOUND", `法杖 ${command.wandId} 不存在`);
-      if (!target) return reject(state, command, "CHARACTER_NOT_FOUND", `角色 ${command.characterId} 不存在`);
-      const current = state.characters.find(c => c.id === wand.characterId);
-      if (!current || !current.wandIds.includes(wand.id)) return reject(state, command, "WAND_OWNERSHIP_INVALID", "法杖当前归属信息无效");
-      const declarations = state.characters.flatMap(c => c.wandIds.filter(id => id === wand.id).map(() => c.id));
-      if (declarations.length !== 1 || declarations[0] !== current.id) return reject(state, command, "WAND_OWNERSHIP_INVALID", "法杖必须且只能由当前角色声明一次");
-      if (current.id === target.id) return reject(state, command, "ALREADY_EQUIPPED", "法杖已装备给该角色");
-      if (target.wandIds.length >= 2) return reject(state, command, "WAND_CAPACITY", "每个角色最多装备两根法杖");
-      const characters = state.characters.map(c => c.id === current.id ? { ...c, wandIds: c.wandIds.filter(id => id !== wand.id) } : c.id === target.id ? { ...c, wandIds: [...c.wandIds, wand.id] } : c);
-      const wands = state.wands.map(w => w.id === wand.id ? { ...w, characterId: target.id } : w);
-      return commit(state, command, { characters, wands }, "wandEquipped", { wandId: wand.id, fromCharacterId: current.id, characterId: target.id });
-    }
+    case "mergeItems":
+      return applyMergeItemsCommand(state, command, content);
+    case "equipWand":
+    case "unequipWand":
+      return applyWandEquipmentCommand(state, command);
     default:
       return reject(state, command, "UNSUPPORTED_COMMAND", "此模块不处理该命令");
   }

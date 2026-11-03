@@ -78,3 +78,62 @@ test('compiled output follows a real place → merge → rotate/place transactio
   assert.equal(equipped.state.revision, original.revision + 3);
   assert.equal(original.items['spark-1'].definitionId, 'spark');
 });
+
+test('instance grade scales projectile and healing against definition reference grade; run bonus stays attack-only', () => {
+  const state = createFixtureState();
+  state.items['spark-1'].grade = 'uncommon';
+  state.items['spark-1'].level = 7;
+  state.runBonuses = { ...state.runBonuses, attackPercent: 50 };
+  const projectile = compileWand(state, 'wand-1', content)!.spells[0];
+  assert.equal(projectile.grade, 'uncommon');
+  assert.equal(projectile.level, 7);
+  assert.ok(Math.abs(projectile.power - 20.625) < 1e-9);
+  const healing = structuredClone(content);
+  healing.spells.spark.effect = 'heal';
+  assert.ok(Math.abs(compileWand(state, 'wand-1', healing)!.spells[0].power - 13.75) < 1e-9);
+  healing.spells.spark.grade = 'uncommon';
+  assert.equal(compileWand(state, 'wand-1', healing)!.spells[0].power, 11);
+});
+
+test('upgraded arcana gives stronger amplify/focus or extra double/split copies, preserving reference-grade effects', () => {
+  const state = createFixtureState();
+  state.wands[0].placements.push({ itemId: 'amplify-1', x: 1, y: 1, rotation: 0 });
+  const snapshot = structuredClone(state);
+  for (const modifier of ['amplify', 'focus', 'double', 'split'] as const) {
+    const catalog = structuredClone(content);
+    catalog.arcana.amplify.modifier = modifier;
+    state.items['amplify-1'].grade = 'common';
+    const base = compileWand(state, 'wand-1', catalog)!.spells[0];
+    state.items['amplify-1'].grade = 'uncommon';
+    const upgraded = compileWand(state, 'wand-1', catalog)!.spells[0];
+    if (modifier === 'amplify' || modifier === 'focus') {
+      assert.equal(base.power, 22);
+      assert.ok(Math.abs(upgraded.power - 24.75) < 1e-9);
+      if (modifier === 'focus') assert.equal(upgraded.range, 22.5);
+    } else {
+      assert.equal(base.copies, 2);
+      assert.equal(upgraded.copies, 3);
+    }
+    assert.equal(upgraded.manaCost, base.manaCost);
+    assert.equal(upgraded.cooldownMs, base.cooldownMs);
+  }
+  state.items['amplify-1'].grade = 'common';
+  assert.deepEqual(state, snapshot);
+});
+
+test('a committed merge produces an upgraded spell with immediately stronger compiled power', async () => {
+  const { applyLoadoutCommand } = await import('./transactions');
+  const state = createFixtureState();
+  state.items['spark-copy'] = { ...state.items['spark-1'], id: 'spark-copy', level: 3 };
+  state.backpack.push('spark-copy');
+  const before = structuredClone(state);
+  const base = compileWand(state, 'wand-1', content)!.spells[0];
+  const merged = applyLoadoutCommand(state, { id: 'upgrade', type: 'mergeItems', sourceItemId: 'spark-copy', targetItemId: 'spark-1' }, content);
+  assert.equal(merged.result.status, 'executed');
+  const spell = compileWand(merged.state, 'wand-1', content)!.spells[0];
+  assert.equal(spell.itemId, 'upgrade:merged');
+  assert.equal(spell.grade, 'uncommon');
+  assert.equal(spell.level, 3);
+  assert.ok(Math.abs(spell.power - base.power * 1.25) < 1e-9);
+  assert.deepEqual(state, before);
+});

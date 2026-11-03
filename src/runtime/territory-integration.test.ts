@@ -1,0 +1,34 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createGameRuntime } from "./index";
+import { demoContent } from "../content/demo";
+import { dispatchRemote, parseRemoteCommand } from "../agent/protocol";
+import { projectFrame } from "../agent/projection";
+
+test("territory upgrade uses the real remote route, notifies once and survives checkpoint restore", () => {
+  const checkpoint=createGameRuntime().checkpoint();
+  checkpoint.state.coins=100;checkpoint.state.territory.hp=65;checkpoint.state.territory.shield=24;
+  const runtime=createGameRuntime(demoContent,checkpoint);
+  let upgrades=0;runtime.subscribe((_state,events)=>{upgrades+=events.filter(event=>event.type==="territoryUpgraded").length;});
+  const command={id:"user-wall-1",type:"upgradeTerritory",track:"wall"};
+  assert.equal(dispatchRemote(runtime,command).status,"executed");
+  const after=runtime.getState();
+  assert.equal(after.coins,80);assert.equal(after.territory.wallLevel,2);
+  assert.equal(after.territory.hp,85);assert.equal(after.territory.maxHp,120);
+  assert.equal(dispatchRemote(runtime,command).status,"executed");
+  assert.deepEqual(runtime.getState(),after);assert.equal(upgrades,1);
+  assert.equal(dispatchRemote(runtime,{id:"user-shield-1",type:"upgradeTerritory",track:"shield"}).status,"executed");
+  const upgraded=runtime.getState();
+  assert.equal(upgraded.territory.shield,34);assert.equal(upgraded.territory.maxShield,60);assert.equal(upgraded.coins,65);
+  const restored=createGameRuntime(demoContent,runtime.checkpoint());
+  assert.deepEqual(restored.getState().territory,upgraded.territory);
+  const frame=projectFrame(upgraded,upgraded.events,[],demoContent);
+  assert.equal(frame.capabilities.territoryUpgrades.wall.cost,40);
+  assert.equal(frame.capabilities.territoryUpgrades.shield.increase,10);
+  assert.ok(frame.capabilities.commands.includes("upgradeTerritory"));
+  assert.equal(frame.events.find(event=>event.type==="territoryUpgraded")?.data.track,"wall");
+  assert.equal(parseRemoteCommand({id:"invalid",type:"upgradeTerritory",track:"secret"}),undefined);
+  assert.equal(dispatchRemote(restored,{id:"restart-test",type:"restart"}).status,"executed");
+  assert.equal(restored.getState().territory.wallLevel,1);
+  assert.equal(restored.getState().territory.shieldLevel,1);
+});

@@ -1,4 +1,5 @@
 import type { CombatEntity, GameState } from "../contracts";
+import { integrateMotion } from "./motion";
 
 export type BossTier = "none" | "minor" | "major" | "apex";
 
@@ -67,7 +68,14 @@ export function advanceEnemies(
     const dy = TERRITORY_Y - enemy.y;
     const remaining = Math.hypot(dx, dy);
     if (remaining > 0) {
-      const step = Math.min(remaining, Math.max(0, enemy.speed) * dt / 1_000);
+      const cap = Number.isFinite(enemy.speed) ? Math.max(0,enemy.speed) : 0;
+      // Preserve old saves' current velocity; freshly spawned enemies carry a low entry speed.
+      const current = Number.isFinite(enemy.moveSpeed) ? Math.max(0,Math.min(cap,enemy.moveSpeed!)) : cap;
+      const rampMs = typeof enemy.moveRampMs === "number" && Number.isFinite(enemy.moveRampMs)
+        ? enemy.moveRampMs : 1_200;
+      const motion = integrateMotion(current, cap, rampMs, dt);
+      enemy.moveSpeed = motion.speed;
+      const step = Math.min(remaining, motion.distance);
       enemy.x = clamp(enemy.x + (dx / remaining) * step, FIELD_MIN, FIELD_MAX);
       enemy.y = clamp(enemy.y + (dy / remaining) * step, FIELD_MIN, FIELD_MAX);
     }
@@ -96,17 +104,20 @@ function spawnEnemy(
   const random = nextRandom(state);
   const baseHp = 18 + (state.wave - 1) * 3;
   const tierMultiplier = tier === "apex" ? 16 : tier === "major" ? 7 : tier === "minor" ? 3 : 1;
+  const speed = isBoss ? 7 : 10 + Math.min(state.wave - 1,10) * 0.5;
   const enemy: CombatEntity = {
     id: `enemy-${state.wave}-${remainingBeforeSpawn}`,
     definitionId: isBoss ? `boss-${tier}` : "enemy-basic",
     kind: "enemy",
+    level: Math.max(1, Number.isFinite(state.wave) ? Math.floor(state.wave) : 1),
+    grade: tier === "apex" ? "mythic" : tier === "major" ? "epic" : tier === "minor" ? "rare" : "common",
     faction: "enemy",
     x: FIELD_MIN + 10 + random * 80,
     y: FIELD_MIN,
     hp: baseHp * tierMultiplier,
     maxHp: baseHp * tierMultiplier,
     damage: (2 + state.wave - 1) * (isBoss ? (tier === "apex" ? 5 : tier === "major" ? 3 : 2) : 1),
-    speed: isBoss ? 7 : 10 + Math.min(state.wave - 1, 10) * 0.5,
+    speed, moveSpeed: speed * .18, moveRampMs: isBoss ? 1_800 : 1_200,
     range: 4,
     cooldownMs: Math.max(400, 1_000 - (state.wave - 1) * 5),
     attackRemainingMs: 0,

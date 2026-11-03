@@ -1,9 +1,12 @@
-import { PencilText } from "@inkra/react";
+import { PencilSurface, PencilText } from "@inkra/react";
 import { Progress } from "@inkra/react/display";
 import { getExperienceProgress } from "../content/progression";
 import type { GameState } from "../contracts";
 import "./Battlefield.css";
 import { AssetImage, resolveEntityAsset } from "./assets";
+import { CombatEffects } from "./CombatEffects";
+import { BloodDecals } from "./BloodDecals";
+import { localProgress, ringOptions, strokeOptions } from "./progressOptions";
 
 function ratio(value: number, maximum: number) {
   if (!Number.isFinite(value) || !Number.isFinite(maximum) || maximum <= 0) return 0;
@@ -11,12 +14,15 @@ function ratio(value: number, maximum: number) {
 }
 
 /** Read-only battlefield projection. World coordinates are expressed on a 0–100 field. */
-export function Battlefield({ state }: { state: GameState }) {
+type Props = { state: GameState; activeCharacterId: string; onCharacterSelect: (characterId: string) => void };
+
+export function Battlefield({ state, activeCharacterId, onCharacterSelect }: Props) {
 
   return (
-    <section className={`battlefield battlefield--${state.phase}`} aria-label="战场">
+    <section className={`battlefield battlefield--${state.phase}`} data-progress-mode={localProgress ? "local" : "fallback"} aria-label="战场">
       <div className={`battlefield__field${state.paused ? " is-paused" : ""}`} role="group" aria-label={`第 ${state.wave} 波战场，${state.entities.length} 个单位，领地生命 ${state.territory.hp} / ${state.territory.maxHp}`}>
-        {state.entities.map(entity => {
+        <BloodDecals state={state} />
+        {state.entities.filter(entity => entity.kind !== "projectile").map(entity => {
           const left = Math.max(2, Math.min(98, entity.x));
           const top = Math.max(3, Math.min(88, entity.y));
           const health = ratio(entity.hp, entity.maxHp) * 100;
@@ -31,21 +37,26 @@ export function Battlefield({ state }: { state: GameState }) {
           );
         })}
 
+        <CombatEffects state={state} />
         <div className="battlefield__heroes" aria-label="守城角色">
-          {state.characters.map((character, index) => (
-            <div className="battlefield__hero" key={character.id} title={`${character.name} · 法力 ${character.mana} / ${character.maxMana}`}>
-              {index === 0 ? <Progress shape="circular" diameter={72} thickness={3} contentPosition="center" value={getExperienceProgress(state.xp, state.playerLevel).value} max={getExperienceProgress(state.xp, state.playerLevel).max} aria-label="本局经验"><span aria-hidden="true" className="battlefield__hero-mark">♙</span></Progress> : <span aria-hidden="true" className="battlefield__hero-mark">♙</span>}
-              <Progress className="battlefield__mana" value={character.mana} max={Math.max(1, character.maxMana)} aria-label={`${character.name} 法力`} size="sm" seed={`mana-${character.id}`} />
-            </div>
+          {state.characters.map((character) => (
+            <button type="button" className={`battlefield__hero${character.id === activeCharacterId ? " is-selected" : ""}`} key={character.id}
+              aria-label={`选择角色：${character.name}，法力 ${character.mana} / ${character.maxMana}`} aria-pressed={character.id === activeCharacterId}
+              title={`${character.name} · 法力 ${character.mana} / ${character.maxMana}`} onClick={() => onCharacterSelect(character.id)}>
+              {character.id === activeCharacterId && <Progress className="battlefield__xp" shape="circular" diameter={96} thickness={3} value={getExperienceProgress(state.xp, state.playerLevel).value} max={getExperienceProgress(state.xp, state.playerLevel).max} aria-label="本局经验" seed="experience-ring" {...ringOptions("var(--inkra-success-pigment)")} />}
+              <Progress className="battlefield__mana" shape="circular" diameter={76} thickness={3} value={character.mana} max={Math.max(1, character.maxMana)} aria-label={`${character.name} 法力`} seed={`mana-${character.id}`} {...ringOptions("var(--inkra-info-pigment)")} />
+              <PencilSurface as="span" className="battlefield__hero-wash" variant="selection" radius={12} seed={`hero-selection-${character.id}`} aria-hidden="true" />
+              <span aria-hidden="true" className="battlefield__hero-mark">♙</span>
+            </button>
           ))}
         </div>
 
         <div className="territory-vitals">
-          <Progress className="territory-vitals__bar territory-vitals__shield" aria-label="领地护盾" value={state.territory.shield ?? 0} max={Math.max(1, state.territory.maxShield ?? 0)} seed="territory-shield" size="lg" />
-          <Progress className="territory-vitals__bar territory-vitals__hp" aria-label="领地生命" value={state.territory.hp} max={state.territory.maxHp} seed="territory-hp" size="lg" />
+          <Progress className="territory-vitals__bar territory-vitals__shield" aria-label="领地护盾" value={state.territory.shield ?? 0} max={Math.max(1, state.territory.maxShield ?? 0)} seed="territory-shield" size="sm" {...strokeOptions("var(--inkra-info-foreground)")} />
+          <Progress className="territory-vitals__bar territory-vitals__hp" aria-label="领地生命" value={state.territory.hp} max={state.territory.maxHp} seed="territory-hp" size="sm" {...strokeOptions("var(--inkra-danger-foreground)")} />
         </div>
-        {state.entities.length === 0 && <PencilText as="p" className="battlefield__empty" seed="battlefield-empty">{state.phase === "battle" ? "敌人正在接近…" : "防线暂时平静"}</PencilText>}
-        {state.paused && <div className="battlefield__pause" aria-live="polite"><PencilText seed="paused">已暂停</PencilText></div>}
+        {state.entities.length === 0 && state.phase === "battle" && <PencilText as="p" className="battlefield__empty" seed="battlefield-empty">敌人正在接近…</PencilText>}
+        {state.phase === "battle" && state.paused && <div className="battlefield__pause" aria-live="polite"><PencilText seed="paused">已暂停</PencilText></div>}
       </div>
 
     </section>

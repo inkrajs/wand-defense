@@ -1,29 +1,32 @@
-.character-page { display: grid; gap: var(--inkra-space-5, 24px); color: var(--inkra-ink); }
-.character-page__character-select { display: grid; gap: var(--inkra-space-2, 8px); max-width: 320px; color: var(--inkra-ink-muted); font-size: var(--inkra-text-sm, 13px); }
-.character-page__profile { display: grid; gap: var(--inkra-space-4, 16px); }
-.character-page__identity { display: flex; align-items: baseline; gap: var(--inkra-space-3, 12px); }
-.character-page__identity h3 { margin: 0; font-size: var(--inkra-text-xl, 20px); font-weight: 400; }
-.character-page__grade { color: var(--inkra-ink-muted); font-size: var(--inkra-text-sm, 13px); }
-.character-page__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--inkra-space-3, 12px); }
-.character-page__stats > div { display: grid; gap: 3px; }
-.character-page__stats span, .character-page__wands small { color: var(--inkra-ink-muted); font-size: var(--inkra-text-sm, 13px); }
-.character-page__stats strong { font-size: var(--inkra-text-md, 15px); font-weight: 400; }
-.character-page__section { display: grid; gap: var(--inkra-space-3, 12px); padding-top: var(--inkra-space-4, 16px); border-top: 1px solid var(--inkra-border); }
-.character-page__section h4 { margin: 0; font-size: var(--inkra-text-md, 15px); font-weight: 400; }
-.character-page__pathways, .character-page__bonuses, .character-page__wands { display: grid; gap: var(--inkra-space-2, 8px); margin: 0; padding: 0; list-style: none; }
-.character-page__pathways li, .character-page__bonuses li, .character-page__wands li { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--inkra-space-2, 8px); min-width: 0; }
-.character-page__pathways li { align-items: center; color: var(--inkra-ink-muted); }
-.character-page__pathways li > div, .character-page__pathways li > div > span { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--inkra-space-2, 8px); }
-.character-page__pathways li strong { color: var(--inkra-ink); font-weight: 400; }
-.character-page__pathways li .is-current strong, .character-page__pathways small { color: var(--inkra-accent-strong); }
-.character-page__bonuses li, .character-page__wands li { justify-content: space-between; }
-.character-page__bonuses strong, .character-page__wands > li > span { font-weight: 400; }
-.character-page__muted { margin: 0; color: var(--inkra-ink-muted); font-size: var(--inkra-text-sm, 13px); }
-.character-page__equip { display: grid; gap: var(--inkra-space-2, 8px); padding-top: var(--inkra-space-2, 8px); }
-.character-page__equip > label { color: var(--inkra-ink-muted); font-size: var(--inkra-text-sm, 13px); }
-.character-page__equip-controls { display: flex; align-items: center; flex-wrap: wrap; gap: var(--inkra-space-2, 8px); }
-.character-page__equip-controls [data-slot] { min-width: 160px; }
-.character-page__result { color: var(--inkra-ink-muted); font-size: var(--inkra-text-sm, 13px); }
-.character-page__result.is-rejected { color: var(--inkra-danger); }
-.character-page__result.is-executed { color: var(--inkra-success); }
-@media (max-width: 440px) { .character-page__stats { grid-template-columns: 1fr; } }
+.character-page { display: grid; justify-items: center; gap: var(--inkra-space-3); width: min(1120px, calc(100% - 2 * var(--game-hud-inset, 16px))); margin-inline: auto; min-width: 0; color: var(--inkra-ink); }
+.character-page__layout { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(440px, 1.4fr); align-items: center; gap: clamp(32px, 4vw, 48px); width: 100%; min-width: 0; }
+.character-page__equipment, .character-page__details { min-width: 0; }
+.character-page__gear-grid { display: grid; grid-template-columns: 56px minmax(96px, 112px) 56px; grid-template-rows: 56px 56px 56px; grid-template-areas: "head portrait wand-one" "body portrait wand-two" "feet portrait accessory"; align-items: center; justify-content: center; gap: var(--inkra-space-2); }
+.character-page__portrait { grid-area: portrait; display: grid; place-items: center; width: 100%; height: 100%; color: var(--inkra-ink-muted); }
+.character-page__gear-slot { display: grid; place-items: center; width: 56px; height: 56px; }
+.character-page__gear-slot.is-loadout { position: relative; width: 56px; height: 56px; overflow: visible; }
+.character-page__gear-slot-icon { z-index: 1; pointer-events: none; }
+.character-page__loadout-grid { position: absolute !important; left: 50%; top: 50%; width: max-content; max-width: none; transform: translate(-50%, -50%) scale(.36); transform-origin: center; pointer-events: auto; }
+.character-page__slot--head { grid-area: head; }.character-page__slot--wand-one { grid-area: wand-one; }.character-page__slot--body { grid-area: body; }.character-page__slot--wand-two { grid-area: wand-two; }.character-page__slot--feet { grid-area: feet; }.character-page__slot--accessory { grid-area: accessory; }
+.character-page__details > .inkra-tabs { display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: center; gap: clamp(24px, 3vw, 40px); min-width: 0; }
+.character-page__tabs { grid-column: 2; grid-row: 1; }
+.character-page__panel { grid-column: 1; grid-row: 1; min-width: 0; }
+.character-page__overview { display: grid; gap: var(--inkra-space-2); align-content: center; }
+.character-page__summary-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: var(--inkra-space-3); min-height: 36px; }
+.character-page__summary-row > strong { color: var(--inkra-ink); font-weight: 400; text-align: end; }
+.character-page__attributes { display: grid; justify-items: center; }
+.character-page__radar { width: 240px; max-width: 100%; }
+.character-page__pathways { display: grid; align-content: center; gap: var(--inkra-space-3); }
+.character-page__pathway { display: grid; gap: var(--inkra-space-1); }
+.character-page__pathway h4, .character-page__pathway p { margin: 0; }
+.character-page__pathway h4 { font-size: var(--inkra-text-md); font-weight: 400; }
+.character-page__pathway p { color: var(--inkra-ink-muted); }
+/* Radar 0.15 always emits a heading and series/value control block. Keep its
+   accessible text and controls without adding a visible title or extra rows. */
+.character-page .inkra-radar__heading, .character-page .inkra-radar__summary { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+@media (max-width: 760px) {
+  .character-page__layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .character-page__details > .inkra-tabs { grid-template-columns: minmax(0, 1fr) 44px; gap: 12px; }
+  .character-page__gear-grid { grid-template-columns: 48px minmax(80px, 104px) 48px; grid-template-rows: 48px 48px 48px; gap: var(--inkra-space-1); }
+  .character-page__gear-slot { width: 48px; height: 48px; }
+}

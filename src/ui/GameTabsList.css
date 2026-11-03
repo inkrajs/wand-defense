@@ -1,0 +1,6 @@
+.game-tabs-list { display: flex; align-items: stretch; min-width: 0; width: max-content; max-width: 100%; height: 48px; }
+.game-tabs-list > .inkra-tabs__list { flex: 0 1 auto; min-width: 0; }
+.game-tabs-list > .game-tabs-list__edge[data-orientation="vertical"] { flex: 0 0 8px; width: 8px; height: calc(100% - 16px); margin-block: 8px; color: var(--inkra-ink-muted); opacity: .56; pointer-events: none; }
+.game-tabs-list--vertical { flex-direction: column; align-items: center; width: 48px; height: max-content; max-height: 100%; }
+.game-tabs-list--vertical > .inkra-tabs__list { flex-direction: column; width: 100%; max-height: 100%; overflow-x: hidden; overflow-y: auto; }
+.game-tabs-list--vertical > .game-tabs-list__edge[data-orientation="horizontal"] { flex: 0 0 8px; width: calc(100% - 16px); height: 8px; margin-inline: 8px; color: var(--inkra-ink-muted); opacity: .56; pointer-events: none; }

@@ -1,0 +1,15 @@
+.territory-panel { display: grid; gap: var(--inkra-space-2); width: min(448px, calc(100% - 2 * var(--game-hud-inset))); padding: var(--inkra-space-3); color: var(--inkra-ink); pointer-events: auto; }
+.territory-panel__tracks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--inkra-space-4); }
+.territory-panel__track { display: grid; align-content: start; justify-items: center; gap: var(--inkra-space-1); min-width: 0; text-align: center; }
+.territory-panel__track-title, .territory-panel__current, .territory-panel__benefit, .territory-panel__cost { margin: 0; font-size: var(--inkra-text-sm); font-weight: 400; line-height: 1.4; }
+.territory-panel__track-title { font-size: var(--inkra-text-md); }
+.territory-panel__current { color: var(--inkra-ink); }
+.territory-panel__benefit, .territory-panel__cost { color: var(--inkra-ink-muted); }
+.territory-panel__upgrade { min-height: 44px; width: 100%; margin-top: var(--inkra-space-1); }
+.game-territory-stage { position: absolute; z-index: 8; inset: calc(var(--game-hud-inset) + 48px) var(--game-hud-inset) calc(var(--game-defense-bottom) + var(--game-vitals-height) + 12px); display: grid; place-items: center; overflow: auto; pointer-events: none; }
+.game-territory { position: absolute; z-index: 16; right: calc(var(--game-hud-inset) + 44px + 12px); bottom: var(--game-hud-inset); display: inline-grid; place-items: center; }
+.game-territory > button { width: 44px; height: 44px; }
+@media (max-width: 600px) {
+  .game-territory-stage { top: calc(var(--game-hud-inset) + 100px); }
+  .territory-panel { padding: var(--inkra-space-2); gap: var(--inkra-space-1); }
+}

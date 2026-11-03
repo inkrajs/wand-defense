@@ -1,22 +1,24 @@
+import { GameTabsList } from "./GameTabsList";
 import { useMemo, useState } from "react";
-import { Button, PencilSurface, PencilText } from "@inkra/react";
+import { Button, PencilIcon, PencilSurface, PencilText, Tabs } from "@inkra/react";
 import type { Command, CommandResult, GameState } from "../contracts";
 import { demoContent } from "../content/demo";
 import { placementCells } from "../loadout/geometry";
 import "./LoadoutPanel.css";
 import { AssetImage, resolveAsset } from "./assets";
 
-type Props = { state: GameState; dispatch: (command: Command) => CommandResult; mode: "backpack" | "wand"; onModeChange: (mode: "backpack" | "wand") => void };
+const backpackTabIcon = [{d:"M4 8h16v12H4zM8 8V5h8v3",mode:"stroke" as const}];
+const wandTabIcon = [{d:"M5 19 19 5M16 4l3 1 1 3",mode:"stroke" as const}];
+type Props = { activeCharacterId: string; onCharacterChange: (id: string) => void; state: GameState; dispatch: (command: Command) => CommandResult; mode: "backpack" | "wand"; onModeChange: (mode: "backpack" | "wand") => void };
 type NewCommand = Command extends infer C ? C extends Command ? Omit<C, "id"> : never : never;
 
 // Definitions are intentionally optional: the UI can render a save while the
 // content module is being integrated, and switches to its public catalog once present.
 type Definition = { id: string; name?: string; asset?: { key: string; label: string; icon?: string; color?: string }; shape?: { x: number; y: number }[] };
 type Catalog = { spells?: Record<string, Definition>; arcana?: Record<string, Definition>; recipes?: { id: string; name?: string; inputs?: string[] }[] };
-export function LoadoutPanel({ state, dispatch, mode, onModeChange }: Props) {
+export function LoadoutPanel({ state, dispatch, mode, onModeChange, activeCharacterId, onCharacterChange }: Props) {
   const catalog = useMemo(() => demoContent as Catalog, []);
-  const [characterId, setCharacterId] = useState(state.characters[0]?.id ?? "");
-  const character = state.characters.find((entry) => entry.id === characterId) ?? state.characters[0];
+  const character = state.characters.find((entry) => entry.id === activeCharacterId) ?? state.characters[0];
   const ownedWands = state.wands.filter((wand) => wand.characterId === character?.id);
   const [wandId, setWandId] = useState(ownedWands[0]?.id ?? state.wands[0]?.id ?? "");
   const wand = state.wands.find((entry) => entry.id === wandId) ?? ownedWands[0] ?? state.wands[0];
@@ -59,16 +61,16 @@ export function LoadoutPanel({ state, dispatch, mode, onModeChange }: Props) {
 
   return <PencilSurface as="section" variant="paper" seed="loadout" radius={6} className={`loadout loadout--${mode}`} aria-label="构筑与背包">
     <header className="loadout__header">
-      <div><p className="loadout__eyebrow">LOADOUT · 整理构筑</p><PencilText as="h2" seed="loadout-heading">{mode === "wand" ? "法杖工坊" : "背包"}</PencilText><PencilText as="p" seed="loadout-help">选择角色、法杖与物品，再点选空格放置或已装备物品移除。</PencilText></div>
+      <div><p className="loadout__eyebrow">LOADOUT · 整理构筑</p><PencilText as="h2" seed="loadout-heading">{mode === "wand" ? "法杖工坊" : "背包"}</PencilText><PencilText as="p" className="sr-only" seed="loadout-help">选择角色、法杖与物品，再点选空格放置或已装备物品移除。</PencilText></div>
       <div className="loadout__header-actions">
         {character && <span className="loadout__mana">法力 {Math.floor(character.mana)} / {character.maxMana} · 经验 {state.xp}</span>}
-        <Button variant={state.backpackOpen ? "primary" : "secondary"} onClick={() => send({ type: "setBackpack", open: !state.backpackOpen })}>{state.backpackOpen ? "关闭背包" : "打开背包"}</Button>
+        <Button variant={state.backpackOpen ? "primary" : "secondary"} onClick={() => send({ type: "setBackpack", open: !state.backpackOpen })}>{state.backpackOpen ? "返回游戏" : "打开背包"}</Button>
       </div>
     </header>
 
-    <nav className="loadout__tabs" aria-label="构筑视图"><Button variant={mode === "backpack" ? "primary" : "outline"} onClick={() => onModeChange("backpack")}>背包</Button><Button variant={mode === "wand" ? "primary" : "outline"} onClick={() => onModeChange("wand")}>法杖</Button></nav>
+    <Tabs.Root value={mode} onValueChange={value => onModeChange(value as "backpack" | "wand")}><GameTabsList className="loadout__tabs" aria-label="构筑视图"><Tabs.Trigger value="backpack" startIcon={<PencilIcon paths={backpackTabIcon} size={32} sourceSize={24} seed="loadout-bag" decorative />}>背包</Tabs.Trigger><Tabs.Trigger value="wand" startIcon={<PencilIcon paths={wandTabIcon} size={32} sourceSize={24} seed="loadout-wand" decorative />}>法杖</Tabs.Trigger></GameTabsList><Tabs.Content value={mode}>
     <div className="loadout__selectors">
-      <label>角色<select value={character?.id ?? ""} onChange={(event) => { setCharacterId(event.target.value); setSelectedMergeIds([]); const next = state.wands.find((entry) => entry.characterId === event.target.value); if (next) setWandId(next.id); }}>
+      <label>角色<select value={character?.id ?? ""} onChange={(event) => { onCharacterChange(event.target.value); setSelectedMergeIds([]); const next = state.wands.find((entry) => entry.characterId === event.target.value); if (next) setWandId(next.id); }}>
         {state.characters.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · Lv.{entry.level}</option>)}</select></label>
       <label>法杖<select value={wand?.id ?? ""} onChange={(event) => { setWandId(event.target.value); setSelectedMergeIds([]); }}>
         {state.wands.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {entry.width}×{entry.height}</option>)}</select></label>
@@ -94,7 +96,7 @@ export function LoadoutPanel({ state, dispatch, mode, onModeChange }: Props) {
             </button>;
           })}
         </div> : <p className="loadout__empty">尚无可用法杖。</p>}
-        <PencilText as="p" className="loadout__hint" seed="grid-help">选中背包物品后点空格放置；点已占用格移除。布局校验由运行时处理。</PencilText>
+        <PencilText as="p" className="loadout__hint sr-only" seed="grid-help">选中背包物品后点空格放置；点已占用格移除。布局校验由运行时处理。</PencilText>
       </section>
 
       <section className="loadout__section loadout__backpack">
@@ -110,7 +112,7 @@ export function LoadoutPanel({ state, dispatch, mode, onModeChange }: Props) {
         </div>
         <div className="loadout__merge">
           {wand && wand.placements.length > 0 && <div><p>选取法杖上已放置的合成材料：</p>{wand.placements.map((placement) => <Button key={placement.itemId} variant={selectedMergeIds.includes(placement.itemId) ? "primary" : "outline"} aria-pressed={selectedMergeIds.includes(placement.itemId)} onClick={() => toggleMerge(placement.itemId)}>{itemName(placement.itemId)}</Button>)}</div>}
-          <div><PencilText as="h4" seed="merge-heading">配方合成</PencilText><PencilText as="p" seed="merge-help">由运行时确认配方、相邻条件与材料消耗。</PencilText></div>
+          <div><PencilText as="h4" seed="merge-heading">配方合成</PencilText><PencilText as="p" className="sr-only" seed="merge-help">由运行时确认配方、相邻条件与材料消耗。</PencilText></div>
           <label className="sr-only" htmlFor="loadout-recipe">选择配方</label><select id="loadout-recipe" value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
             {recipeIds.map((id) => <option key={id} value={id}>{recipes.find((recipe) => recipe.id === id)?.name ?? id}</option>)}
             {!recipeIds.length && <option value="">没有已知配方</option>}
@@ -122,7 +124,7 @@ export function LoadoutPanel({ state, dispatch, mode, onModeChange }: Props) {
     <footer className="loadout__footer">
       <span className="loadout__state">{state.paused ? "战斗已暂停" : state.phase === "battle" ? "战斗进行中" : `当前阶段：${state.phase}`}</span>
 
-      {result && <output className={`loadout__result is-${result.status}`} aria-live="polite">{result.status === "rejected" ? `未执行：${result.message ?? result.code ?? "操作被拒绝"}` : result.status === "accepted" ? "操作已提交，等待处理。" : "操作已完成。"}</output>}
+      {result && <output className={`loadout__result sr-only is-${result.status}`} aria-live="polite" data-command-status={result.status} data-command-code={result.code}>{result.status === "rejected" ? `操作未执行：${result.message ?? result.code ?? "操作被拒绝"}` : result.status === "accepted" ? "操作已提交，等待处理。" : "操作已完成。"}</output>}
     </footer>
-  </PencilSurface>;
+  </Tabs.Content></Tabs.Root></PencilSurface>;
 }

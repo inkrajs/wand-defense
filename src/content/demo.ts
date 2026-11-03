@@ -9,12 +9,12 @@ export const demoContent: ContentCatalog = {
     spark: {
       id: "spark", name: "火花", element: "fire", shape: [cell(0, 0)],
       asset: asset("spell.spark", "火花", "#ff9f43"), effect: "projectile",
-      power: 10, manaCost: 4, cooldownMs: 700, range: 24, speed: 0, level: 1, grade: "common",
+      power: 10, manaCost: 4, cooldownMs: 700, range: 24, speed: 72, level: 1, grade: "common",
     },
     fireball: {
       id: "fireball", name: "火球", element: "fire", shape: [cell(0, 0), cell(1, 0)],
       asset: asset("spell.fireball", "火球", "#ff6b35"), effect: "projectile",
-      power: 25, manaCost: 10, cooldownMs: 1100, range: 30, speed: 0, level: 1, grade: "common",
+      power: 25, manaCost: 10, cooldownMs: 1100, range: 30, speed: 50, level: 1, grade: "common",
     },
     regrowth: {
       id: "regrowth", name: "回春", element: "wood", shape: [cell(0, 0), cell(1, 0), cell(0, 1)],
@@ -24,7 +24,27 @@ export const demoContent: ContentCatalog = {
     "metal-needle": {
       id: "metal-needle", name: "金针", element: "metal", shape: [cell(0, 0), cell(1, 0), cell(2, 0)],
       asset: asset("spell.metal-needle", "金针", "#c0c7d1"), effect: "projectile",
-      power: 16, manaCost: 7, cooldownMs: 850, range: 28, speed: 0, level: 1, grade: "common",
+      power: 16, manaCost: 7, cooldownMs: 850, range: 28, speed: 100, level: 1, grade: "common",
+    },
+    "water-bolt": {
+      id: "water-bolt", name: "水弹", element: "water", shape: [cell(0, 0), cell(0, 1)],
+      asset: asset("spell.water-bolt", "水弹", "#659dbd"), effect: "projectile",
+      power: 8, manaCost: 3, cooldownMs: 600, range: 26, speed: 60, level: 1, grade: "common",
+    },
+    "lightning-bolt": {
+      id: "lightning-bolt", name: "雷矢", element: "lightning", shape: [cell(0, 0), cell(1, 0), cell(1, 1)],
+      asset: asset("spell.lightning-bolt", "雷矢", "#c5af4b"), effect: "projectile",
+      power: 22, manaCost: 9, cooldownMs: 1300, range: 36, speed: 140, level: 1, grade: "common",
+    },
+    "wind-blade": {
+      id: "wind-blade", name: "风刃", element: "wind", shape: [cell(0, 0), cell(1, 0)],
+      asset: asset("spell.wind-blade", "风刃", "#70b4a7"), effect: "projectile",
+      power: 6, manaCost: 2, cooldownMs: 350, range: 22, speed: 110, level: 1, grade: "common",
+    },
+    "rock-shot": {
+      id: "rock-shot", name: "岩弹", element: "earth", shape: [cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1)],
+      asset: asset("spell.rock-shot", "岩弹", "#b18d65"), effect: "projectile",
+      power: 36, manaCost: 12, cooldownMs: 1800, range: 30, speed: 34, level: 1, grade: "common",
     },
   },
   arcana: {

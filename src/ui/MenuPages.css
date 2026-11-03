@@ -1,8 +1,28 @@
-.menu-page { position: absolute; z-index: 30; inset: 0; overflow: auto; overscroll-behavior: contain; display: grid; place-items: center; padding: max(var(--inkra-space-4), env(safe-area-inset-top)) var(--inkra-space-4) max(var(--inkra-space-4), env(safe-area-inset-bottom)); background: var(--inkra-paper); }
-.menu-page[hidden] { display: none; }
-.menu-page__content { width: min(680px, 100%); text-align: center; }
-.menu-page__content h2 { margin: 0 0 var(--inkra-space-6); font-size: var(--inkra-text-2xl, 24px); font-weight: 400; }
-.menu-page__items, .menu-page__detail { display: grid; gap: var(--inkra-space-3); }
+.menu-page { position: absolute; z-index: 30; inset: 0; display: grid; place-items: center; overflow: auto; overscroll-behavior: contain; padding: max(var(--inkra-space-3), env(safe-area-inset-top)) var(--inkra-space-3) max(var(--inkra-space-3), env(safe-area-inset-bottom)); background: var(--inkra-paper); opacity: 0; transform: translateY(8px); visibility: hidden; transition: opacity var(--game-motion-duration) var(--game-motion-ease), transform var(--game-motion-duration) var(--game-motion-ease), visibility 0s linear var(--game-motion-duration); }
+.menu-page[data-open="true"] { opacity: 1; transform: translateY(0); visibility: visible; transition-delay: 0s; }
+.menu-page[data-closing="true"] { visibility: visible; pointer-events: none; }
+.menu-page__close { position: fixed; top: var(--game-hud-inset); right: var(--game-hud-inset); min-width: 44px; min-height: 44px; }
+.menu-page__content { position: relative; width: min(520px, 100%); text-align: center; }
+.menu-page__view { animation: menu-page-enter var(--game-motion-duration) var(--game-motion-ease) both; }
+.menu-page__view > h2 { margin: 0 0 var(--inkra-space-6); font-size: var(--inkra-text-2xl, 24px); font-weight: 400; }
+.menu-page__items { display: grid; grid-template-columns: 1fr; gap: var(--inkra-space-2, 8px); width: min(360px, 100%); margin-inline: auto; }
 .menu-page__items[hidden], .menu-page__detail[hidden] { display: none; }
-.menu-page__detail { margin-bottom: var(--inkra-space-4); text-align: start; }
-.menu-page__detail h3 { font-weight: 400; }
+.menu-page__item { width: 100%; min-width: 0; min-height: 48px; }
+.menu-page__item .inkra-button__label { width: 100%; }
+.menu-page__row { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: var(--inkra-space-3); width: 100%; text-align: start; }
+.menu-page__detail { display: grid; gap: var(--inkra-space-4, 16px); margin-bottom: var(--inkra-space-4, 16px); text-align: start; }
+.menu-page__detail h3 { margin: 0; font-size: var(--inkra-text-lg, 17px); font-weight: 400; }
+.menu-page__detail p { margin: 0; }
+.menu-page__debug { display: grid; gap: var(--inkra-space-2, 8px); padding-top: var(--inkra-space-4, 16px); border-top: 1px solid var(--inkra-border); }
+.menu-page__debug-items { display: grid; grid-template-columns: 1fr; gap: var(--inkra-space-2, 8px); }
+.menu-page__back { min-width: 44px; min-height: 44px; }
+.menu-page__agent { position: absolute; inset-inline: 0; top: 0; min-width: 0; opacity: 0; transform: translateY(6px); visibility: hidden; pointer-events: none; transition: opacity var(--game-motion-duration) var(--game-motion-ease), transform var(--game-motion-duration) var(--game-motion-ease), visibility 0s linear var(--game-motion-duration); }
+.menu-page__agent[data-active="true"] { position: static; opacity: 1; transform: translateY(0); visibility: visible; pointer-events: auto; transition-delay: 0s; animation: menu-page-enter var(--game-motion-duration) var(--game-motion-ease) both; }
+@keyframes menu-page-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 420px) {
+  .menu-page__close { position: fixed; top: var(--game-hud-inset); right: var(--game-hud-inset); min-width: 44px; min-height: 44px; }
+.menu-page__content { width: min(360px, 100%); }
+  .menu-page__items { width: 100%; }
+}
+html[data-game-reduce-motion="true"] .menu-page { --game-motion-duration: 0ms; }
+@media (prefers-reduced-motion: reduce) { .menu-page { --game-motion-duration: 0ms; } }

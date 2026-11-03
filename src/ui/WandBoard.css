@@ -1,8 +1,9 @@
 .wand-board { min-width: 0; }
-.wand-board__inventory { gap: 0; }
-.wand-board__inventory .inkra-inventory-grid__container { width: 100%; }
+.wand-board__inventory { gap: 12px; }
+.wand-board__inventory .inkra-inventory-grid__container { width: max-content; max-width: 100%; }
 .wand-board__inventory .inkra-inventory-grid__header { display: none; }
 .wand-board__inventory .inkra-inventory-grid__scroll { padding: 3px; }
 .wand-board__item { display: grid; place-items: center; align-content: center; gap: 2px; width: 100%; height: 100%; overflow: hidden; font-size: 11px; line-height: 1.2; text-align: center; }
-.wand-board__item > :first-child { max-width: 24px; max-height: 24px; font-size: 20px; }
-.wand-board__item > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wand-board__item-icon { display: grid; place-items: center; width: 20px; height: 20px; overflow: hidden; font-size: 18px; }
+.wand-board__item-icon > * { max-width: 20px; max-height: 20px; }
+.wand-board__item-label { display: block; max-width: 100%; overflow: hidden; font-size: 12px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }

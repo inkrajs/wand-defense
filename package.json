@@ -8,6 +8,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "inkra:local": "node scripts/inkra-local.mjs local",
+    "inkra:registry": "node scripts/inkra-local.mjs registry",
     "test": "node scripts/test.mjs",
     "broker": "tsx server/index.ts",
     "playlink": "tsx cli/index.ts"

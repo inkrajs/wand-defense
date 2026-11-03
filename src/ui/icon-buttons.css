@@ -1,0 +1,12 @@
+/* Keep Inkra's pencil hover artwork, without its extra solid fallback fill. */
+.game-shell .inkra-tabs {
+  --inkra-tabs-icon-size: 32px;
+}
+
+@media (forced-colors: none) {
+  .game-shell .inkra-button[data-variant="ghost"][data-size^="icon"] > .inkra-button__surface,
+  .game-shell .inkra-button[data-variant="ghost"][data-size^="icon"]:hover:not(:disabled):not([aria-disabled="true"]) > .inkra-button__surface,
+  .game-shell .inkra-button[data-variant="ghost"][data-size^="icon"]:focus-visible > .inkra-button__surface {
+    background: transparent;
+  }
+}

@@ -5,5 +5,7 @@ dist/
 !.env.example
 .DS_Store
 coverage/
+.local/
+.playwright-cli/
 *.log
 

@@ -1,4 +1,4 @@
-# Wand Defense development
+# 无尽巫师 development
 
 ## User authorization and ownership
 The user explicitly authorized creating this repository and having module leads
@@ -17,6 +17,15 @@ For interface work also read docs/ui-guidelines.md. Use the installed public
 Inkra components and typography; keep the user's latest layout decisions.
 Current main excludes summons/buildings; those live only on the separate
 feature/summons-buildings checkout and must not be merged without user direction.
+
+## Mandatory UI feedback baseline
+Never show generic operation notices by default: no success/completed/submitted
+toasts, floating messages, transaction outputs or raw error-code banners.
+The user must explicitly request visible notices before adding them. Show the
+result through actual state, placement and valid-target feedback instead.
+Keep necessary screen-reader announcements visually hidden and retain structured
+command results/diagnostics. Explicitly requested content such as connection
+state and character attributes is not a generic operation notice.
 
 ## Boundaries
 Work in this repository by absolute path. Shared checkout, disjoint file

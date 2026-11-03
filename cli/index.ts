@@ -3,7 +3,7 @@ import type { Command, CommandResult, GameEvent, GameState } from "../src/contra
 type Json = Record<string, unknown>;
 type CliConfig = { url: string; session?: string; token?: string };
 
-const usage = `Playlink CLI — inspect and control a running Wand Defense session
+const usage = `Playlink CLI — inspect and control a running 无尽巫师 session
 
 Usage:
   npm run playlink -- <command> [options]
