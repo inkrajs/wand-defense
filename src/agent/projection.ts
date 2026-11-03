@@ -54,7 +54,7 @@ const publicEventTypes = new Set(['waveStarted','waveCleared','enemyKilled','ter
   'wave.started','wave.cleared','enemy.killed','territory.damaged','reward.claimed','spell.cast',
   'reward.offered','pause.changed','backpack.changed','cheats.unlocked','cheats.changed','cheat.executed',
   'damage','heal','spawn','despawn','playerLevelUp','player.levelReward','enemyAttacked','territoryAttacked','bossSpawned','enemySpawned',
-  'loadout.placed','loadout.removed','loadout.merged','loadout.equipped']);
+  'spell.deployed','loadout.placed','loadout.removed','loadout.merged','loadout.equipped']);
 const numericFields = new Set(['wave','amount','damage','hp','maxHp','coins','xp','level','x','y','territoryHp','bossTier']);
 const idFields = new Set(['itemId','wandId','characterId','entityId','targetId','sourceItemId','rewardId','commandId','sourceCharacterId','sourceEntityId','enemyId','outputItemId','fromCharacterId']);
 export function projectEvents(state: GameState, events: GameEvent[]): GameEvent[] {
@@ -72,6 +72,7 @@ export function projectEvents(state: GameState, events: GameEvent[]): GameEvent[
 }
 const commandSchemas = {
   startWave:{},setPaused:{paused:'boolean'},setBackpack:{open:'boolean'},
+  deploySpell:{wandId:'id',itemId:'id',position:'{x:number,y:number}; each 0..100 inclusive'},
   placeItem:{wandId:'id',itemId:'id',x:'integer',y:'integer',rotation:'0|1|2|3'},
   removeItem:{wandId:'id',itemId:'id'},mergeRecipe:{wandId:'id',recipeId:'known recipe id',itemIds:'id[]'},
   claimReward:{rewardId:'id'},equipWand:{wandId:'id',characterId:'id'},

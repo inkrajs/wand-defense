@@ -1,6 +1,8 @@
-import type { ContentCatalog, GameEvent, GameState, Transition } from "../contracts";
+import type { Command, CommandTransition, ContentCatalog, GameEvent, GameState, Transition } from "../contracts";
 import { compileWand } from "../loadout";
 import { advanceAllies, castSpell } from "./effects";
+import { previewDeployment } from "./placement";
+export { previewDeployment } from "./placement";
 import { advanceEnemies, beginWave } from "./waves";
 
 export const BATTLE_STEP_MS = 50;
@@ -93,4 +95,26 @@ export function stepBattle(state: GameState, dtMs: number, content: ContentCatal
       }
     }
   });
+}
+
+/** Revalidates a point deployment and commits every copy with one resource charge. */
+export function deploySpell(state: GameState, command: Extract<Command, { type: "deploySpell" }>, content: ContentCatalog): CommandTransition {
+  const preview = previewDeployment(state, command, content);
+  const reject = (code: string): CommandTransition => ({ state, events: [], result: {
+    commandId: command.id, status: "rejected", revision: state.revision, code,
+  } });
+  if (!preview.ok) return reject(preview.code);
+  let cast = false;
+  const changed = transition(state, (next, emit) => {
+    const spell = preview.spell;
+    cast = castSpell(next, preview.characterId, { ...spell, definitionId: spell.id, casts: spell.copies }, content, emit, command.position);
+    if (!cast) return;
+    const character = next.characters.find(candidate => candidate.id === preview.characterId)!;
+    const wand = next.wands.find(candidate => candidate.id === command.wandId)!;
+    character.mana -= spell.manaCost;
+    wand.cooldowns[spell.itemId] = Math.max(BATTLE_STEP_MS, spell.cooldownMs);
+    emit("spell.deployed", { wandId: wand.id, itemId: spell.itemId, characterId: character.id, x: command.position.x, y: command.position.y });
+  });
+  if (!cast) return reject("DEPLOYMENT_UNAVAILABLE");
+  return { ...changed, result: { commandId: command.id, status: "executed", revision: changed.state.revision } };
 }

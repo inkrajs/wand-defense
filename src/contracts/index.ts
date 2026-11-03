@@ -68,6 +68,7 @@ export interface GameState {
 }
 export type Command =
   | { id: Id; type: "startWave" }
+  | { id: Id; type: "deploySpell"; wandId: Id; itemId: Id; position: { x: number; y: number } }
   | { id: Id; type: "setPaused"; paused: boolean }
   | { id: Id; type: "setBackpack"; open: boolean }
   | { id: Id; type: "placeItem"; wandId: Id; itemId: Id; x: number; y: number; rotation: 0|1|2|3 }

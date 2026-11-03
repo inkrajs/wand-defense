@@ -1,6 +1,6 @@
 import type { Command, CommandResult, RuntimePort } from '../contracts';
 
-export const remoteCommandTypes = ['startWave', 'setPaused', 'setBackpack', 'placeItem',
+export const remoteCommandTypes = ['startWave', 'deploySpell', 'setPaused', 'setBackpack', 'placeItem',
   'removeItem', 'mergeRecipe', 'claimReward', 'equipWand', 'setCheats', 'cheat'] as const;
 const identifier = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 160;
 const integer = (value: unknown): value is number => Number.isSafeInteger(value);
@@ -15,6 +15,14 @@ export function parseRemoteCommand(input: unknown): Command | undefined {
     case 'setPaused': if (typeof c.paused === 'boolean') return {id,type:c.type,paused:c.paused}; break;
     case 'setBackpack': if (typeof c.open === 'boolean') return {id,type:c.type,open:c.open}; break;
     case 'setCheats': if (typeof c.enabled === 'boolean') return {id,type:c.type,enabled:c.enabled}; break;
+    case 'deploySpell': {
+      const position = c.position as Record<string, unknown> | null;
+      if (identifier(c.wandId) && identifier(c.itemId) && position && !Array.isArray(position) &&
+        typeof position.x === 'number' && Number.isFinite(position.x) &&
+        typeof position.y === 'number' && Number.isFinite(position.y))
+        return {id,type:c.type,wandId:c.wandId,itemId:c.itemId,position:{x:position.x,y:position.y}};
+      break;
+    }
     case 'placeItem':
       if (identifier(c.wandId) && identifier(c.itemId) && integer(c.x) && integer(c.y) &&
         integer(c.rotation) && c.rotation >= 0 && c.rotation <= 3)

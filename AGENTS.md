@@ -49,3 +49,11 @@ Record child thread IDs, model/provider, file ownership, progress, implementatio
 summary, how it runs, validation actually done, limitations and Sol review result
 in docs/tasks/<module>.md. Do not label a feature complete based only on a plan.
 
+
+## Isolated summons/buildings feature authorization (2026-11-03)
+This clone is dedicated to feature/summons-buildings. The user authorized the
+module lead to implement, commit and push this feature branch only. The lead
+must not merge main, create a merge PR, change the original main checkout or
+modify dependencies. Child workers retain the no-commit/no-push restriction.
+The current shipped demo excludes this future feature; its API prototype is
+recorded in docs/tasks/summons-buildings-plan.md.

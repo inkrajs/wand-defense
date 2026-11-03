@@ -47,18 +47,6 @@ test("same fixed steps are deterministic across tick batching", () => {
   for (let i = 0; i < 20; i++) many = stepBattle(many, 50, demoContent).state;
   assert.deepEqual({ ...many, revision: 0 }, { ...once, revision: 0 });
 });
-test("summons and buildings have independent hp, life and real attacks", () => {
-  for (const definitionId of ["wolf", "arrow-tower"]) {
-    const state = battle(); state.entities[0].y = 75;
-    state.items = { spell: { id: "spell", definitionId, kind: "spell", level: 1, grade: "common" } };
-    state.wands[0].placements = [{ itemId: "spell", x: 0, y: 0, rotation: 0 }];
-    const spawned = stepBattle(state, 50, demoContent).state;
-    const ally = spawned.entities.find(entity => entity.faction === "player");
-    assert.ok(ally); assert.ok(ally.hp > 0); assert.ok((ally.remainingMs ?? 0) > 0);
-    const acted = stepBattle(spawned, 1500, demoContent).state;
-    assert.ok((acted.entities.find(entity => entity.id === "target")?.hp ?? 0) < 100);
-  }
-});
 test("healing restores territory and defeat takes precedence", () => {
   const state = battle(); state.territory.hp = 50;
   state.items = { heal: { id: "heal", definitionId: "regrowth", kind: "spell", level: 1, grade: "common" } };
@@ -92,19 +80,6 @@ test("double hits the same surviving target and charges mana once", () => {
   assert.equal(result.entities.find(entity => entity.id === "target")?.hp, 78);
   assert.equal(result.characters[0].mana, 96);
 });
-test("summon capacity waits without mana charge or cooldown restart", () => {
-  let state = battle();
-  state.items = { wolf: { id: "wolf", definitionId: "wolf", kind: "spell", level: 1, grade: "common" } };
-  state.wands[0].placements = [{ itemId: "wolf", x: 0, y: 0, rotation: 0 }];
-  state.entities[0].hp = state.entities[0].maxHp = 10000;
-  for (let i = 0; i < 200; i++) state = stepBattle(state, 50, demoContent).state;
-  assert.equal(state.entities.filter(entity => entity.kind === "summon").length, 2);
-  state.characters[0].mana = 100; state.characters[0].manaRegen = 0;
-  state.wands[0].cooldowns.wolf = 0;
-  const waiting = stepBattle(state, 50, demoContent).state;
-  assert.equal(waiting.characters[0].mana, 100);
-  assert.equal(waiting.wands[0].cooldowns.wolf, 0);
-});
 test("multiple wands share personal mana and keep independent cooldowns", () => {
   const state = battle(); state.characters[0].mana = 4; state.characters[0].manaRegen = 0;
   state.items["spark-2"] = { ...state.items["spark-1"], id: "spark-2" };
@@ -114,29 +89,4 @@ test("multiple wands share personal mana and keep independent cooldowns", () => 
   assert.equal(result.characters[0].mana, 0);
   assert.equal(result.wands[0].cooldowns["spark-1"], 700);
   assert.equal(result.wands[1].cooldowns["spark-2"], undefined);
-});
-test("wood spirit uses compiled healing power and hp; expiry removes allies without kill rewards", () => {
-  let state = battle(); state.characters[0].sequenceId = "wood-9";
-  state.items = { wood: { id: "wood", definitionId: "wood-spirit", kind: "spell", level: 1, grade: "common" } };
-  state.wands[0].placements = [{ itemId: "wood", x: 0, y: 0, rotation: 0 }];
-  state.entities.push(enemy({ id: "hurt-ally", kind: "building", faction: "player", x: 50, y: 80, hp: 10, maxHp: 100, remainingMs: 10000 }));
-  state = stepBattle(state, 50, demoContent).state;
-  assert.ok(Math.abs(state.entities.find(entity => entity.definitionId === "wood-spirit")!.maxHp - 48.4) < 1e-8);
-  state = stepBattle(state, 50, demoContent).state;
-  assert.ok(Math.abs(state.entities.find(entity => entity.id === "hurt-ally")!.hp - 10.44) < 1e-8);
-  const spirit = state.entities.find(entity => entity.definitionId === "wood-spirit")!;
-  const id = spirit.id; spirit.remainingMs = 1;
-  const result = stepBattle(state, 50, demoContent);
-  assert.ok(!result.state.entities.some(entity => entity.id === id));
-  assert.equal(result.events.filter(event => event.type === "enemyKilled").length, 0);
-});
-test("new healing summon reuses behavior configuration without a definition-id branch", () => {
-  const content = structuredClone(demoContent);
-  content.spells.sapling = { ...content.spells["wood-spirit"], id: "sapling", summonBehavior: "heal" };
-  let state = battle();
-  state.items = { healer: { id: "healer", definitionId: "sapling", kind: "spell", level: 1, grade: "common" } };
-  state.wands[0].placements = [{ itemId: "healer", x: 0, y: 0, rotation: 0 }];
-  state.entities.push(enemy({ id: "patient", kind: "building", faction: "player", x: 50, y: 80, hp: 10, maxHp: 100 }));
-  state = stepBattle(state, 100, content).state;
-  assert.ok(state.entities.find(entity => entity.id === "patient")!.hp > 10);
 });

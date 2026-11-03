@@ -1,6 +1,6 @@
 import type { Command, CommandResult, ContentCatalog, GameEvent, GameState, Id, RuntimePort } from "../contracts";
 import { demoContent } from "../content/demo";
-import { startBattle, stepBattle } from "../engine";
+import { deploySpell, startBattle, stepBattle } from "../engine";
 import { applyLoadoutCommand } from "../loadout";
 import { createInitialState } from "./initial";
 
@@ -69,6 +69,11 @@ export function createGameRuntime(content: ContentCatalog = demoContent): GameRu
   }
   function applyLocal(command: Command): string | undefined {
     switch (command.type) {
+      case "deploySpell": {
+        const transition = deploySpell(state, command, content);
+        state = transition.state;
+        return transition.result.code;
+      }
       case "startWave": {
         if (state.phase !== "ready" || state.backpackOpen || state.paused) return "WAVE_NOT_READY";
         state = startBattle(state, content).state;

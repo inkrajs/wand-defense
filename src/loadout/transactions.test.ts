@@ -39,7 +39,7 @@ test("recipe merge consumes adjacent inputs atomically and adds known output to 
   const result = applyLoadoutCommand(state, { id: "merge-1", type: "mergeRecipe", wandId: wand.id, recipeId: "fireball-recipe", itemIds: ["amplify-1", "spark-1"] }, content);
   assert.equal(result.result.status, "executed");
   assert.equal(result.state.revision, state.revision + 1);
-  assert.deepEqual(result.state.backpack, ["wolf-1", "tower-1", "merge-1:output"]);
+  assert.deepEqual(result.state.backpack, [...state.backpack, "merge-1:output"]);
   assert.equal(result.state.items["spark-1"], undefined);
   assert.equal(result.state.items["amplify-1"], undefined);
   assert.equal(result.state.items["merge-1:output"].definitionId, "fireball");

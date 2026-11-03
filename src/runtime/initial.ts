@@ -11,12 +11,10 @@ export function createInitialState(): GameState {
       grade:"common", width:3, height:3, placements:[{itemId:"spark-1",x:0,y:0,rotation:0}],cooldowns:{}}],
     items: {
       "spark-1": {id:"spark-1", definitionId:"spark", kind:"spell", level:1, grade:"common"},
-      "amplify-1": {id:"amplify-1",definitionId:"amplify",kind:"arcana",level:1,grade:"common"},
-      "wolf-1": {id:"wolf-1",definitionId:"wolf",kind:"spell",level:1,grade:"common"},
-      "tower-1": {id:"tower-1",definitionId:"arrow-tower",kind:"spell",level:1,grade:"common"}
+      "amplify-1": {id:"amplify-1",definitionId:"amplify",kind:"arcana",level:1,grade:"common"}
     },
-    backpack:["amplify-1","wolf-1","tower-1"], entities:[], rewards:[],
-    knowledge:{spellIds:["spark","wolf","arrow-tower"],arcanaIds:["amplify"],recipeIds:["fireball-recipe"],sequenceIds:["fire-9"]},
+    backpack:["amplify-1"], entities:[], rewards:[],
+    knowledge:{spellIds:["spark"],arcanaIds:["amplify"],recipeIds:["fireball-recipe"],sequenceIds:["fire-9"]},
     cheats:{unlocked:false,enabled:false},events:[],nextEventSeq:1
   };
 }

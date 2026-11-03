@@ -1,4 +1,5 @@
 import type { CombatEntity, ContentCatalog, GameState } from "../contracts";
+import { validateBattlePosition } from "./placement";
 
 export interface CastSpec {
   itemId: string;
@@ -24,7 +25,8 @@ function findSourceCharacter(state: GameState, itemId: string, characterId: stri
   const character = state.characters.find((entry) => entry.id === characterId);
   if (!character || !character.wandIds.some((id) => {
     const wand = state.wands.find((candidate) => candidate.id === id);
-    return wand?.placements.some((placement) => placement.itemId === itemId) ?? false;
+    return !!wand && wand.characterId === characterId
+      && wand.placements.some((placement) => placement.itemId === itemId);
   })) return undefined;
   return character;
 }
@@ -45,6 +47,7 @@ export function castSpell(
   spec: CastSpec,
   content: ContentCatalog,
   emit: Emit,
+  position?: { x: number; y: number },
 ): boolean {
   const spell = content.spells[spec.definitionId];
   const item = state.items[spec.itemId];
@@ -69,7 +72,7 @@ export function castSpell(
     let applied = false;
     for (let index = 0; index < casts; index++) {
       const target = state.entities
-        .filter((entity) => entity.faction === "player" && (entity.kind === "summon" || entity.kind === "building") && entity.hp < entity.maxHp)
+        .filter((entity) => entity.faction === "player" && (entity.kind === "summon" || entity.kind === "building") && entity.hp > 0 && entity.hp < entity.maxHp)
         .map((entity) => ({ entity, distance: Math.hypot(entity.x - 50, entity.y - 84) }))
         .filter((entry) => entry.distance <= Math.max(0, spec.range))
         .sort((a, b) => a.distance - b.distance || a.entity.id.localeCompare(b.entity.id))[0]?.entity;
@@ -94,12 +97,16 @@ export function castSpell(
   }
 
   if (spell.effect === "summon" || spell.effect === "building") {
+    if (state.phase !== "battle" || state.paused || state.backpackOpen || !position || !validateBattlePosition(position)) return false;
     const kind = spell.effect === "summon" ? "summon" : "building";
-    const existing = state.entities.filter((entity) => entity.sourceItemId === spec.itemId && entity.faction === "player" && (entity.kind === "summon" || entity.kind === "building")).length;
-    const count = Math.min(casts, Math.max(0, 2 - existing));
-    if (!count) return false;
+    const existing = state.entities.filter((entity) => entity.sourceItemId === spec.itemId
+      && entity.faction === "player"
+      && (entity.kind === "summon" || entity.kind === "building")
+      && entity.hp > 0
+      && (entity.remainingMs === undefined || entity.remainingMs > 0)).length;
+    if (existing + casts > 2) return false;
     const created: CombatEntity[] = [];
-    for (let index = 0; index < count; index++) {
+    for (let index = 0; index < casts; index++) {
       const hp = Math.max(1, spec.hp ?? spell.hp ?? Math.round(spec.power * 3));
       let id = nextEntityId(state, index);
       let suffix = index + 1;
@@ -108,7 +115,7 @@ export function castSpell(
       }
       const entity: CombatEntity = {
         id, definitionId: spell.id, kind, faction: "player",
-        x: 50, y: kind === "summon" ? 78 : 86, hp, maxHp: hp,
+        x: position.x, y: position.y, hp, maxHp: hp,
         damage: Math.max(0, spec.power),
         speed: kind === "summon" ? Math.max(0, spell.speed ?? 0) : 0,
         range: Math.max(0, spec.range), cooldownMs: 1000,
