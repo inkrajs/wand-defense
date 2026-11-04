@@ -29,9 +29,10 @@
 .battlefield[data-progress-mode="fallback"] .battlefield__unit-health .inkra-progress__body { height: 4px; }
 .battlefield[data-progress-mode="fallback"] .battlefield__unit-health .inkra-progress__outline { visibility: hidden; }
 .battlefield[data-progress-mode="fallback"] .battlefield__unit-health .inkra-progress__fill { --inkra-selection-pigment: var(--inkra-danger-foreground); }
-.battlefield__heroes { position: absolute; z-index: 1; left: 0; right: 0; bottom: var(--game-hud-inset); height: calc(var(--game-hero-size, 64px) + var(--game-hero-mini-height, 44px) + 4px); pointer-events: none; }
-.battlefield__hero-group { position: absolute; bottom: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
-.battlefield__hero-mini { height: var(--game-hero-mini-height, 44px); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.battlefield__heroes { position: absolute; z-index: 6; left: 0; right: 0; bottom: var(--game-hud-inset); height: var(--game-hud-row-height, 44px); pointer-events: none; }
+.battlefield__hero-group { position: absolute; bottom: 0; height: 100%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+/* Float above both defense bars without reserving space in the central workspace. */
+.battlefield__hero-mini { position: absolute; left: 50%; bottom: calc(var(--game-defense-bottom) + var(--game-vitals-height) + 8px - var(--game-hud-inset)); width: max-content; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .battlefield__hero { --hero-diameter: var(--game-hero-size, 64px); position: relative; width: var(--hero-diameter); height: var(--hero-diameter); pointer-events: auto; padding: 0; border: 0; border-radius: 50%; color: var(--inkra-success-foreground); background: transparent; font: inherit; cursor: pointer; }
 .battlefield__hero-wash { position: absolute !important; z-index: 0; inset: calc(var(--hero-diameter) / 6) !important; display: block; border-radius: 9999px; clip-path: circle(50%); opacity: 0; pointer-events: none; transition: opacity var(--game-motion-duration) var(--game-motion-ease); }
 .battlefield__hero.is-selected .battlefield__hero-wash, .battlefield__hero:focus-visible .battlefield__hero-wash { opacity: 1; }

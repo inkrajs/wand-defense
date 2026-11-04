@@ -16,7 +16,11 @@ export function useCombatLayout(ref:RefObject<HTMLDivElement|null>,characterIds:
       setLayout({width:bounds.width,height:bounds.height,sources});
     };
     measure();const observer=new ResizeObserver(measure);observer.observe(node);
-    heroes.forEach(hero=>observer.observe(hero));
+    heroes.forEach(hero=>{
+      observer.observe(hero);
+      // Measure HUD row layout changes as well as the fixed-size hero.
+      if(hero.parentElement) observer.observe(hero.parentElement);
+    });
     return ()=>observer.disconnect();
   },[ref,characterIds]);
   return layout;
