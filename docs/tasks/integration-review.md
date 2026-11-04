@@ -646,3 +646,11 @@ SW v2以构建bundle生成的pwa-assets.json枚举全部必需JS/CSS/字体/图�
 ### 新批最终构建与测试收尾
 
 根最终报告522/522整仓通过、类型检查及production build通过，日志为`../../work/wand-defense-expansion-final-tests.log`与`../../work/wand-defense-expansion-build.log`，替代前段最终整仓待结果状态。最终dist入口加4个同步modulepreload合计897,890B；655,012B仅入口文件，不能称总首屏，也不据此复述早期25%提升。PWA资源清单18项mandatory与1项extended optional均存在；此前SW v2真实离线懒页面验收与Node tick配对收益按各自证据范围保留。根报告demo-status、mechanism与生成112项内容清单已更新，准备提交发布；截至此记录新批尚无Pages部署成功回报，不沿用上一批run成功为本批上线。本审查仅补最终证据归属记录，未重跑检查、改生产源或重新验收文档内容；共享边界窄审无新增阻塞。
+
+### 沿墙接近与图标/SW v3窄审
+
+已读本轮waves及wall-approach四项测试，无具体P1/P2。straight/缺省legacy在y<92仍原x直下，抵墙后按当前角色anchor的最近横向距离取目标x，无角色时保持原x；平距沿角色顺序确定，不消费RNG。仍由原motion积分推进、距离夹紧避免越目标，沿用speed/ramp/slow，pause/backpack入口冻结；移动前后构造物接战与原wall攻击冷却/伤害流程保持，hunter分支未改。源码不会传送或扩大初始spark射程；旧停墙存档无需迁移即可恢复接近。根报告旧HEAD复制树3fail/1pass、新定向含旧waves共16/16通过，本审查仅读断言未执行。wave2/30的实际弹体碰撞清波用例明确是HP18双敌fixture，证明死角可达，不泛称初始装备可无损击败真实第30波强度。
+
+图标源码使用公开PencilIcon实际canvas渲染、wash/细笔触及圆角导出；index的favicon/apple图标、manifest独立any rounded与全底maskable、SW v3 metadata及预缓存列表均接到新文件，所读入口未残留已删除旧图标引用。仅确认资产与缓存接线，不替用户认定视觉效果，亦不把此前v2浏览器验证称v3已实测。backend批量cheats与无Tabs设置未冻结，本轮未审；本批最终整仓、构建和部署待根报告，仅改本审计。
+
+根随后报告含wall与cheats的整仓543/543及build通过，日志`../../work/wand-defense-wall-cheats-tests.log`、`../../work/wand-defense-wall-cheats-build.log`。backend由两名Luna执行、模块Sol验收22项定向后交付；根另实读并修正bounded IDs超过160及模板硬编码两点，UI调试由根审gate/9 actions/no auto-call，设置无Tabs亦经根审。以上均按根/模块执行与验收报告记入历史，本审查未另审整块backend、设置或重跑矩阵，不冒称独立源码验收。用户随后新增背包双击装备/法杖与详情品质边框，由Terra独立任务实施、尚待冻结；543项结果不覆盖之后追加的UI修改。最终发布仍待根结果。

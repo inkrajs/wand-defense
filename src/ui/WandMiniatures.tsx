@@ -69,6 +69,8 @@ function miniPlacements(state: GameState, wand: WandInstance, detailMode = false
     const cells = rotateInventoryCells(definition?.shape?.length ? definition.shape : [{ x: 0, y: 0 }], rotation);
     if (!cells.length) return [];
     const appearance = getGameItemAppearance({
+      kind: item.kind,
+      definitionId: item.definitionId,
       element: item.kind === "spell" ? demoContent.spells[item.definitionId]?.element : undefined,
       grade: item.grade,
     });

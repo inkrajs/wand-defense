@@ -1,7 +1,7 @@
 /* The shell is updated only after its built assets are safely cached. */
 const scopeUrl = new URL(self.registration.scope);
 const PREFIX = `wand-defense-shell-${encodeURIComponent(scopeUrl.pathname)}-`;
-const CACHE = `${PREFIX}v2`;
+const CACHE = `${PREFIX}v3`;
 const MAX_ASSETS = 128;
 const shellUrl = scopeUrl.href;
 
@@ -9,7 +9,7 @@ function inScope(url) {
   return url.origin === scopeUrl.origin && url.pathname.startsWith(scopeUrl.pathname);
 }
 function appMetadata(url) {
-  return inScope(url) && ["pwa-assets.json", "manifest.webmanifest", "icons/wizard.svg", "icons/wizard-192.png", "icons/wizard-512.png"]
+  return inScope(url) && ["pwa-assets.json", "manifest.webmanifest", "icons/wizard-rounded.svg", "icons/wizard-rounded-192.png", "icons/wizard-rounded-512.png", "icons/wizard-maskable-512.png"]
     .some(path => url.pathname === new URL(path, shellUrl).pathname);
 }
 function immutableAsset(url) {
@@ -53,7 +53,7 @@ async function saveShell(response) {
   if (!assets.some(url => /\.js(?:\?|$)/.test(url))) throw new Error("PWA shell has no entry script");
   const cache = await caches.open(CACHE);
   const protectedUrls = new Set([...assets, manifestUrl]);
-  for (const path of ["manifest.webmanifest", "icons/wizard.svg", "icons/wizard-192.png", "icons/wizard-512.png"]) {
+  for (const path of ["manifest.webmanifest", "icons/wizard-rounded.svg", "icons/wizard-rounded-192.png", "icons/wizard-rounded-512.png", "icons/wizard-maskable-512.png"]) {
     const url = new URL(path, shellUrl).href;
     protectedUrls.add(url);
     await cache.put(url, await fetchOk(url));

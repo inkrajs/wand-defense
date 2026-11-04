@@ -52,6 +52,12 @@ export function parseRemoteCommand(input: unknown): Command | undefined {
     case 'unequipWand': if (identifier(c.wandId)) return {id,type:c.type,wandId:c.wandId}; break;
     case 'cheat':
       if (c.action === 'heal' || c.action === 'revive') return {id,type:c.type,action:c.action};
+      if (c.action === 'grantAllMagic' || c.action === 'maxMagic' || c.action === 'grantAllWands' || c.action === 'maxWands' ||
+          c.action === 'grantAllGear' || c.action === 'maxGear' || c.action === 'grantAllSupplies' || c.action === 'maxSupplies')
+        return {id,type:c.type,action:c.action};
+      if (c.action === 'levelCharacter' && identifier(c.characterId) &&
+          (c.levels === undefined || (integer(c.levels) && c.levels >= 1 && c.levels <= 100)))
+        return {id,type:c.type,action:c.action,characterId:c.characterId,...(c.levels !== undefined ? {levels:c.levels} : {})};
       if((c.action === 'grantWand' || c.action === 'grantSpell' || c.action === 'grantItem' || c.action === 'grantGear' || c.action === 'grantSupply') && identifier(c.definitionId)
         && (c.grade === undefined || gradeOrder.some(grade=>grade === c.grade))
         && (c.level === undefined || (integer(c.level) && c.level >= 1)))

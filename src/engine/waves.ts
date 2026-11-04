@@ -1,5 +1,5 @@
 import type { CombatEntity, GameState } from "../contracts";
-import { getCharacterAnchor } from "../content/characterAnchors";
+import { getCharacterAnchor, getCharacterAnchors } from "../content/characterAnchors";
 import { integrateMotion } from "./motion";
 import { getMonsterSize, getUnlockedMinionDefinitions } from "../content/monsters";
 import { applyResolvedDamage } from "./damage";
@@ -258,7 +258,23 @@ function spawnEnemy(
 }
 
 function getEnemyMovementTarget(state: GameState, enemy: CombatEntity): { x: number; y: number } {
-  if (enemy.movementMode !== "huntCharacter") return { x: enemy.x, y: TERRITORY_Y };
+  if (enemy.movementMode !== "huntCharacter") {
+    // Keep the incoming lane. At the wall, advance along it toward the nearest
+    // defender instead of camping forever outside every starter spell's range.
+    // Derive this from live anchors so existing saves need no migration or RNG.
+    let x = enemy.x;
+    if (enemy.y >= TERRITORY_Y) {
+      let nearestDistance = Infinity;
+      for (const anchor of getCharacterAnchors(state.characters)) {
+        const distance = Math.abs(anchor.x - enemy.x);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          x = anchor.x;
+        }
+      }
+    }
+    return { x, y: TERRITORY_Y };
+  }
 
   if (state.characters.length === 0) {
     enemy.movementMode = "straight";

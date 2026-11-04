@@ -84,7 +84,7 @@ export function CharacterPage({ state, dispatch: _dispatch, activeCharacterId, s
     .map((id) => demoContent.sequences[id])
     .filter((sequence) => sequence !== undefined), [state.knowledge.sequenceIds]);
   const characterPathwayId = character ? demoContent.sequences[character.sequenceId]?.pathwayId : undefined;
-  const equippedWands = state.wands.filter((wand) => wand.characterId === character?.id && character?.wandIds.includes(wand.id)).slice(0, 2);
+  const equippedWands = (character?.wandIds ?? []).slice(0, 2).map(id => state.wands.find(wand => wand.id === id && wand.characterId === character?.id));
   const stats = character ? getCharacterStats(state, character.id) : undefined;
   const growth = character ? getCharacterGrowth(character) : undefined;
   const gathering = getGatheringStats(state);
@@ -271,7 +271,8 @@ function GearSlot({ className, icon, label, slot, item, state, characterId, load
   const hasGearPresentation = Boolean(presentationId && getGearPresentationIcon(presentationId));
   const hasGearPreview = Boolean(equippedGear && definition);
   const accessibleDescription = item ? `${label}：${item.name}，${item.width}×${item.height}，等级 ${item.level}，${gradeDefinitions[item.grade].name}` : equippedGear ? `${label}：${equippedGear.name}，${gradeDefinitions[equippedGear.grade].name}，等级 ${equippedGear.level}` : `${label}：空装备位`;
-  return <PencilSurface as="div" className={`character-page__gear-slot ${className}${loadout ? " is-loadout" : ""}`} variant="outline" seed={`gear-slot-${className}`} radius={8} role={loadout ? "group" : "img"} aria-label={accessibleDescription} data-character-wand-slot={loadout && !slot ? label : undefined} data-character-gear-slot={slot}>
+  const grade = item?.grade ?? equippedGear?.grade;
+  return <PencilSurface as="div" style={grade ? { "--inkra-accent-strong": gradeDefinitions[grade].color } as React.CSSProperties : undefined} className={`character-page__gear-slot ${className}${loadout ? " is-loadout" : ""}`} variant="outline" seed={`gear-slot-${className}`} radius={8} role={loadout ? "group" : "img"} aria-label={accessibleDescription} data-character-wand-slot={loadout && !slot ? label : undefined} data-character-gear-slot={slot}>
     {loadout ? null : item ? <span className="character-page__gear-slot-preview" aria-hidden="true"><WandPreview state={state} wand={item} size={44} /></span> : hasGearPreview && equippedGear && definition ? <span className="character-page__gear-slot-preview character-page__gear-art" aria-hidden="true" style={{ color: definition.asset.color }}>{hasGearPresentation && presentationId ? <GearPresentationIcon definitionId={presentationId} size={36} seed={`character-gear-${equippedGear.id}`} /> : <AssetImage asset={resolveAsset(definition.asset, { label: equippedGear.name, icon: equippedGear.name.slice(0, 1) || "◇" })} />}</span> : <PencilIcon paths={icon} sourceSize={24} size={32} className="character-page__gear-slot-icon" decorative />}
     {slot && equippedGear && <span className="character-page__gear-quality" aria-hidden="true" style={{ color: gradeDefinitions[equippedGear.grade].color }}><PencilIcon paths={gearQualityPaths} size={12} sourceSize={24} decorative /></span>}
   </PencilSurface>;

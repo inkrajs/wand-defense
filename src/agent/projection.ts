@@ -7,6 +7,7 @@ import { getExperienceProgress } from '../content/progression';
 import { getCharacterStats } from '../content/characters';
 import { getRewardRefreshQuote } from '../runtime/rewardRefresh';
 import { getGatheringStats } from '../content/economy';
+import { CHEAT_TARGET_LEVEL } from '../runtime/cheatCatalog';
 
 function projectStatBonuses(source?: CharacterStatBonuses): CharacterStatBonuses | undefined {
   if (!source || typeof source !== 'object') return;
@@ -178,7 +179,15 @@ const commandSchemas = {
   useItem:{itemId:'owned known supply id'},discardSupply:{itemId:'owned known supply id'},
   mergeItems:{sourceItemId:'owned item id',targetItemId:'owned matching definition and grade item id'},
   claimReward:{rewardId:'id'},refreshRewards:{offerId:'current first reward id; prevents stale refresh charges'},equipWand:{wandId:'id',characterId:'id',slot:'0|1 (optional)'},unequipWand:{wandId:'id'},
-  setCheats:{enabled:'boolean'},cheat:{action:'heal|revive|grantSpell|grantItem|grantWand|grantGear|grantSupply',definitionId:'id (required for grants)',grade:'optional grade for grants',level:'optional positive safe integer for grants'},
+  setCheats:{enabled:'boolean'},cheat:{
+    action:'heal|revive|grantSpell|grantItem|grantWand|grantGear|grantSupply|grantAllMagic|maxMagic|grantAllWands|maxWands|grantAllGear|maxGear|grantAllSupplies|maxSupplies|levelCharacter',
+    characterId:'levelCharacter：角色实例 ID，非空且最长160字符',
+    levels:'levelCharacter：可选1至100的安全正整数；省略时为1',
+    definitionId:'单项授予动作必填的定义 ID',
+    grade:'单项授予可选品级；批量动作保留各物品现有品级',
+    level:'单项授予可选等级，必须为安全正整数',
+    description:`八种批量动作可授予或提升全部魔法、法杖、装备或药水。Lv.${CHEAT_TARGET_LEVEL}是试玩目标，不是硬上限；max动作保留各物品品级。levelCharacter接收characterId和可选levels。`,
+  },
 };
 /** All commands also require a unique string id; accepted is queued, not executed. */
 export function projectFrame(state: GameState, events: GameEvent[], results: CommandResult[], catalog?: ContentCatalog) {

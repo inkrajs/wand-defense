@@ -184,6 +184,8 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
   const [gearLayout, setGearLayout] = useState<InventoryLayoutState>();
   const [supplyLayout, setSupplyLayout] = useState<InventoryLayoutState>();
   const inventoryGridHandle = useRef<InventoryGridHandle>(null);
+  const dragging = useRef(false);
+  const lastDragEnd = useRef(-Infinity);
   const [pendingStorageMoves, setPendingStorageMoves] = useState<Record<string, PendingStorageMove>>({});
   const [mergeEventCursor, setMergeEventCursor] = useState(state.nextEventSeq);
   const primaryCharacter = state.characters.find((character) => character.id === activeCharacterId) ?? state.characters[0];
@@ -355,7 +357,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
   const combineProps = localInventoryCombineCompat(localGrid, state, dispatch, setResult);
   const gridProps = {
     "aria-label": "法杖和背包物品",
-    ...(localGrid ? { handleRef: inventoryGridHandle } : {}),
+    ...(localGrid ? { handleRef: inventoryGridHandle, onDraggingChange: (active: boolean) => { if (dragging.current && !active) lastDragEnd.current = performance.now(); dragging.current = active; } } : {}),
     className: "inventory-dock__grid",
     containers: inventory.containers,
     cellSize: GRID_CELL_SIZE,
@@ -551,7 +553,33 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     {category === "supplies" && selectedSupplyId && supplyItems.some(item => item.id === selectedSupplyId) && <Button type="button" size="sm" variant="outline" disabled={gridProps.disabled} onClick={() => { setResult(dispatch({ id: commandId(), type: "useItem", itemId: selectedSupplyId })); setSelectedSupplyId(null); }}>使用选中道具</Button>}
   </nav>;
 
-  return <section className="inventory-dock" onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": INVENTORY_PAGE_ROWS } as React.CSSProperties}>
+  function equipOnDoubleClick(event: React.MouseEvent<HTMLElement>) {
+    if (!primaryCharacter || gridProps.disabled || dragging.current || performance.now() - lastDragEnd.current < 500) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, input, select, textarea")) return;
+    const itemNode = target.closest<HTMLElement>("[data-inventory-item]");
+    const container = itemNode?.closest<HTMLElement>("[data-inventory-container]");
+    if (!itemNode || itemNode.getAttribute("aria-disabled") === "true" || !container) return;
+    const itemId = itemNode.dataset.inventoryItem;
+    let command: Command | undefined;
+    if (category === "equipment" && isStorageContainer(container.dataset.inventoryContainer ?? "", "equipment-backpack")) {
+      const wand = state.wands.find(entry => entry.id === itemId && entry.characterId === null);
+      if (wand) {
+        const slot: 0 | 1 = primaryCharacter.wandIds[0] ? (primaryCharacter.wandIds[1] ? 0 : 1) : 0;
+        command = { id: commandId(), type: "equipWand", wandId: wand.id, characterId: primaryCharacter.id, slot };
+      }
+    } else if (category === "items" && isStorageContainer(container.dataset.inventoryContainer ?? "", "gear-backpack")) {
+      const gear = itemId ? state.gear?.[itemId] : undefined;
+      if (gear && gear.characterId === null) command = { id: commandId(), type: "equipGear", gearId: gear.id, characterId: primaryCharacter.id };
+    }
+    if (!command) return;
+    event.preventDefault();
+    event.stopPropagation();
+    inventoryGridHandle.current?.cancelDrag();
+    const response = dispatch(command);
+    setResult(response.status === "rejected" ? response : null);
+  }
+  return <section className="inventory-dock" onDoubleClickCapture={equipOnDoubleClick} onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": INVENTORY_PAGE_ROWS } as React.CSSProperties}>
     <div className="inventory-dock__measure" ref={measureRef} aria-hidden="true" />
 
     {localGrid ? <GridRoot {...gridProps} {...combineProps}>{renderTabs(true)}{renderToolbar()}</GridRoot> : <>{renderTabs(false)}{renderToolbar()}</>}

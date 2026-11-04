@@ -1,5 +1,6 @@
 import { Fragment, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { Button, PencilIcon, PencilLine, PencilText, Select, Slider, Switch, Tabs, type PencilIconPath } from "@inkra/react";
+import { Button, PencilIcon, PencilLine, PencilText, Select, Slider, Switch, type PencilIconPath } from "@inkra/react";
+import { CheatActions } from "./CheatActions";
 import { useGraphicsSettings } from "./graphicsSettings";
 import type { Command, CommandResult, GameState } from "../contracts";
 import "./MenuPages.css";
@@ -134,7 +135,7 @@ function ControlSettings({ preferences, updatePreference }: PreferenceProps) {
   </div>;
 }
 
-export function MenuPages({ page, navigate, close, restart, agentPanel, state, unlock, toggleCheats, heal }: Props) {
+export function MenuPages({ page, navigate, close, restart, agentPanel, state, dispatch, unlock, toggleCheats, heal }: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   const closeTimer = useRef<number | undefined>(undefined);
   const [displayPage, setDisplayPage] = useState<MenuPage | null>(page);
@@ -159,7 +160,7 @@ export function MenuPages({ page, navigate, close, restart, agentPanel, state, u
     return () => { if (closeTimer.current !== undefined) { window.clearTimeout(closeTimer.current); closeTimer.current = undefined; } };
   }, [page]);
   useEffect(() => {
-    if (page && !document.activeElement?.closest('.menu-settings [role="tab"]')) heading.current?.focus();
+    if (page) heading.current?.focus();
   }, [displayPage, page]);
   function goBack() {
     if (page === "menu" || page === "character" || page === null) close();
@@ -183,23 +184,20 @@ export function MenuPages({ page, navigate, close, restart, agentPanel, state, u
           { label: "Agent", icon: agentPaths, onClick: () => navigate("agent") },
         ]} />}
         {displayPage === "settings" && <MenuLinks label="设置分类" items={settingsEntries.map(entry => ({ ...entry, onClick: () => navigate(entry.page) }))} />}
-        {(isSettingsPage(displayPage) || displayPage === "accessibility") && <Tabs.Root className="menu-settings" value={displayPage === "accessibility" ? "controls" : displayPage} onValueChange={value => { if (isSettingsPage(value as MenuPage)) navigate(value as SettingsPage); }}>
-          <Tabs.List divided fullWidth labelVisibility="auto" aria-label="设置分类">
-            {settingsEntries.map(entry => <Tabs.Trigger key={entry.page} value={entry.page} aria-label={entry.label} startIcon={<PencilIcon paths={entry.icon} sourceSize={24} size={32} decorative />}>{entry.label}</Tabs.Trigger>)}
-          </Tabs.List>
-          <Tabs.Content value="graphics"><GraphicsSettings {...preferenceProps} /></Tabs.Content>
-          <Tabs.Content value="music"><MusicSettings {...preferenceProps} /></Tabs.Content>
-          <Tabs.Content value="controls"><ControlSettings {...preferenceProps} /></Tabs.Content>
-          <Tabs.Content value="debug"><div className="menu-settings__fields">
+        {(isSettingsPage(displayPage) || displayPage === "accessibility") && <div className="menu-settings">
+          {displayPage === "graphics" && <GraphicsSettings {...preferenceProps} />}
+          {displayPage === "music" && <MusicSettings {...preferenceProps} />}
+          {(displayPage === "controls" || displayPage === "accessibility") && <ControlSettings {...preferenceProps} />}
+          {displayPage === "debug" && <div className="menu-settings__fields">
             {!state.cheats.unlocked ? <>
               <PencilText as="p" className="menu-settings__note">作弊功能尚未解锁。</PencilText>
               <MenuItem icon={unlockPaths} onClick={unlock}>解锁作弊</MenuItem>
             </> : <>
               <Switch label="启用作弊" checked={state.cheats.enabled} onCheckedChange={enabled => { if (enabled !== state.cheats.enabled) toggleCheats(); }} seed="debug-cheats" />
-              {state.cheats.enabled && <MenuItem icon={healPaths} onClick={heal}>恢复领地</MenuItem>}
+              {state.cheats.enabled && <><MenuItem icon={healPaths} onClick={heal}>恢复领地</MenuItem><CheatActions state={state} dispatch={dispatch} /></>}
             </>}
-          </div></Tabs.Content>
-        </Tabs.Root>}
+          </div>}
+        </div>}
         {displayPage === "help" && page !== null && <div className="menu-page__detail menu-page__help"><Suspense fallback={<span role="status">正在加载手册…</span>}><HelpManual state={state} /></Suspense></div>}
       </div>
       <div className="menu-page__detail menu-page__agent" data-active={displayPage === "agent"} aria-hidden={displayPage !== "agent"} inert={displayPage !== "agent"}>

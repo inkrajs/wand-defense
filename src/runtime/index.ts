@@ -23,6 +23,7 @@ import { getRewardRefreshQuote, normalizeRewardRefresh } from "./rewardRefresh";
 import { grantCoinIncome } from "../content/economy";
 import { compileWand } from "../loadout";
 import { castSpell } from "../engine/effects";
+import { applyCatalogCheat, isCatalogCheatAction } from "./cheatCatalog";
 
 export interface RuntimeCheckpoint {
   checkpointVersion: 1;
@@ -297,7 +298,13 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
         return;
       case "cheat":
         if (!state.cheats.unlocked || !state.cheats.enabled) return "CHEATS_LOCKED";
-        if (command.action === "revive") {
+        if (isCatalogCheatAction(command.action)) {
+          const transition = applyCatalogCheat(state, command, content);
+          if (!transition.ok) return transition.code;
+          state = transition.state;
+          for (const event of transition.events) emit(event.type, event.data);
+        }
+        else if (command.action === "revive") {
           if (state.phase !== "defeat") return "REVIVE_REQUIRES_DEFEAT";
           const failedWave = state.wave;
           const manaCaps = state.characters.map(character => getCharacterStats(state, character.id, content)?.final.maxMana);

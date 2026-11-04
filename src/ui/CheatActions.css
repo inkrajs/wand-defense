@@ -1,0 +1,8 @@
+.cheat-actions { display: grid; gap: 4px; min-width: 0; }
+.cheat-actions__group { display: grid; grid-template-columns: minmax(3em, 1fr) auto; align-items: center; gap: 4px 12px; }
+.cheat-actions__divider { grid-column: 1 / -1; width: 100%; }
+.cheat-actions__buttons { display: flex; gap: 4px; }
+.cheat-actions__buttons button, .cheat-actions__character button { min-height: 44px; }
+.cheat-actions__buttons button, .cheat-actions__character > button { display: inline-flex; align-items: center; gap: 4px; }
+.cheat-actions__character { display: grid; grid-template-columns: auto minmax(100px, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }
+.cheat-actions__character [role="combobox"] { width: 100%; min-width: 0; }

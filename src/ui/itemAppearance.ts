@@ -4,6 +4,7 @@ import { gradeDefinitions } from "../content/grades";
 import { gearDefinitions } from "../content/gear";
 import { supplyDefinitions } from "../content/supplies";
 import { demoContent } from "../content/demo";
+import { getMagicPresentationIcon } from "./magicPresentationIcons";
 
 /** Structural mirror of Inkra's public appearance result, kept compatible with registry 0.15. */
 export type ItemAppearance = { fillColor?: string; outlineColor?: string };
@@ -19,7 +20,13 @@ export function getGameItemAppearance(item: ItemAppearanceSource): ItemAppearanc
         ? demoContent.arcana[item.definitionId]?.asset.color
         : undefined;
   const pigment = item.element ? elementAppearances[item.element].pigment : definedColor ?? neutralMagicPigment;
-  const fillColor = pigment;
+  const hasMagicArtwork = (item.kind === "spell" || item.kind === "arcana")
+    && item.definitionId && getMagicPresentationIcon(item.definitionId);
+  // Keep the element recognizable while letting the full-strength icon lead.
+  // Mixing with theme paper also preserves contrast on dark paper.
+  const fillColor = hasMagicArtwork
+    ? `color-mix(in srgb, ${pigment} 28%, var(--inkra-paper))`
+    : pigment;
   const outlineColor = item.grade ? gradeDefinitions[item.grade].color : undefined;
   return { fillColor, outlineColor };
 }

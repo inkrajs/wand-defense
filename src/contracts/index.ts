@@ -227,6 +227,8 @@ export type Command =
   | { id: Id; type: "unequipWand"; wandId: Id }
   | { id: Id; type: "unlockCheats" }
   | { id: Id; type: "setCheats"; enabled: boolean }
+  | { id: Id; type: "cheat"; action: "grantAllMagic" | "maxMagic" | "grantAllWands" | "maxWands" | "grantAllGear" | "maxGear" | "grantAllSupplies" | "maxSupplies" }
+  | { id: Id; type: "cheat"; action: "levelCharacter"; characterId: Id; levels?: number }
   | { id: Id; type: "cheat"; action: "grantWand" | "grantSpell" | "grantItem" | "grantGear" | "grantSupply"; definitionId?: Id; grade?: Grade; level?: number }
   | { id: Id; type: "cheat"; action: "heal" | "revive"; definitionId?: Id };
 export interface CommandResult {
