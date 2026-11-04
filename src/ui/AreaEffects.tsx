@@ -121,7 +121,7 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
       {Array.from({ length: 8 }, (_, index) => <MagicEffectArt resolution={resolution} key={`outer-${index}`} kind="rock" className="area-effect__spike" width={10} height={spikeHeight} style={{ "--area-spike-angle": `${index * 45}deg`, "--area-spike-offset": `${-radiusY * 0.56}px` } as CSSProperties} />)}
       {Array.from({ length: 6 }, (_, index) => <MagicEffectArt resolution={resolution} key={`inner-${index}`} kind="rock" className="area-effect__spike area-effect__spike--inner" width={7} height={innerSpikeHeight} style={{ "--area-spike-angle": `${index * 60 + 15}deg`, "--area-spike-offset": `${-radiusY * 0.32}px` } as CSSProperties} />)}
     </>}
-    {mode === "field" && details && <span className="area-effect__field-texture">
+    {mode === "field" && details && !(globalField && element === "lightning") && <span className="area-effect__field-texture">
       {Array.from({ length: globalField ? 13 : 7 }, (_, index) => {
         // Stable points inside the real area ellipse; never choose targets or infer hits.
         const angle = index * 2.399963229728653;

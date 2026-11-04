@@ -68,3 +68,32 @@ test("projectiles and impacts retain real coordinates at and beyond the field ed
   const [impact] = collectCastVisuals(state, 0);
   assert.deepEqual([impact.x, impact.y], [101, 92]);
 });
+
+test("storm flashes follow each real pulse contact, including moving and killed targets", () => {
+  const state = createInitialState();
+  state.phase = "battle"; state.wave = 1;
+  state.items["spark-1"].definitionId = "thunderstorm";
+  state.characters[0].manaRegen = 0;
+  state.entities = [{id:"moving",definitionId:"enemy",kind:"enemy",faction:"enemy",x:20,y:30,
+    hp:1000,maxHp:1000,damage:0,speed:0,range:0,cooldownMs:1000,attackRemainingMs:1000}];
+  const cast = stepBattle(state, 50, demoContent).state;
+  assert.deepEqual(collectCastVisuals(cast, state.nextEventSeq - 1), []);
+  const first = stepBattle(cast, 400, demoContent).state;
+  const [flash] = collectCastVisuals(first, cast.nextEventSeq - 1);
+  assert.deepEqual([flash.kind, flash.groundStrike, flash.x, flash.y], ["lightning", true, 20, 30]);
+  const moved = structuredClone(first);
+  const enemy = moved.entities.find(entity => entity.id === "moving")!;
+  enemy.x = 78; enemy.y = 60; enemy.hp = 1;
+  const second = stepBattle(moved, 400, demoContent).state;
+  assert.equal(second.entities.some(entity => entity.id === "moving"), false);
+  const [killingFlash] = collectCastVisuals(second, first.nextEventSeq - 1);
+  assert.deepEqual([killingFlash.groundStrike, killingFlash.x, killingFlash.y], [true, 78, 60]);
+  assert.deepEqual(collectCastVisuals(second, second.nextEventSeq - 1), []);
+});
+
+test("storm contact remains visible when armor absorbs it or accuracy misses", () => {
+  const state = createInitialState();
+  state.events = ["damage", "attackMiss"].map((type, index) => ({seq:index + 1,type,gameTimeMs:0,
+    data:{effect:"thunderstorm",sourceCharacterId:state.characters[0].id,amount:0,x:30 + index,y:40}}));
+  assert.deepEqual(collectCastVisuals(state, 0).map(flash => [flash.groundStrike, flash.x]), [[true,30],[true,31]]);
+});

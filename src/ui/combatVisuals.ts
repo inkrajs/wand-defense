@@ -9,10 +9,11 @@ const spellVisuals: Record<string, VisualKind> = {
   "tidal-orb": "water", "stone-spike": "rock", "iron-disc": "disc", "gale-burst": "wind",
   "arc-chain": "lightning", "light-arrow": "light", "dark-orb": "shadow", ward: "shield",
   "spark-hop": "lightning", "thunder-chain": "lightning", "storm-net": "lightning",
+  thunderstorm: "lightning",
   "solar-ray": "light", "ember-ray": "fireball", "void-ray": "shadow",
 };
 export interface CastVisual {
-  seq: number; kind: VisualKind; x: number; y: number; characterIndex: number; fizzled?: boolean;
+  seq: number; kind: VisualKind; x: number; y: number; characterIndex: number; fizzled?: boolean; groundStrike?: boolean;
 }
 export function projectileVisual(entity: CombatEntity) {
   const kind = spellVisuals[entity.definitionId];
@@ -33,16 +34,18 @@ export function projectileVisual(entity: CombatEntity) {
 /** Use recorded hit coordinates even when the target died in this same tick. */
 export function collectCastVisuals(state: GameState, afterSeq: number): CastVisual[] {
   return state.events.flatMap(event => {
-    if (event.seq <= afterSeq || !["damage","heal","shieldRestored","projectileExpired"].includes(event.type)) return [];
+    if (event.seq <= afterSeq || !["damage","heal","shieldRestored","projectileExpired","attackMiss"].includes(event.type)) return [];
     const data = event.data, fizzled = event.type === "projectileExpired";
     const definitionId = data.effect ?? state.items[String(data.sourceItemId)]?.definitionId;
     const kind = spellVisuals[String(definitionId)];
+    const groundStrike = definitionId === "thunderstorm" && (event.type === "damage" || event.type === "attackMiss");
+    if (event.type === "attackMiss" && !groundStrike) return [];
     const characterIndex = state.characters.findIndex(character => character.id === data.sourceCharacterId);
-    if (!kind || characterIndex < 0 || (!fizzled && (typeof data.amount !== "number" || data.amount <= 0))) return [];
+    if (!kind || characterIndex < 0 || (!groundStrike && !fizzled && (typeof data.amount !== "number" || data.amount <= 0))) return [];
     const target = state.entities.find(entity => entity.id === data.targetId);
     const x = typeof data.x === "number" ? data.x : target?.x;
     const y = typeof data.y === "number" ? data.y : target?.y;
     if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y)) return [];
-    return [{seq:event.seq,kind,x,y,characterIndex,fizzled}];
+    return [{seq:event.seq,kind,x,y,characterIndex,fizzled,...(groundStrike ? {groundStrike:true} : {})}];
   });
 }

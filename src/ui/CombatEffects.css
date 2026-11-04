@@ -37,3 +37,10 @@ html[data-game-reduce-motion="true"] .combat-projectile { transition: none; }
 html[data-game-reduce-motion="true"] .combat-cast__tail { display: none; }
 html[data-game-reduce-motion="true"] .battlefield .combat-effects .combat-cast__impact { animation: magic-still 200ms linear both; animation-duration: 200ms !important; }
 @media (forced-colors: active) { .combat-cast, .combat-projectile { --cast-color: Highlight; } }
+
+/* A storm pulse flashes down at the recorded contact point, never at fixed sky marks. */
+.combat-cast__strike { position: absolute; left: calc(var(--cast-x) - 20px); top: calc(var(--cast-y) - 96px); width: 40px; height: 96px; animation: storm-strike var(--cast-duration) linear both; }
+.combat-cast__strike-art { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+@keyframes storm-strike { 0%, 30% { opacity: 1; } 45% { opacity: .35; } 60% { opacity: .85; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .combat-cast__strike { animation-name: magic-still; } }
+html[data-game-reduce-motion="true"] .combat-cast__strike { animation-name: magic-still; }
