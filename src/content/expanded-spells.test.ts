@@ -47,8 +47,8 @@ function enemy(id: string, x: number, y: number): CombatEntity {
     hp: 500, maxHp: 500, damage: 0, speed: 0, range: 1, cooldownMs: 1000, attackRemainingMs: 1000 };
 }
 
-test("the expanded spell catalog has 48 spells and every footprint fits a 3x3 wand", () => {
-  assert.equal(Object.keys(content.spells).length, 48);
+test("the expanded spell catalog has 49 spells and every footprint fits a 3x3 wand", () => {
+  assert.equal(Object.keys(content.spells).length, 49);
   for (const id of expandedSpellIds) {
     const spell = content.spells[id];
     assert.ok(spell, `missing ${id}`);
@@ -67,8 +67,8 @@ test("the expanded spell catalog has 48 spells and every footprint fits a 3x3 wa
   }
 });
 
-test("the fifteen additional spells use the configured legacy mechanics and shared construct contract", () => {
-  assert.equal(Object.keys(expandedSpellDefinitions).length, 15);
+test("the sixteen additional spells use the configured legacy mechanics and shared construct contract", () => {
+  assert.equal(Object.keys(expandedSpellDefinitions).length, 16);
   for (const spell of Object.values(expandedSpellDefinitions)) {
     assert.equal(spell.level, 1);
     assert.equal(spell.grade, "common");

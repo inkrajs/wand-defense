@@ -109,4 +109,11 @@ export const expandedSpellDefinitions: Record<string, SpellDefinition> = {
     construct: { hp: 90, durationMs: 20000, attackIntervalMs: 1600, maxAlive: 2, attackMode: "contact", behavior: "heal", coinCost: 10, bodySize: "normal", placement: "target" },
     level: 1, grade: "common",
   },
+  meteor: {
+    id: "meteor", name: "陨石术", element: "earth", fusionElements: ["fire", "earth"], shape: square(2),
+    asset: asset("meteor", "陨石术", "#D88756"), effect: "area",
+    power: 48, manaCost: 22, cooldownMs: 3000, range: 34,
+    area: { mode: "strike", radius: 7, delayMs: 650, durationMs: 350, maxTargets: 8 },
+    onHit: { burn: { powerRatio: 0.12, durationMs: 1800, tickMs: 600 } }, level: 1, grade: "common",
+  },
 };

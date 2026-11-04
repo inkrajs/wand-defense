@@ -1,5 +1,7 @@
 import type { ContentCatalog, Element, GameState, RecipeDefinition } from '../contracts';
 
+export type SkillTreeFilter = Element | 'all';
+
 export interface SkillTreeNode {
   id: string;
   definitionId?: string;
@@ -14,7 +16,7 @@ export interface SkillTreeNode {
 export interface SkillTreeEdge { id: string; source: string; target: string }
 
 /** Only discovered recipes expose ancestry. Unknown magic receives an opaque graph identity. */
-export function buildSkillTree(content: ContentCatalog, knowledge: GameState['knowledge'], element: Element): {nodes: SkillTreeNode[]; edges: SkillTreeEdge[]} {
+export function buildSkillTree(content: ContentCatalog, knowledge: GameState['knowledge'], element: SkillTreeFilter): {nodes: SkillTreeNode[]; edges: SkillTreeEdge[]} {
   const spellKnowledge = new Set(knowledge.spellIds), arcanaKnowledge = new Set(knowledge.arcanaIds);
   const recipeKnowledge = new Set(knowledge.recipeIds);
   const definition = (id: string) => Object.hasOwn(content.spells, id)
@@ -26,13 +28,16 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
   const producers = new Map<string, RecipeDefinition[]>();
   const seeds = new Set<string>();
   for (const id of knowledge.spellIds) {
-    if (Object.hasOwn(content.spells, id) && content.spells[id].element === element) seeds.add(id);
+    if (Object.hasOwn(content.spells, id) && (element === 'all' || (content.spells[id].element === element || content.spells[id].fusionElements?.includes(element)))) seeds.add(id);
+  }
+  if (element === 'all') {
+    for (const id of knowledge.arcanaIds) if (Object.hasOwn(content.arcana, id)) seeds.add(id);
   }
   for (const recipe of recipes) {
     if (!recipeKnowledge.has(recipe.id)) continue;
     const list = producers.get(recipe.output) ?? [];
     list.push(recipe); producers.set(recipe.output, list);
-    if (Object.hasOwn(content.spells, recipe.output) && content.spells[recipe.output].element === element) seeds.add(recipe.output);
+    if (element === 'all' || (Object.hasOwn(content.spells, recipe.output) && (content.spells[recipe.output].element === element || content.spells[recipe.output].fusionElements?.includes(element)))) seeds.add(recipe.output);
   }
 
   const nodes = new Map<string, SkillTreeNode>();

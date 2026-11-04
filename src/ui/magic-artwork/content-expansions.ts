@@ -5,6 +5,10 @@ const wash = (d: string) => ({ d, mode: "wash" as const });
 
 /** Original content art authored in the same 24-unit-per-cell grid as each definition. */
 export const contentExpansionArtwork: MagicArtworkCatalog = {
+  meteor: {
+    paths: [stroke("M29 20c9-2 15 5 13 13-2 9-10 12-17 8-8-4-7-15 4-21Z"), stroke("M5 5 24 22M14 4l19 15M4 15l15 17M27 25l7 1 3 7-6 5-6-5Z")],
+    filledPaths: [wash("M29 22c7-2 13 4 11 11-2 7-9 10-14 6-6-3-6-11 3-17Z"), wash("M7 7l17 13-4 5Z")],
+  },
   "piercing-gale": {
     paths: [stroke("M4 12c15-2 28-2 39 0-11 2-24 2-39 0Zm25-5 7 5-7 5m-20-9 9 4-9 4")],
     filledPaths: [wash("M5 12c13-2 27-2 40 0-13 2-27 2-40 0Z"), wash("M29 7l9 5-9 5 3-5Z")],

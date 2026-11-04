@@ -3,7 +3,7 @@ import type { CombatEntity, GameState } from "../contracts";
 export type VisualKind = "ember" | "fireball" | "needle" | "water" | "lightning" | "wind" | "rock" | "thorn" | "disc" | "light" | "shadow" | "heal" | "shield";
 // Presentation registry: replace a visual here without changing a spell's rules.
 const spellVisuals: Record<string, VisualKind> = {
-  spark: "ember", fireball: "fireball", "metal-needle": "needle", regrowth: "heal",
+  meteor: "rock", spark: "ember", fireball: "fireball", "metal-needle": "needle", regrowth: "heal",
   "water-bolt": "water", "lightning-bolt": "lightning", "wind-blade": "wind", "rock-shot": "rock",
   "flame-lance": "ember", "cinder-burst": "fireball", "thorn-shot": "thorn", renewal: "heal",
   "tidal-orb": "water", "stone-spike": "rock", "iron-disc": "disc", "gale-burst": "wind",

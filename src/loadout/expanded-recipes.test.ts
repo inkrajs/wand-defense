@@ -10,6 +10,7 @@ const catalog={...demoContent,spells:{...demoContent.spells,...fieldSpellDefinit
 for(const [recipeId,secondY,mode] of [
   ['thunder-strike-recipe',2,'strike'],
   ['earth-spikes-recipe',1,'eruption'],
+  ['meteor-recipe',1,'strike'],
 ] as const) test(`real recipe ${recipeId} consumes different definitions atomically and creates a usable area spell`,()=>{
   const recipe=magicRecipeDefinitions.find(recipe=>recipe.id===recipeId)!;
   assert.ok(recipe);

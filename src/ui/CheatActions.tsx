@@ -27,6 +27,7 @@ export function CheatActions({ state, dispatch }: { state: GameState; dispatch: 
         <Button size="sm" variant="ghost" aria-label={`${label}提升至至少${CHEAT_TARGET_LEVEL}级，保留更高等级`} title={`提升至至少 Lv.${CHEAT_TARGET_LEVEL}，保留更高等级`} onClick={() => dispatch({ id: commandId(), type: "cheat", action: max })}><PencilIcon paths={level} sourceSize={24} size={24} decorative />满级</Button>
       </div>
     </div>)}
+    <Button size="sm" variant="ghost" aria-label="解锁全部技能树" onClick={() => dispatch({ id: commandId(), type: "cheat", action: "revealMagic" })}><PencilIcon paths={add} sourceSize={24} size={24} decorative />解锁技能树</Button>
     <PencilLine className="cheat-actions__divider" seed="cheat-divider-character" aria-hidden="true" />
     <div className="cheat-actions__character">
       <PencilText as="label" htmlFor="cheat-character">角色升级</PencilText>

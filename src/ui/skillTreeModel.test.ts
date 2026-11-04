@@ -72,3 +72,64 @@ test('cyclic known recipes terminate, deduplicate nodes and edges, and remain de
   assert.deepEqual(buildSkillTree(content, known, 'fire'), tree);
   assert.deepEqual({content, known}, before);
 });
+
+test('all includes every known magic and discovered valid recipe, including an unknown arcana output', () => {
+  const content: ContentCatalog = {spells: {
+    fire: spell('fire', 'fire'), earth: spell('earth', 'earth'), dark: spell('dark', 'dark'),
+    'secret-water': {...spell('secret-water', 'water'), name: '水秘术'},
+    'secret-fire': {...spell('secret-fire', 'fire'), name: '火秘术'},
+    'unreachable-secret': {...spell('unreachable-secret', 'lightning'), name: '不可见秘术'},
+  }, arcana: {
+    amplify: structuredClone(demoContent.arcana.amplify), efficiency: structuredClone(demoContent.arcana.efficiency),
+    'secret-arcana': {...demoContent.arcana.amplify, id: 'secret-arcana', name: '秘密奥术'},
+  }, sequences: {}, recipes: [
+    recipe('mixed', ['fire', 'earth'], 'secret-fire'),
+    recipe('cross', ['secret-water', 'amplify'], 'earth'),
+    recipe('arcana-output', ['dark', 'efficiency'], 'secret-arcana'),
+    recipe('undiscovered', ['fire'], 'unreachable-secret'),
+    recipe('empty', [], 'unreachable-secret'),
+    recipe('dangling', ['missing'], 'unreachable-secret'),
+  ]};
+  const known = knowledge(['fire', 'earth', 'dark', 'stale'], ['amplify', 'efficiency', 'stale'], ['mixed', 'cross', 'arcana-output', 'empty', 'dangling']);
+  const before = structuredClone({content, known});
+  const tree = buildSkillTree(content, known, 'all');
+  assert.equal(tree.nodes.length, 11);
+  assert.deepEqual(tree.nodes.filter(node => node.kind === 'recipe').map(node => node.definitionId).sort(), ['arcana-output', 'cross', 'mixed']);
+  for (const id of ['fire', 'earth', 'dark', 'amplify', 'efficiency']) assert.ok(tree.nodes.some(node => node.known && node.definitionId === id), id);
+  const anonymous = tree.nodes.filter(node => !node.known);
+  assert.equal(anonymous.length, 3);
+  assert.ok(anonymous.every(node => node.name === '未知' && node.definitionId === undefined && node.id.startsWith('unknown:')));
+  const arcanaRecipe = tree.nodes.find(node => node.definitionId === 'arcana-output')!;
+  assert.equal(arcanaRecipe.name, '合成');
+  assert.equal(tree.nodes.find(node => node.id === arcanaRecipe.output)!.kind, 'arcana');
+  for (const secret of ['水秘术', '火秘术', '秘密奥术', '不可见秘术', 'secret-water', 'secret-fire', 'secret-arcana', 'unreachable-secret']) assert.equal(JSON.stringify(tree).includes(secret), false);
+  const fire = buildSkillTree(content, known, 'fire');
+  assert.ok(fire.nodes.some(node => node.definitionId === 'earth'));
+  assert.ok(fire.nodes.some(node => node.definitionId === 'cross'));
+  assert.equal(fire.nodes.some(node => node.definitionId === 'dark' || node.definitionId === 'efficiency'), false);
+  assert.deepEqual({content, known}, before);
+});
+
+test('all retains isolated known spells and arcana across the real catalog without revealing undiscovered recipes', () => {
+  const known = knowledge(Object.keys(demoContent.spells), Object.keys(demoContent.arcana));
+  const tree = buildSkillTree(demoContent, known, 'all');
+  assert.equal(tree.nodes.length, known.spellIds.length + known.arcanaIds.length);
+  assert.equal(tree.edges.length, 0);
+  assert.ok(tree.nodes.every(node => node.known && node.kind !== 'recipe'));
+  assert.equal(new Set(tree.nodes.map(node => node.id)).size, tree.nodes.length);
+  assert.deepEqual(buildSkillTree(demoContent, knowledge(), 'all'), {nodes: [], edges: []});
+});
+
+
+test('fire and earth filters both show the meteor fusion and its cross-element ingredients', () => {
+  const ids = ['spark', 'fireball', 'rock-shot', 'meteor'];
+  const known = knowledge(ids, ['amplify'], ['fireball-recipe', 'meteor-recipe']);
+  for (const filter of ['all', 'fire', 'earth'] as const) {
+    const tree = buildSkillTree(demoContent, known, filter);
+    const byId = (id: string) => tree.nodes.find(node => node.definitionId === id)!;
+    for (const id of ['fireball', 'rock-shot', 'meteor', 'meteor-recipe']) assert.ok(byId(id), `${filter}: ${id}`);
+    assert.ok(tree.edges.some(edge => edge.source === byId('fireball').id && edge.target === byId('meteor-recipe').id));
+    assert.ok(tree.edges.some(edge => edge.source === byId('rock-shot').id && edge.target === byId('meteor-recipe').id));
+    assert.ok(tree.edges.some(edge => edge.source === byId('meteor-recipe').id && edge.target === byId('meteor').id));
+  }
+});

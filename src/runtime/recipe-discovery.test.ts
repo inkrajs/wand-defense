@@ -21,3 +21,29 @@ test("discovering all recipe inputs reveals the route while an unknown output st
   const restored=createGameRuntime(demoContent,runtime.checkpoint());
   assert.deepEqual(restored.getState().knowledge,known.knowledge);
 });
+
+
+test("revealing the tree is cheat-gated, persists, and does not grant inventory or change the run", () => {
+  const runtime = createGameRuntime();
+  const command = {id:"reveal",type:"cheat",action:"revealMagic"} as const;
+  const before = runtime.getState();
+  assert.equal(runtime.dispatch(command).status, "rejected");
+  assert.deepEqual(runtime.getState(), before);
+  runtime.dispatch({id:"unlock",type:"unlockCheats"});
+  runtime.dispatch({id:"enable",type:"setCheats",enabled:true});
+  const original = runtime.getState();
+  assert.equal(runtime.dispatch({...command,id:"reveal-allowed"}).status,"executed");
+  const after = runtime.getState();
+  assert.deepEqual(new Set(after.knowledge.spellIds),new Set(Object.keys(demoContent.spells)));
+  assert.deepEqual(new Set(after.knowledge.arcanaIds),new Set(Object.keys(demoContent.arcana)));
+  assert.ok(after.knowledge.recipeIds.includes("meteor-recipe"));
+  assert.deepEqual(after.items,original.items);
+  assert.deepEqual(after.backpack,original.backpack);
+  assert.deepEqual(after.wands,original.wands);
+  assert.deepEqual(after.characters,original.characters);
+  assert.equal(after.wave,original.wave);
+  assert.equal(after.coins,original.coins);
+  const restored = createGameRuntime(demoContent,runtime.checkpoint());
+  assert.deepEqual(restored.getState().knowledge,after.knowledge);
+  runtime.dispose();restored.dispose();
+});

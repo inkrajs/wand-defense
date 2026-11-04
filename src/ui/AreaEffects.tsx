@@ -76,6 +76,7 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
   const { entity, phase, progress, elapsedMs, windup, radiusX, radiusY, x, y } = visual;
   const mode = entity.area?.mode;
   if (mode !== "strike" && mode !== "ring" && mode !== "eruption" && mode !== "field" && mode !== "vortex") return null;
+  const meteor = entity.definitionId === "meteor";
   const persistent = mode === "field" || mode === "vortex";
   const element = entity.element ?? (persistent ? demoContent.spells[entity.definitionId]?.element : undefined) ?? "neutral";
   const globalField = mode === "field" && entity.area?.anchor === "field";
@@ -114,7 +115,7 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
     {!globalField && <MagicEffectArt resolution={resolution} className="area-effect__ground" kind="field" width={radiusX * 2} height={radiusY * 2} />}
     {mode === "ring" && <MagicEffectArt resolution={resolution} className="area-effect__ring" kind="ring" width={radiusX * 2} height={radiusY * 2} />}
     {mode === "strike" && <>
-      <MagicEffectArt resolution={resolution} className="area-effect__marker" kind="lightning" width={8} height={Math.max(34, radiusY)} />
+      <MagicEffectArt resolution={resolution} className={`area-effect__marker${meteor ? " area-effect__meteor" : ""}`} kind={meteor ? "rock" : "lightning"} width={meteor ? 26 : 8} height={meteor ? 30 : Math.max(34, radiusY)} />
       <MagicEffectArt resolution={resolution} className="area-effect__impact" kind="impact" variant="impact" width={radiusX * 2} height={radiusY * 2} />
     </>}
     {mode === "eruption" && details && <>

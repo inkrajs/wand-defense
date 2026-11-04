@@ -54,6 +54,7 @@ export function compileWand(
       range: definition.range * final.rangeMultiplier + final.range,
       cooldownMs: definition.cooldownMs * final.cooldownMultiplier,
       shape: definition.shape.map(cell => ({ ...cell })),
+      ...(definition.fusionElements ? { fusionElements: [...definition.fusionElements] } : {}),
       asset: { ...definition.asset },
       ...(definition.impact ? { impact: { ...definition.impact } } : {}),
       ...(definition.beam ? { beam: { ...definition.beam } } : {}),
@@ -111,8 +112,13 @@ export function compileWand(
     }
     applyAdvancedModifiers(spell, modifiers.filter(modifier => areAdjacent(cells, modifier.cells)));
     spell.copies=Math.min(64,spell.burstCount*spell.splitCount);
-    const elementBonus = final.elementBonuses[spell.element] ?? 0;
-    const multiplier = Number.isFinite(elementBonus) ? Math.max(0, 1 + elementBonus) : 1;
+    // Fused spells share the elemental bonus evenly, without counting an element twice.
+    const elements = [...new Set([spell.element, ...(definition.fusionElements ?? [])])];
+    const elementBonus = elements.reduce((sum, element) => {
+      const bonus = final.elementBonuses[element] ?? 0;
+      return sum + (Number.isFinite(bonus) ? bonus : 0);
+    }, 0) / elements.length;
+    const multiplier = Math.max(0, 1 + elementBonus);
     spell.power *= multiplier;
     if ((spell.effect === 'summon' || spell.effect === 'building') && spell.hp !== undefined) {
       spell.hp *= multiplier * gradeStrengthRatio(item.grade, definition.grade);

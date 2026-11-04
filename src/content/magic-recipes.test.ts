@@ -7,10 +7,10 @@ import { baseMagicDefinitionIds, magicRecipeDefinitions } from "./magicRecipes";
 
 const spells = { ...demoContent.spells, ...fieldSpellDefinitions, ...expandedSpellDefinitions };
 
-test("the 39 recipes have unique IDs and outputs, with fireball preserved first", () => {
-  assert.equal(magicRecipeDefinitions.length, 39);
-  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.id)).size, 39);
-  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.output)).size, 39);
+test("the 40 recipes have unique IDs and outputs, with fireball preserved first", () => {
+  assert.equal(magicRecipeDefinitions.length, 40);
+  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.id)).size, 40);
+  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.output)).size, 40);
   assert.deepEqual(magicRecipeDefinitions[0], {
     id: "fireball-recipe", name: "火球", inputs: ["spark", "amplify"], output: "fireball", requireAdjacency: true,
   });
@@ -25,7 +25,7 @@ test("the 39 recipes have unique IDs and outputs, with fireball preserved first"
   }
 });
 
-test("nine base spells and recipe outputs cover the 48 spell catalog with defined materials", () => {
+test("nine base spells and recipe outputs cover the 49 spell catalog with defined materials", () => {
   assert.equal(baseMagicDefinitionIds.length, 9);
   assert.equal(new Set(baseMagicDefinitionIds).size, 9);
   const spellIds = Object.keys(spells);
@@ -34,8 +34,8 @@ test("nine base spells and recipe outputs cover the 48 spell catalog with define
   const outputIds = magicRecipeDefinitions.map(recipe => recipe.output);
   const allAcquisitionIds = [...baseMagicDefinitionIds, ...outputIds];
 
-  assert.equal(spellIds.length, 48);
-  assert.equal(new Set(allAcquisitionIds).size, 48);
+  assert.equal(spellIds.length, 49);
+  assert.equal(new Set(allAcquisitionIds).size, 49);
   assert.deepEqual(new Set(allAcquisitionIds), new Set(spellIds));
   for (const id of baseMagicDefinitionIds) assert.ok(Object.hasOwn(spells, id), `base spell ${id} exists`);
   for (const recipe of magicRecipeDefinitions) {
@@ -66,5 +66,5 @@ test("recipe ingredient dependencies form a directed acyclic graph", () => {
   }
 
   for (const output of recipeByOutput.keys()) visit(output);
-  assert.equal(visited.size, 39);
+  assert.equal(visited.size, 40);
 });

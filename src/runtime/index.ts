@@ -306,6 +306,11 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
           state = transition.state;
           for (const event of transition.events) emit(event.type, event.data);
         }
+        else if (command.action === "revealMagic") {
+          state.knowledge.spellIds = [...new Set([...state.knowledge.spellIds, ...Object.keys(content.spells)])];
+          state.knowledge.arcanaIds = [...new Set([...state.knowledge.arcanaIds, ...Object.keys(content.arcana)])];
+          state.knowledge.recipeIds = discoverAvailableRecipes(state.knowledge, content);
+        }
         else if (command.action === "revive") {
           if (state.phase !== "defeat") return "REVIVE_REQUIRES_DEFEAT";
           const failedWave = state.wave;

@@ -283,3 +283,21 @@ test("area budgets cap casts, targets, radius, duration, alive count, and lifeti
   assert.equal(ring.range, AREA_LIMITS.maxRadius);
   assert.equal(ring.area!.radius, AREA_LIMITS.maxRadius);
 });
+
+test("meteor falls on the targeted area after its delay and burns nearby enemies", () => {
+  const state = battle([enemy("primary", 50, 60), enemy("nearby", 54, 60), enemy("distant", 70, 60)]);
+  state.items["spark-1"].definitionId = "meteor";
+  const meteor = demoContent.spells.meteor;
+  const { emit } = capture();
+  assert.equal(castSpell(state, "character-1", {itemId:"spark-1",definitionId:"meteor",power:meteor.power,
+    manaCost:meteor.manaCost,cooldownMs:meteor.cooldownMs,range:meteor.range,casts:1},demoContent,emit),true);
+  advanceAreaEffects(state,649,emit);
+  assert.equal(state.entities.find(entity=>entity.id === "primary")!.hp,100);
+  advanceAreaEffects(state,1,emit);
+  for(const id of ["primary","nearby"]) {
+    const target=state.entities.find(entity=>entity.id === id)!;
+    assert.equal(target.hp,52);
+    assert.equal(target.status?.burns?.length,1);
+  }
+  assert.equal(state.entities.find(entity=>entity.id === "distant")!.hp,100);
+});

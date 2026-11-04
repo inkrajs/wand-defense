@@ -43,6 +43,8 @@ export interface ConstructSpec {
 }
 export interface SpellDefinition extends Growth {
   id: Id; name: string; element: Element; shape: Cell[]; asset: AssetRef;
+  /** Fusion elements contribute equally to elemental power bonuses. */
+  fusionElements?: Element[];
   effect: EffectType; power: number; manaCost: number; cooldownMs: number;
   range: number; durationMs?: number; hp?: number; speed?: number;
   summonBehavior?: "attack" | "heal";
@@ -230,7 +232,7 @@ export type Command =
   | { id: Id; type: "cheat"; action: "grantAllMagic" | "maxMagic" | "grantAllWands" | "maxWands" | "grantAllGear" | "maxGear" | "grantAllSupplies" | "maxSupplies" }
   | { id: Id; type: "cheat"; action: "levelCharacter"; characterId: Id; levels?: number }
   | { id: Id; type: "cheat"; action: "grantWand" | "grantSpell" | "grantItem" | "grantGear" | "grantSupply"; definitionId?: Id; grade?: Grade; level?: number }
-  | { id: Id; type: "cheat"; action: "heal" | "revive"; definitionId?: Id };
+  | { id: Id; type: "cheat"; action: "heal" | "revive" | "revealMagic"; definitionId?: Id };
 export interface CommandResult {
   commandId: Id; status: "accepted" | "executed" | "rejected";
   revision: number; code?: string; message?: string;

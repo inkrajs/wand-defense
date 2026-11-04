@@ -29,8 +29,8 @@ function description(definitionId: string, content: ContentCatalog = contentWith
 
 test("every spell and arcana in the current catalog receives a specific non-generic description", () => {
   const ids = [...Object.keys(contentWithFieldSpells.spells), ...Object.keys(contentWithFieldSpells.arcana)];
-  assert.equal(Object.keys(contentWithFieldSpells.spells).length, 48);
-  assert.equal(ids.length, 48 + Object.keys(contentWithFieldSpells.arcana).length);
+  assert.equal(Object.keys(contentWithFieldSpells.spells).length, 49);
+  assert.equal(ids.length, 49 + Object.keys(contentWithFieldSpells.arcana).length);
   const descriptions = ids.map(id => description(id));
   assert.ok(descriptions.every(value => value.length > 0 && value.length <= 75 && value !== "通用旧说明"));
   assert.ok(descriptions.every(value => !/按配置|不承诺|不治疗角色|当前效果|独特魔法光泽/.test(value)));

@@ -146,12 +146,28 @@ test('compiled spell clones impact and beam data and gives each spell an indepen
   const catalog = structuredClone(content);
   catalog.spells.spark.impact = { type: 'pierce', maxTargets: 2, falloff: 0.5 };
   catalog.spells.spark.beam = { width: 2, durationMs: 500, tickMs: 100, maxTargets: 3 };
+  catalog.spells.spark.fusionElements = ['fire', 'earth'];
   const before = structuredClone(catalog);
   const spells = compileWand(state, 'wand-1', catalog)!.spells;
   assert.notStrictEqual(spells[0].attackRoll, spells[1].attackRoll);
   spells[0].attackRoll.accuracy = 0;
   spells[0].impact!.maxTargets = 9;
   spells[0].beam!.width = 9;
+  spells[0].fusionElements!.push('water');
+  assert.deepEqual(spells[1].fusionElements, ['fire', 'earth']);
   assert.equal(spells[1].attackRoll.accuracy, 1);
   assert.deepEqual(catalog, before);
+});
+
+
+test('a fusion spell averages its participating element bonuses without counting duplicates', () => {
+  const state = createFixtureState();
+  state.characters[0].baseStats!.elementBonuses = {fire: 0.1, earth: 0.3};
+  const catalog = structuredClone(content);
+  catalog.spells.spark.fusionElements = ['fire', 'earth', 'fire'];
+  // Fire receives its normal sequence bonus: (1.1 * 1.1 - 1) = 0.21.
+  const fused = compileWand(state, 'wand-1', catalog)!.spells[0];
+  assert.ok(Math.abs(fused.power - 10 * (1 + (0.21 + 0.3) / 2)) < 1e-9);
+  delete catalog.spells.spark.fusionElements;
+  assert.ok(Math.abs(compileWand(state, 'wand-1', catalog)!.spells[0].power - 12.1) < 1e-9);
 });

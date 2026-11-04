@@ -44,3 +44,6 @@ html[data-game-reduce-motion="true"] .area-effect__spike { transform: translate(
 html[data-game-reduce-motion="true"] .area-effect__swirl { transform: rotate(0deg) !important; opacity: .65; }
 html[data-game-reduce-motion="true"] .area-effect__mote { opacity: .65; }
 @media (forced-colors: active) { .area-effect { color: Highlight; } }
+
+.area-effect__meteor { left: -13px; transform: rotate(-25deg); }
+.area-effect[data-area-phase="active"] .area-effect__meteor { opacity: 0; }

@@ -16,6 +16,7 @@ export const baseMagicDefinitionIds: readonly string[] = Object.freeze([
 /** Adjacency-based recipes that connect the nine base spells to every other spell. */
 export const magicRecipeDefinitions: RecipeDefinition[] = [
   { id: "fireball-recipe", name: "火球", inputs: ["spark", "amplify"], output: "fireball", requireAdjacency: true },
+  { id: "meteor-recipe", name: "陨石术", inputs: ["fireball", "rock-shot"], output: "meteor", requireAdjacency: true },
   { id: "flame-lance-recipe", name: "炎矛", inputs: ["fireball", "reach"], output: "flame-lance", requireAdjacency: true },
   { id: "cinder-burst-recipe", name: "熔爆", inputs: ["fireball", "area"], output: "cinder-burst", requireAdjacency: true },
   { id: "thorn-shot-recipe", name: "荆刺", inputs: ["regrowth", "metal-needle"], output: "thorn-shot", requireAdjacency: true },
