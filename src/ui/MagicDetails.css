@@ -1,0 +1,18 @@
+.magic-details { width: min(420px, 100%); max-height: 100%; margin-inline: auto; overflow: auto; cursor: pointer; }
+.magic-details:focus-visible { outline: 2px solid var(--inkra-focus); outline-offset: -2px; }
+.magic-details__content { width: 100%; }
+.magic-details__body { display: grid; justify-items: center; gap: 12px; padding: 20px; color: var(--inkra-ink); }
+.magic-details__icon { display: grid; place-items: center; width: 72px; height: 72px; }
+.magic-details__icon img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.magic-details__name, .magic-details__description, .magic-details__missing { margin: 0; }
+.magic-details__name { text-align: center; font-size: var(--inkra-text-xl, 20px); font-weight: 400; }
+.magic-details__description { width: 100%; line-height: 1.5; }
+.magic-details__stats { display: grid; gap: 8px; width: 100%; margin: 0; }
+.magic-details__stats > div { display: flex; justify-content: space-between; gap: 12px; }
+.magic-details__stats dt { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--inkra-ink-muted); }
+.magic-details__stats dd { margin: 0; text-align: end; }
+.magic-details__missing { padding: 20px; }
+
+/* Keep the feathered paper inside its scroll clip; only the body owns spacing. */
+.magic-details .panel-backdrop { padding: 0; }
+.magic-details .panel-backdrop__wash { inset: 0; border-radius: 40px; }

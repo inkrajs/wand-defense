@@ -21,7 +21,7 @@
 .character-page__tabs .inkra-tabs__divider[data-orientation="horizontal"] { top: -8px; }
 .character-page__tabs .inkra-tabs__label { display: none; }
 .character-page__panel { grid-column: 1; grid-row: 1; min-width: 0; }
-.character-page__equipment-panel { display: grid; place-items: center; }
+.character-page__equipment-panel { display: grid; place-items: center; container: character-equipment / inline-size; }
 .character-page__overview { display: grid; gap: var(--inkra-space-2); align-content: center; }
 .character-page__details { container-name: character-details; container-type: inline-size; }
 @container character-details (min-width: 560px) {
@@ -64,6 +64,9 @@
 @media (max-width: 760px) {
   .character-page__layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .character-page__details > .inkra-tabs { grid-template-columns: minmax(0, 1fr) 44px; gap: 12px; }
-  .character-page__gear-grid { grid-template-columns: 48px minmax(80px, 104px) 48px; grid-template-rows: 48px 48px 48px; gap: var(--inkra-space-1); }
-  .character-page__gear-slot { width: 48px; height: 48px; }
 }
+
+/* Enlarge the entire loadout together, including the artwork and live drop targets. */
+@container character-equipment (min-width: 320px) { .character-page__gear-grid { zoom: 1.25; } }
+@container character-equipment (min-width: 400px) { .character-page__gear-grid { zoom: 1.6; } }
+@container character-equipment (min-width: 500px) { .character-page__gear-grid { zoom: 1.8; } }

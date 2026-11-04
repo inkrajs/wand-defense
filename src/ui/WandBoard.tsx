@@ -11,10 +11,11 @@ import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresenta
 import { enrichMagicReward } from "../content/magicDescriptions";
 import { demoContent } from "../content/demo";
 import "./WandBoard.css";
+import {useMagicInspectGesture} from "./useMagicInspectGesture";
 import {fitWandSlots} from "./wandSizing";
 import {FittedWand} from "./FittedWand";
 
-type Props = { flashes: CastFlashLookup; activeCharacterId: string; state: GameState; dispatch: (command: Command) => CommandResult; onHeightChange: (height: number) => void };
+type Props = { flashes: CastFlashLookup; activeCharacterId: string; state: GameState; dispatch: (command: Command) => CommandResult; onHeightChange: (height: number) => void; onInspectMagic?: (itemId:string)=>void };
 type BoardItem = Extract<DockItem, { kind: "spell" | "arcana" }>;
 type ComposedGridRootProps = InventoryGridProps<BoardItem> & {
   children: ReactNode;
@@ -38,8 +39,9 @@ function MagicItemTooltip({ label, children }: { label: string; children: ReactN
   </Tooltip.Root></Tooltip.Provider>;
 }
 
-export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeightChange }: Props) {
+export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeightChange, onInspectMagic }: Props) {
   const boardRef = useRef<HTMLDivElement>(null);
+  const inspectHandlers=useMagicInspectGesture(state,onInspectMagic);
   const [availableWidth,setAvailableWidth]=useState(0);
   useLayoutEffect(()=>{
     const node=boardRef.current?.closest<HTMLElement>(".game-scene");
@@ -154,7 +156,7 @@ export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeigh
     getItemContentPlacement: (item: BoardItem) => getMagicPresentationIcon(item.definitionId) ? "bounds" as const : "first-cell" as const,
   } : {};
 
-  return <div className="wand-board" ref={boardRef}>
+  return <div className="wand-board" ref={boardRef} {...inspectHandlers}>
     {containers.length > 0 && composed ? <GridRoot
       key={character?.id ?? activeCharacterId}
       {...gridProps}

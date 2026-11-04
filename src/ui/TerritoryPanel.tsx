@@ -1,4 +1,6 @@
-import { Button, PencilIcon, PencilText } from "@inkra/react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Button, PencilIcon, PencilText, Tabs } from "@inkra/react";
+import { GameTabsList } from "./GameTabsList";
 import type { GameState } from "../contracts";
 import { getTerritoryRepair, getTerritoryUpgrade, type TerritoryUpgradeTrack } from "../content/territory";
 import { getTerritoryRecovery } from "../content/territoryRecovery";
@@ -21,15 +23,62 @@ const lockPaths = [{ d: "M6 10h12v10H6zM8 10V7a4 4 0 0 1 8 0v3m-4 4v2", mode: "s
 const coinPaths = [{ d: "M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z", mode: "stroke" as const }, { d: "M12 7v10M9 9c0-2 6-2 6 0s-6 2-6 4 6 2 6 0", mode: "stroke" as const }];
 
 export function TerritoryPanel({ state, onUpgrade, onRepair, onUpgradeRecovery }: Props) {
+  const panelRef = useRef<HTMLElement>(null);
+  const tracksRef = useRef<HTMLDivElement>(null);
+  const [compact, setCompact] = useState(false);
+  const [measuring, setMeasuring] = useState(true);
+  const bounds = useRef({ available: -1, width: -1 });
+  const [activeTrack, setActiveTrack] = useState<TerritoryUpgradeTrack>("wall");
+  useLayoutEffect(() => {
+    const panel = panelRef.current, tracks = tracksRef.current;
+    const host = panel?.closest<HTMLElement>(".game-territory-stage") ?? panel?.parentElement;
+    if (!panel || !tracks || !host) return;
+    const requestMeasurement = () => {
+      let available = host.clientHeight;
+      // Measure the bounded workspace, not the currently selected page's natural height.
+      for (let node: HTMLElement | null = panel.parentElement; node; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        available -= (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+        if (node === host) break;
+        available -= (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+      }
+      available = Math.max(0, available);
+      const width = panel.clientWidth;
+      // Ignore height changes caused by switching our own content mode.
+      if (bounds.current.available === available && bounds.current.width === width) return;
+      bounds.current = { available, width };
+      setMeasuring(true);
+    };
+    requestMeasurement();
+    const observer = new ResizeObserver(requestMeasurement);
+    observer.observe(host); observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
   const wall = getTerritoryUpgrade(state, "wall");
   const shield = getTerritoryUpgrade(state, "shield");
   const wallRepair = getTerritoryRepair(state, "wall");
   const shieldRepair = getTerritoryRepair(state, "shield");
   const wallRecovery = getTerritoryRecovery(state, "wall");
   const shieldRecovery = getTerritoryRecovery(state, "shield");
+  useLayoutEffect(() => {
+    setMeasuring(true);
+  }, [wall.level, shield.level, wallRecovery.level, shieldRecovery.level]);
+  useLayoutEffect(() => {
+    if (!measuring || !tracksRef.current) return;
+    // Measurement renders the same two tracks as ordinary divs, then settles before paint.
+    setCompact(tracksRef.current.getBoundingClientRect().height > bounds.current.available + 0.5);
+    setMeasuring(false);
+  }, [measuring]);
+  const tabbed = compact && !measuring;
 
-  return <section id="territory-panel" className="territory-panel" aria-label="领地管理">
-    <div className="territory-panel__tracks">
+  return <section ref={panelRef} id="territory-panel" className="territory-panel" data-compact={tabbed ? "true" : "false"} aria-label="领地管理">
+    <Tabs.Root className="territory-panel__tabs" value={activeTrack} onValueChange={value => {if (value === "wall" || value === "shield") setActiveTrack(value);}}>
+      <GameTabsList className="territory-panel__navigation" aria-label="领地管理分类" labelVisibility="hidden">
+        <Tabs.Trigger value="wall" aria-label="城墙" title="城墙" startIcon={<PencilIcon paths={wallPaths} size={28} sourceSize={24} seed="territory-wall-tab" decorative />}>城墙</Tabs.Trigger>
+        <Tabs.Trigger value="shield" aria-label="护盾" title="护盾" startIcon={<PencilIcon paths={shieldPaths} size={28} sourceSize={24} seed="territory-shield-tab" decorative />}>护盾</Tabs.Trigger>
+      </GameTabsList>
+    <div ref={tracksRef} className="territory-panel__tracks">
+      <TerritoryContent compact={tabbed} value="wall">
       <TerritoryTrack
         track="wall"
         title="城墙"
@@ -38,7 +87,6 @@ export function TerritoryPanel({ state, onUpgrade, onRepair, onUpgradeRecovery }
         level={wall.level}
         current={wallRepair.current}
         maximum={wallRepair.maximum}
-        benefit={wall.nextLevel === null ? undefined : `下级生命上限 +${wall.increase}`}
         upgradeCost={wall.cost}
         upgradeAllowed={wall.allowed}
         repair={wallRepair}
@@ -47,6 +95,8 @@ export function TerritoryPanel({ state, onUpgrade, onRepair, onUpgradeRecovery }
         onRepair={onRepair}
         onUpgradeRecovery={onUpgradeRecovery}
       />
+      </TerritoryContent>
+      <TerritoryContent compact={tabbed} value="shield">
       <TerritoryTrack
         track="shield"
         title="护盾"
@@ -55,7 +105,6 @@ export function TerritoryPanel({ state, onUpgrade, onRepair, onUpgradeRecovery }
         level={shield.level}
         current={shieldRepair.current}
         maximum={shieldRepair.maximum}
-        benefit={shield.nextLevel === null ? undefined : `下级护盾上限 +${shield.increase}`}
         upgradeCost={shield.cost}
         upgradeAllowed={shield.allowed}
         repair={shieldRepair}
@@ -64,11 +113,19 @@ export function TerritoryPanel({ state, onUpgrade, onRepair, onUpgradeRecovery }
         onRepair={onRepair}
         onUpgradeRecovery={onUpgradeRecovery}
       />
+      </TerritoryContent>
     </div>
+    </Tabs.Root>
   </section>;
 }
 
-function TerritoryTrack({ track, title, icon, unit, level, current, maximum, benefit, upgradeCost, upgradeAllowed, repair, recovery, onUpgrade, onRepair, onUpgradeRecovery }: {
+function TerritoryContent({ compact, value, children }: { compact: boolean; value: TerritoryUpgradeTrack; children: ReactNode }) {
+  return compact
+    ? <Tabs.Content value={value} forceMount className="territory-panel__content">{children}</Tabs.Content>
+    : <div className="territory-panel__content">{children}</div>;
+}
+
+function TerritoryTrack({ track, title, icon, unit, level, current, maximum, upgradeCost, upgradeAllowed, repair, recovery, onUpgrade, onRepair, onUpgradeRecovery }: {
   track: TerritoryUpgradeTrack;
   title: string;
   icon: readonly { d: string; mode?: "stroke" }[];
@@ -76,7 +133,6 @@ function TerritoryTrack({ track, title, icon, unit, level, current, maximum, ben
   level: number;
   current: number;
   maximum: number;
-  benefit?: string;
   upgradeCost: number;
   upgradeAllowed: boolean;
   repair: ReturnType<typeof getTerritoryRepair>;
@@ -91,7 +147,6 @@ function TerritoryTrack({ track, title, icon, unit, level, current, maximum, ben
       <PencilText as="h3" className="territory-panel__track-title" seed={`territory-${track}-title`}>{`${title} · 等级 ${level}`}</PencilText>
     </div>
     <PencilText as="p" className="territory-panel__current" seed={`territory-${track}-current`}>{`${unit} ${statValue(current)} / ${statValue(maximum)}`}</PencilText>
-    {benefit && <PencilText as="p" className="territory-panel__benefit" seed={`territory-${track}-benefit`}>{benefit}</PencilText>}
     <div className="territory-panel__actions">
       <ActionButton
         kind="upgrade"

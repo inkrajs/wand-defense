@@ -13,6 +13,7 @@ import { getWandDetailLabel, WandPreview } from "./WandMiniatures";
 import { WandClearButton } from "./WandClearButton";
 import { fitWandSlots } from "./wandSizing";
 import { FittedWand } from "./FittedWand";
+import { useMagicInspectGesture } from "./useMagicInspectGesture";
 import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
 import { enrichMagicReward } from "../content/magicDescriptions";
 import { demoContent } from "../content/demo";
@@ -36,7 +37,7 @@ const categoryIcons = {
 const trashPaths = [{ d: "M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6", mode: "stroke" as const }];
 const arrangePaths = [{ d: "M4 6h16M4 12h10M4 18h6M17 10l3 2-3 2M12 16l3 2-3 2", mode: "stroke" as const }];
 const gearSlotLabels: Record<GearSlot, string> = { head: "头部", body: "身体", feet: "足部", accessory: "饰品" };
-type Props = { category: Category; state: GameState; dispatch: (command: Command) => CommandResult; activeCharacterId: string; showWands?: boolean; showLoadout?: boolean; onCategoryChange?: (category: Category) => void; onWandAreaHeightChange?: (height: number) => void; pageRows?: number };
+type Props = { category: Category; state: GameState; dispatch: (command: Command) => CommandResult; activeCharacterId: string; showWands?: boolean; showLoadout?: boolean; onCategoryChange?: (category: Category) => void; onWandAreaHeightChange?: (height: number) => void; onInspectMagic?: (itemId: string) => void; pageRows?: number };
 type PendingStorageMove = { kind: "spell" | "equipment"; itemId: string; position: { x: number; y: number; rotation: 0 | 90 | 180 | 270 } };
 
 function magicIcon(item: DockItem) {
@@ -132,21 +133,27 @@ function dropSourceContainerId(source: InventoryPlacement | InventoryContainer<D
   return "containerId" in source ? source.containerId : source.id;
 }
 
-export function InventoryDock({ category, state, dispatch, activeCharacterId, showWands = true, showLoadout = false, onCategoryChange, onWandAreaHeightChange, pageRows = INVENTORY_PAGE_ROWS }: Props) {
+export function InventoryDock({ category, state, dispatch, activeCharacterId, showWands = true, showLoadout = false, onCategoryChange, onWandAreaHeightChange, onInspectMagic, pageRows = INVENTORY_PAGE_ROWS }: Props) {
   const [pageIndex, setPageIndex] = useState(0);
   const measureRef = useRef<HTMLDivElement>(null);
   const topAreaRef = useRef<HTMLDivElement>(null);
   const [loadoutTargets, setLoadoutTargets] = useState<HTMLElement[]>([]);
   const [gearTargets, setGearTargets] = useState<Partial<Record<GearSlot, HTMLElement>>>({});
   const [availableWidth, setAvailableWidth] = useState(0);
+  const [compactHeader, setCompactHeader] = useState(false);
   useLayoutEffect(() => {
     const node = measureRef.current;
     if (!node) return;
-    const update = () => setAvailableWidth(node.getBoundingClientRect().width);
+    const mobile = window.matchMedia("(max-width: 600px)");
+    const update = () => {
+      setAvailableWidth(node.getBoundingClientRect().width);
+      setCompactHeader(mobile.matches);
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(node);
-    return () => observer.disconnect();
+    mobile.addEventListener("change", update);
+    return () => { observer.disconnect(); mobile.removeEventListener("change", update); };
   }, []);
   useLayoutEffect(() => {
     if (!onWandAreaHeightChange) return;
@@ -187,6 +194,10 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
   const inventoryGridHandle = useRef<InventoryGridHandle>(null);
   const dragging = useRef(false);
   const lastDragEnd = useRef(-Infinity);
+  const inspectHandlers = useMagicInspectGesture(state, onInspectMagic ? itemId => {
+    if (dragging.current) return;
+    onInspectMagic(itemId);
+  } : undefined);
   useEffect(() => { inventoryGridHandle.current?.cancelDrag(); setPageIndex(0); }, [pageRows]);
   const [pendingStorageMoves, setPendingStorageMoves] = useState<Record<string, PendingStorageMove>>({});
   const [mergeEventCursor, setMergeEventCursor] = useState(state.nextEventSeq);
@@ -528,7 +539,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     }}
   >{({ isDragging, isOver, canDrop }) => <Button size="icon" variant="ghost" className="inventory-dock__trash" aria-label="丢弃拖入物品" title="将物品或未装备法杖拖到此处丢弃" disabled={gridProps.disabled} data-drop-active={isDragging || undefined} data-drop-over={isOver && canDrop || undefined} data-can-drop={canDrop || undefined}><PencilIcon paths={trashPaths} size={32} sourceSize={24} seed="inventory-trash" decorative /></Button>}</DropTarget> : <Button size="icon" variant="ghost" className="inventory-dock__trash" aria-label="丢弃拖入物品" title="将物品或未装备法杖拖到此处丢弃" disabled><PencilIcon paths={trashPaths} size={32} sourceSize={24} seed="inventory-trash" decorative /></Button>;
   const renderTabs = (composed: boolean) => <Tabs.Root className="inventory-dock__tabs" value={category} onValueChange={value => { const next = value as Category; inventoryGridHandle.current?.cancelDrag(); setPageIndex(0); onCategoryChange?.(next); }}>
-    <GameTabsList className="inventory-dock__categories" aria-label="背包分类" overflow="scroll" fullWidth={pageRows === 3} labelVisibility={availableWidth > 0 && availableWidth < 360 ? "hidden" : "auto"}>
+    <GameTabsList className="inventory-dock__categories" aria-label="背包分类" overflow="scroll" labelVisibility={compactHeader ? "hidden" : "auto"}>
       <Tabs.Trigger value="spells" aria-label="魔法" title="魔法" startIcon={<PencilIcon paths={categoryIcons.spells} size={32} sourceSize={24} seed="spells-tab" decorative />}>魔法</Tabs.Trigger>
       <Tabs.Trigger value="items" aria-label="装备" title="装备" startIcon={<PencilIcon paths={categoryIcons.items} size={32} sourceSize={24} seed="items-tab" decorative />}>装备</Tabs.Trigger>
       <Tabs.Trigger value="equipment" aria-label="法杖" title="法杖" startIcon={<PencilIcon paths={categoryIcons.equipment} size={32} sourceSize={24} seed="equipment-tab" decorative />}>法杖</Tabs.Trigger>
@@ -588,7 +599,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     const response = dispatch(command);
     setResult(response.status === "rejected" ? response : null);
   }
-  return <section className="inventory-dock" onDoubleClickCapture={equipOnDoubleClick} onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-supply-selection={category === "supplies" && Boolean(selectedSupplyId && supplyItems.some(item => item.id === selectedSupplyId)) ? "true" : undefined} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": pageRows } as React.CSSProperties}>
+  return <section className="inventory-dock" {...inspectHandlers} onDoubleClickCapture={equipOnDoubleClick} onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-supply-selection={category === "supplies" && Boolean(selectedSupplyId && supplyItems.some(item => item.id === selectedSupplyId)) ? "true" : undefined} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": pageRows } as React.CSSProperties}>
     <div className="inventory-dock__measure" ref={measureRef} aria-hidden="true" />
 
     {localGrid ? <GridRoot {...gridProps} {...combineProps}>{renderTabs(true)}{renderToolbar()}</GridRoot> : <>{renderTabs(false)}{renderToolbar()}</>}

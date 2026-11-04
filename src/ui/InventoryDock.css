@@ -83,11 +83,12 @@ html[data-game-reduce-motion="true"] .inventory-dock__grid .inkra-inventory-grid
 .inventory-dock__announcement, .inventory-dock__hint, .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 
 @media (max-width: 600px) {
-  .inventory-dock__categories { right: var(--game-hud-inset); width: auto; max-width: none; height: 48px; }
-  .inventory-dock__categories > .inkra-tabs__list { flex: 1 1 auto; overflow-x: hidden; }
-  .inventory-dock__categories [role="tab"] { flex: 1 1 0; min-width: 44px; min-height: 44px; justify-content: center; }
-  .inventory-dock__toolbar { top: calc(100% - var(--inventory-panel-height, var(--inventory-space, 240px)) + var(--game-hud-inset) + 48px); left: var(--game-hud-inset); height: 44px; justify-content: flex-end; }
+  .inventory-dock__categories > .inkra-tabs__list { flex: 0 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; }
+  .inventory-dock__categories [role="tab"] { flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; padding-inline: 0; justify-content: center; }
   .inventory-dock[data-ready-group="true"] .inventory-dock__wand-area, .inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { top: calc((100% - var(--inventory-space) + var(--game-hud-inset) + 104px - var(--game-defense-bottom) - var(--game-vitals-height) - 12px) / 2 - 28px); }
+}
+@media (max-width: 360px) {
+  .inventory-dock[data-has-supply-selection="true"] .inventory-dock__categories > .game-tabs-list__edge { display: none; }
 }
 
 .inventory-dock__wand-area { gap: 24px; }

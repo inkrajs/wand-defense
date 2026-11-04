@@ -176,4 +176,54 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
  * Include portals mounted under body, such as tooltips and select menus. */
 html, body, body * { -webkit-user-select: none !important; user-select: none !important; }
 
-@media (max-width: 600px) { .game-shell { --inventory-content-offset: calc(96px + var(--game-hud-inset) - 4px); } }
+/* Every inserted workspace uses the same bounded central region. */
+.game-scene > .game-territory-stage {
+  position: absolute; z-index: 8; left: var(--game-hud-inset); right: var(--game-hud-inset);
+  display: grid; place-items: safe center; overflow: hidden; pointer-events: none;
+  top: var(--ready-area-top);
+  bottom: var(--ready-area-bottom);
+  height: auto;
+  max-height: none;
+  transform: none;
+  padding: 12px 8px;
+}
+.game-territory-stage > .panel-backdrop { padding: 12px; }
+.game-territory-stage > .panel-backdrop:has(.talent-panel),
+.game-territory-stage > .panel-backdrop:has(.talent-panel) > .panel-backdrop__content { height: 100%; }
+
+/* Inspecting swaps the central workspace, without a full-page veil. */
+.game-workbench, .game-center-stage, .inventory-dock__wand-area {
+  transition: translate var(--game-motion-duration) var(--game-motion-ease),
+    top var(--game-motion-duration) var(--game-motion-ease),
+    transform var(--game-motion-duration) var(--game-motion-ease),
+    opacity var(--game-motion-duration) var(--game-motion-ease);
+}
+.game-shell[data-magic-inspection="true"] .game-workbench,
+.game-shell[data-magic-inspection="true"] .game-center-stage,
+.game-shell[data-magic-inspection="true"] .inventory-dock__wand-area { translate: -100vw 0; pointer-events: none; }
+.game-magic-stage {
+  position: absolute; z-index: 17;
+  inset: var(--ready-area-top) var(--game-hud-inset) var(--ready-area-bottom);
+  display: grid; place-items: safe center; min-height: 0;
+  padding: 8px; pointer-events: none;
+}
+.game-magic-stage > .magic-details { pointer-events: auto; }
+.game-magic-stage.is-entering { animation-name: magic-workspace-in; }
+.game-magic-stage.is-exiting { animation-name: magic-workspace-out; }
+@keyframes magic-workspace-in { from { transform: translateX(100vw); } to { transform: translateX(0); } }
+@keyframes magic-workspace-out { from { transform: translateX(0); } to { transform: translateX(100vw); } }
+
+/* The stage owns the horizontal inset; nested paper/content never add it again. */
+.game-scene > .game-character-stage > .game-character-stage__content,
+.game-character-stage__content > .panel-backdrop,
+.game-territory-stage > .panel-backdrop { padding-inline: 0; }
+.game-scene > .game-territory-stage { padding-inline: 0; }
+
+.game-meta { pointer-events: auto; }
+.game-character > button { touch-action: none; -webkit-touch-callout: none; }
+.game-character > button.is-debug-unlocked { animation: debug-entry-shake 480ms ease-in-out; }
+@keyframes debug-entry-shake {
+  0%, 100% { transform: rotate(0); }
+  20%, 60% { transform: rotate(-12deg); }
+  40%, 80% { transform: rotate(12deg); }
+}

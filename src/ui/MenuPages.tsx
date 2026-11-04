@@ -29,7 +29,6 @@ const agentPaths: PencilIconPath[] = [{ d: "M12 3v4m0 10v4M3 12h4m10 0h4M5.6 5.6
 const settingsPaths: PencilIconPath[] = [{ d: "M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4", mode: "stroke" }, { d: "M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z", mode: "stroke" }];
 const restartPaths: PencilIconPath[] = [{ d: "M20 7v5h-5M19 12a7 7 0 1 1-2-5", mode: "stroke" }];
 const backPaths: PencilIconPath[] = [{ d: "M19 12H5m7 7-7-7 7-7", mode: "stroke" }];
-const unlockPaths: PencilIconPath[] = [{ d: "M7 10V7a5 5 0 0 1 9.6-2M5 10h14v11H5zM12 14v3", mode: "stroke" }];
 const healPaths: PencilIconPath[] = [{ d: "M12 4v16M4 12h16", mode: "stroke" }];
 
 function MenuItem({ icon, children, onClick, className = "" }: { icon: readonly PencilIconPath[]; children: string; onClick: () => void; className?: string }) {
@@ -138,7 +137,7 @@ function ControlSettings({ preferences, updatePreference }: PreferenceProps) {
   </div>;
 }
 
-export function MenuPages({ page, navigate, close, restart, agentPanel, state, dispatch, unlock, toggleCheats, heal }: Props) {
+export function MenuPages({ page, navigate, close, restart, agentPanel, state, dispatch, toggleCheats, heal }: Props) {
   const heading = useRef<HTMLHeadingElement>(null);
   const closeTimer = useRef<number | undefined>(undefined);
   const [displayPage, setDisplayPage] = useState<MenuPage | null>(page);
@@ -169,42 +168,41 @@ export function MenuPages({ page, navigate, close, restart, agentPanel, state, d
     if (page === "menu" || page === "character" || page === null) close();
     else navigate(isSettingsPage(page) || page === "accessibility" ? "settings" : "menu");
   }
+  useEffect(() => {
+    if (page === "debug" && !state.cheats.unlocked) navigate("settings");
+  }, [page, state.cheats.unlocked, navigate]);
+  const visiblePage = displayPage === "debug" && !state.cheats.unlocked ? "settings" : displayPage;
   const preferenceProps = { preferences, updatePreference };
-  const backLabel = displayPage === "menu" || displayPage === "character" || displayPage === null ? "返回游戏" : isSettingsPage(displayPage) || displayPage === "accessibility" ? "返回设置" : "返回菜单";
+  const backLabel = visiblePage === "menu" || visiblePage === "character" || visiblePage === null ? "返回游戏" : isSettingsPage(visiblePage) || visiblePage === "accessibility" ? "返回设置" : "返回菜单";
 
   return <section className="menu-page" data-open={page !== null} data-closing={closing} aria-hidden={page === null} inert={page === null} aria-label="游戏菜单" onKeyDown={event => { if (event.key === "Escape" && page && !event.defaultPrevented) { event.preventDefault(); event.stopPropagation(); goBack(); } }}>
     <header className="menu-page__header">
       <Button size="icon" variant="ghost" className="menu-page__back" aria-label={backLabel} onClick={goBack}><PencilIcon paths={backPaths} sourceSize={24} size={32} decorative /></Button>
-      <PencilText as="h2" ref={heading} tabIndex={-1} seed="menu-heading">{titles[displayPage ?? "menu"]}</PencilText>
+      <PencilText as="h2" ref={heading} tabIndex={-1} seed="menu-heading">{titles[visiblePage ?? "menu"]}</PencilText>
       <span className="menu-page__header-slot" aria-hidden="true" />
     </header>
-    <div className={`menu-page__content${displayPage === "help" ? " menu-page__content--wide" : ""}`}>
-      <div className="menu-page__view" data-page={displayPage} hidden={displayPage === "agent"} key={isSettingsPage(displayPage) || displayPage === "accessibility" ? "settings-detail" : displayPage ?? "closed"}>
-        {displayPage === "menu" && <MenuLinks label="菜单选项" items={[
+    <div className={`menu-page__content${visiblePage === "help" ? " menu-page__content--wide" : ""}`}>
+      <div className="menu-page__view" data-page={visiblePage} hidden={visiblePage === "agent"} key={isSettingsPage(visiblePage) || visiblePage === "accessibility" ? "settings-detail" : visiblePage ?? "closed"}>
+        {visiblePage === "menu" && <MenuLinks label="菜单选项" items={[
           { label: "重新开始", icon: restartPaths, onClick: restart },
           { label: "设置", icon: settingsPaths, onClick: () => navigate("settings") },
           { label: "帮助手册", icon: bookPaths, onClick: () => navigate("help") },
           { label: "Agent", icon: agentPaths, onClick: () => navigate("agent") },
         ]} />}
-        {displayPage === "settings" && <MenuLinks label="设置分类" items={settingsEntries.map(entry => ({ ...entry, onClick: () => navigate(entry.page) }))} />}
-        {(isSettingsPage(displayPage) || displayPage === "accessibility") && <div className="menu-settings">
-          {displayPage === "graphics" && <GraphicsSettings {...preferenceProps} />}
-          {displayPage === "music" && <MusicSettings {...preferenceProps} />}
-          {(displayPage === "controls" || displayPage === "accessibility") && <ControlSettings {...preferenceProps} />}
-          {displayPage === "pwa" && <PwaActions />}
-          {displayPage === "debug" && <div className="menu-settings__fields">
-            {!state.cheats.unlocked ? <>
-              <PencilText as="p" className="menu-settings__note">作弊功能尚未解锁。</PencilText>
-              <MenuItem icon={unlockPaths} onClick={unlock}>解锁作弊</MenuItem>
-            </> : <>
-              <Switch label="启用作弊" checked={state.cheats.enabled} onCheckedChange={enabled => { if (enabled !== state.cheats.enabled) toggleCheats(); }} seed="debug-cheats" />
-              {state.cheats.enabled && <><MenuItem icon={healPaths} onClick={heal}>恢复领地</MenuItem><CheatActions state={state} dispatch={dispatch} /></>}
-            </>}
+        {visiblePage === "settings" && <MenuLinks label="设置分类" items={settingsEntries.filter(entry => entry.page !== "debug" || state.cheats.unlocked).map(entry => ({ ...entry, onClick: () => navigate(entry.page) }))} />}
+        {(isSettingsPage(visiblePage) || visiblePage === "accessibility") && <div className="menu-settings">
+          {visiblePage === "graphics" && <GraphicsSettings {...preferenceProps} />}
+          {visiblePage === "music" && <MusicSettings {...preferenceProps} />}
+          {(visiblePage === "controls" || visiblePage === "accessibility") && <ControlSettings {...preferenceProps} />}
+          {visiblePage === "pwa" && <PwaActions />}
+          {visiblePage === "debug" && <div className="menu-settings__fields">
+            <Switch label="启用作弊" checked={state.cheats.enabled} onCheckedChange={enabled => { if (enabled !== state.cheats.enabled) toggleCheats(); }} seed="debug-cheats" />
+            {state.cheats.enabled && <><MenuItem icon={healPaths} onClick={heal}>恢复领地</MenuItem><CheatActions state={state} dispatch={dispatch} /></>}
           </div>}
         </div>}
-        {displayPage === "help" && page !== null && <div className="menu-page__detail menu-page__help"><Suspense fallback={<span role="status">正在加载手册…</span>}><HelpManual state={state} /></Suspense></div>}
+        {visiblePage === "help" && page !== null && <div className="menu-page__detail menu-page__help"><Suspense fallback={<span role="status">正在加载手册…</span>}><HelpManual state={state} /></Suspense></div>}
       </div>
-      <div className="menu-page__detail menu-page__agent" data-active={displayPage === "agent"} aria-hidden={displayPage !== "agent"} inert={displayPage !== "agent"}>
+      <div className="menu-page__detail menu-page__agent" data-active={visiblePage === "agent"} aria-hidden={visiblePage !== "agent"} inert={visiblePage !== "agent"}>
         {agentPanel ?? <PencilText as="p" seed="agent-unavailable">Agent 连接不可用。</PencilText>}
       </div>
       {storageError && <span className="menu-settings__announcement" role="status">无法保存到此设备；当前页面的偏好仍会生效。</span>}

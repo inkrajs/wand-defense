@@ -1,12 +1,16 @@
-.territory-panel { width: min(560px, calc(100% - 2 * var(--game-hud-inset))); color: var(--inkra-ink); pointer-events: auto; }
-.territory-panel__tracks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(20px, 4vw, 36px); }
+.territory-panel { --territory-track-columns: 2; width: 100%; min-width: 0; color: var(--inkra-ink); pointer-events: auto; }
+.territory-panel__tabs { display: grid; gap: 12px; min-width: 0; }
+.territory-panel__navigation { display: none; justify-self: start; }
+.territory-panel__tracks { display: grid; grid-template-columns: repeat(var(--territory-track-columns), minmax(0, 1fr)); gap: clamp(20px, 4vw, 36px); }
+.territory-panel__content { display: block; min-width: 0; margin: 0; }
+.territory-panel[data-compact="true"] .territory-panel__navigation { display: flex; }
+.territory-panel[data-compact="true"] .territory-panel__tracks { grid-template-columns: minmax(0, 1fr); }
 .territory-panel__track { display: grid; align-content: start; justify-items: center; gap: 12px; min-width: 0; text-align: center; }
 .territory-panel__heading { display: flex; align-items: center; justify-content: center; gap: var(--inkra-space-2); min-height: 32px; }
 .territory-panel__heading > .inkra-pencil-icon { flex: none; color: var(--inkra-accent-strong); }
-.territory-panel__track-title, .territory-panel__current, .territory-panel__benefit { margin: 0; font-weight: 400; line-height: 1.4; }
+.territory-panel__track-title, .territory-panel__current { margin: 0; font-weight: 400; line-height: 1.4; }
 .territory-panel__track-title { font-size: var(--inkra-text-md); }
 .territory-panel__current { font-size: var(--inkra-text-xl); color: var(--inkra-ink); }
-.territory-panel__benefit { font-size: var(--inkra-text-sm); color: var(--inkra-ink-muted); }
 .territory-panel__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
 .territory-panel__action, .territory-panel__recovery-action { width: 100%; min-width: 0; min-height: 48px; }
 .territory-panel__action .inkra-button__surface, .territory-panel__recovery-action .inkra-button__surface { width: 100%; min-width: 0; padding-inline: 8px; }
@@ -26,8 +30,8 @@
 .game-territory > button { width: 44px; height: 44px; }
 @media (max-width: 600px) {
   .game-territory-stage { top: calc(var(--game-hud-inset) + 100px); }
-  .territory-panel { width: min(520px, 100%); }
-  .territory-panel__tracks { grid-template-columns: 1fr; gap: 16px; max-width: 360px; margin-inline: auto; }
+  .territory-panel { --territory-track-columns: 1; }
+  .territory-panel__tracks { gap: 16px; }
   .territory-panel__actions { gap: 6px; }
   .territory-panel__action .inkra-button__surface, .territory-panel__recovery-action .inkra-button__surface { padding-inline: 10px; }
 }

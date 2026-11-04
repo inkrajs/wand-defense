@@ -52,5 +52,13 @@
 
 ## 小屏单排布局收敛（2026-11-04）
 
-原生独立UI Terra负责RewardChoices.css，loadout Sol负责InventoryDock.tsx/css，根负责WandBoard与共享FittedWand/wandSizing及App布局接线。根已读实际代码，确认仅表现层分工：等份计算复用于两处编辑器，库Grid仍拥有原48/56px逻辑尺寸和语义拖放，缩放用native zoom参与布局，清空按钮不缩放；不复制装备或奖励规则。手机工具分两行，desktop按实际工具数预留，App库存高度同步+48px。奖励始终四列，介绍恢复且按内容增高，背面10px内边距，舞台右侧留进度栏空间。
+原生独立UI Terra负责RewardChoices.css，loadout Sol负责InventoryDock.tsx/css，根负责WandBoard与共享FittedWand/wandSizing及App布局接线。根已读实际代码，确认仅表现层分工：等份计算复用于两处编辑器，库Grid仍拥有原48/56px逻辑尺寸和语义拖放，缩放用native zoom参与布局，清空按钮不缩放；不复制装备或奖励规则。手机分类改为纯图标，与工具保持一行；desktop同样按实际工具数预留，App库存不再额外增加48px。奖励始终四列，介绍恢复且按内容增高，背面10px内边距，舞台右侧留进度栏空间。
 隔离两根5×5夹具在509px开背包实测同y/同宽并排，320px关闭背包也同排且pageWidth320；509px原生鼠标从背包拖魔法到缩放后法杖右下格，运行时真实placement x4/y4并从背包移除。509px tabs bottom734、toolbar top734/bottom778、库存top794，互不遮盖；奖励4张同y/105.25px等宽，right449、进度left465；320px4张同y/58px等宽、pageWidth320，所有介绍底部位于卡片内。背面实际左右各10px，翻面后仍reward，点击奖励后runtime ready且maxMana加10。未读用户存档、不做截图审美验收。全量566项测试、strict与production build通过；发布结果由根确认。
+
+## 本批 UI 收口（2026-11-04）
+
+Terra 独立 chat 01a1a190-ff34-7c61-b77a-96d74a49a31c 提供非模态 MagicDetails 内容与属性图标；Sol loadout 01a1a190-f915-7e63-b995-4fdb7bf581f7 提供单行图标分类和 TerritoryPanel 实际容器高度 Tabs。根读实际代码、接入共享点击/拖放判定与中央横向切换，修正 Tabs.Content 隐藏属性影响双区测量的问题，并消除角色/领地/天赋嵌套水平 padding。奖励插画按正方形实际容器尺寸渲染。UI 不新增持久 E2E 测试；临时独立浏览器夹具仅检查关键交互及容器边界，不接触用户存档。
+
+调试菜单默认隐藏，Terra 已移除菜单中的显式解锁操作并守卫未解锁路由；根接入3秒长按角色入口、标题5连击、图标抖动与可选震动。实际临时浏览器已确认：宽裕领地两track皆228px；背包展开切Tabs，选护盾升级使maxShield50→60且扣15；标题5击与长按均更新共享unlocked，长按后不误打开角色。天赋首开无需先加载领地CSS，列表有界滚动不覆盖HUD。类型/生产构建通过，现有566项测试通过。
+
+装备页按自身可用宽度放大整组槽位/角色/预览，使用统一native zoom保留库绘制和投放坐标，右侧Tabs不参与放大；窄屏取消原48px缩小覆盖。

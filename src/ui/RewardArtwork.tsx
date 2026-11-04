@@ -1,5 +1,5 @@
 import { PencilIcon, type PencilIconPath } from "@inkra/react";
-import type { CSSProperties } from "react";
+import {useLayoutEffect,useRef,useState,type CSSProperties} from "react";
 import type { RewardOption } from "../contracts";
 import { demoContent } from "../content/demo";
 import { AssetImage, resolveAsset } from "./assets";
@@ -139,8 +139,19 @@ function artworkFor(reward: RewardOption, size: number) {
 
 /** Decorative, reward-specific artwork for placement above a reward card. */
 export function RewardArtwork({ reward, size = 72 }: RewardArtworkProps) {
-  const style = { "--reward-artwork-size": `${size}px` } as CSSProperties;
-  return <span className="reward-artwork" style={style} aria-hidden="true">
-    {artworkFor(reward, size)}
+  const ref=useRef<HTMLSpanElement>(null);
+  const [fittedSize,setFittedSize]=useState(size);
+  useLayoutEffect(()=>{
+    const node=ref.current;if(!node)return;
+    const measure=()=>{
+      const {width,height}=node.getBoundingClientRect();
+      setFittedSize(Math.max(1,Math.min(size,Math.min(width,height)*.75)));
+    };
+    measure();const observer=new ResizeObserver(measure);observer.observe(node);
+    return ()=>observer.disconnect();
+  },[size]);
+  const style = { "--reward-artwork-size": `${fittedSize}px` } as CSSProperties;
+  return <span ref={ref} className="reward-artwork" style={style} aria-hidden="true">
+    {artworkFor(reward, fittedSize)}
   </span>;
 }
