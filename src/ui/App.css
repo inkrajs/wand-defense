@@ -227,3 +227,15 @@ html, body, body * { -webkit-user-select: none !important; user-select: none !im
   20%, 60% { transform: rotate(-12deg); }
   40%, 80% { transform: rotate(12deg); }
 }
+
+.game-skill-tree { position: absolute; left: calc(var(--game-hud-inset) + 56px); bottom: var(--game-hud-inset); z-index: var(--game-layer-hud); }
+.game-skill-tree > button { width: 44px; height: 44px; }
+.game-skill-tree-stage__content,
+.game-skill-tree-stage__content > .panel-backdrop,
+.game-skill-tree-stage__content > .panel-backdrop > .panel-backdrop__content {
+  display: grid; grid-template-rows: minmax(0, 1fr);
+  width: 100%; height: 100%; min-width: 0; min-height: 0;
+}
+.game-skill-tree-stage__content { overflow: hidden; pointer-events: auto; }
+.game-skill-tree-stage__content > .panel-backdrop { padding: 0; }
+.game-skill-tree-stage__content > .panel-backdrop > .panel-backdrop__content { overflow: hidden; }

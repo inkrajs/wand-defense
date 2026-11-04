@@ -6,6 +6,7 @@ export type UiSession = {
   characterOpen: boolean;
   territoryOpen: boolean;
   talentOpen: boolean;
+  skillTreeOpen: boolean;
   inventoryCategory: InventoryCategory;
   characterTab: CharacterTab;
 };
@@ -39,7 +40,8 @@ export function isValidUiSession(value: unknown, characters: readonly CharacterR
   if (typeof session.activeCharacterId !== "string" || !characters.some(character => character.id === session.activeCharacterId)) return false;
   if (typeof session.characterOpen !== "boolean" || typeof session.territoryOpen !== "boolean") return false;
   if (session.talentOpen !== undefined && typeof session.talentOpen !== "boolean") return false;
-  if ([session.characterOpen, session.territoryOpen, session.talentOpen === true].filter(Boolean).length > 1) return false;
+  if (session.skillTreeOpen !== undefined && typeof session.skillTreeOpen !== "boolean") return false;
+  if ([session.characterOpen, session.territoryOpen, session.talentOpen === true, session.skillTreeOpen === true].filter(Boolean).length > 1) return false;
   if (typeof session.inventoryCategory !== "string" || !INVENTORY_CATEGORIES.has(session.inventoryCategory as InventoryCategory)) return false;
   if (typeof session.characterTab !== "string" || !CHARACTER_TABS.has(session.characterTab as CharacterTab)) return false;
   return true;
@@ -64,6 +66,7 @@ export function readUiSession(
       characterOpen: value.characterOpen,
       territoryOpen: value.territoryOpen,
       talentOpen: value.talentOpen === true,
+      skillTreeOpen: value.skillTreeOpen === true,
       inventoryCategory: value.inventoryCategory,
       characterTab: value.characterTab,
     };
@@ -87,6 +90,7 @@ export function writeUiSession(
     characterOpen: value.characterOpen,
     territoryOpen: value.territoryOpen,
     talentOpen: value.talentOpen === true,
+    skillTreeOpen: value.skillTreeOpen === true,
     inventoryCategory: value.inventoryCategory,
     characterTab: value.characterTab,
   };

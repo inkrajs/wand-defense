@@ -14,6 +14,7 @@ const session = {
   characterOpen: true,
   territoryOpen: false,
   talentOpen: false,
+  skillTreeOpen: false,
   inventoryCategory: "equipment" as const,
   characterTab: "pathways" as const,
 };
@@ -65,4 +66,15 @@ test("legacy UI snapshot defaults talent closed", () => {
   storage.setItem("wand-defense:ui-session:legacy", JSON.stringify(legacy));
   assert.deepEqual(readUiSession("legacy", characters, storage), session);
   assert.equal(writeUiSession("conflict-talent", { ...session, talentOpen: true }, characters, storage), false);
+});
+
+test("skill tree session migrates old snapshots and stays exclusive with character workspaces", () => {
+  const storage = new MemoryStorage();
+  const {skillTreeOpen: _tree, ...legacy} = session;
+  storage.setItem("wand-defense:ui-session:legacy-tree",JSON.stringify(legacy));
+  assert.deepEqual(readUiSession("legacy-tree",characters,storage),session);
+  const tree = {...session, characterOpen:false, skillTreeOpen:true};
+  assert.equal(writeUiSession("tree",tree,characters,storage),true);
+  assert.deepEqual(readUiSession("tree",characters,storage),tree);
+  assert.equal(writeUiSession("conflict-tree",{...session,skillTreeOpen:true},characters,storage),false);
 });
