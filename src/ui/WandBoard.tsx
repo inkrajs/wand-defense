@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, type ComponentType, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { InventoryGrid, PencilText, Tooltip } from "@inkra/react";
 import type { InventoryContainer, InventoryChangeDetails, InventoryGridProps, InventoryItemRenderState } from "@inkra/react/inventory-grid";
 import { AssetImage, resolveAsset } from "./assets";
@@ -11,6 +11,8 @@ import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresenta
 import { enrichMagicReward } from "../content/magicDescriptions";
 import { demoContent } from "../content/demo";
 import "./WandBoard.css";
+import {fitWandSlots} from "./wandSizing";
+import {FittedWand} from "./FittedWand";
 
 type Props = { flashes: CastFlashLookup; activeCharacterId: string; state: GameState; dispatch: (command: Command) => CommandResult; onHeightChange: (height: number) => void };
 type BoardItem = Extract<DockItem, { kind: "spell" | "arcana" }>;
@@ -38,12 +40,26 @@ function MagicItemTooltip({ label, children }: { label: string; children: ReactN
 
 export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeightChange }: Props) {
   const boardRef = useRef<HTMLDivElement>(null);
+  const [availableWidth,setAvailableWidth]=useState(0);
+  useLayoutEffect(()=>{
+    const node=boardRef.current?.closest<HTMLElement>(".game-scene");
+    if(!node)return;
+    const measure=()=>{
+      // Read a resolved edge: custom properties retain max()/safe-area expressions.
+      const edge=node.querySelector<HTMLElement>(".game-backpack");
+      const inset=edge ? parseFloat(getComputedStyle(edge).left) || 12 : 12;
+      setAvailableWidth(Math.max(1,node.clientWidth-inset*2));
+    };
+    measure();const observer=new ResizeObserver(measure);observer.observe(node);
+    return ()=>observer.disconnect();
+  },[]);
   const character = state.characters.find(character => character.id === activeCharacterId) ?? state.characters[0];
   const equippedWands = useMemo(() => character ? character.wandIds.flatMap((id) => {
     const wand = state.wands.find((entry) => entry.id === id && entry.characterId === character.id);
     return wand ? [wand] : [];
   }).slice(0, 2) : [], [character, state.wands]);
 
+  const fit=fitWandSlots(availableWidth,equippedWands,WAND_CELL_SIZE);
   const containers = useMemo<InventoryContainer<BoardItem>[]>(() => {
     return equippedWands.map((wand) => ({
       id: `wand:${wand.id}`,
@@ -61,9 +77,8 @@ export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeigh
   useLayoutEffect(() => {
     const node = boardRef.current;
     if (!node) return;
-    // offsetHeight is the untransformed layout box, so the battle scale is
-    // applied exactly once by App's --game-board-space calculation.
-    const reportHeight = () => onHeightChange(node.offsetHeight);
+    // Report the fitted row height so the start button follows its visible bounds.
+    const reportHeight = () => onHeightChange(node.getBoundingClientRect().height);
     reportHeight();
     const observer = new ResizeObserver(reportHeight);
     observer.observe(node);
@@ -145,16 +160,17 @@ export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeigh
       {...gridProps}
       {...composedContentPlacementProps}
     >
-      {containers.map(container => {
+      {containers.map((container,index) => {
         const wandId = container.id.slice("wand:".length);
         const wand = equippedWands.find(entry => entry.id === wandId);
         if (!wand) return null;
         return <div key={container.id} className="wand-board__slot" role="group" aria-label={`${wand.name}法杖编辑器`}>
-          <WandClearButton className="wand-board__clear-button" wand={wand} state={state} dispatch={dispatch} />
-          <GridContainer containerId={container.id} showHeader={false} className="wand-board__inventory" />
+          <FittedWand slotWidth={fit.slotWidth} {...fit.slots[index]} action={<WandClearButton wand={wand} state={state} dispatch={dispatch} />}>
+            <GridContainer containerId={container.id} showHeader={false} className="wand-board__inventory" />
+          </FittedWand>
         </div>;
       })}
-    </GridRoot> : containers.length > 0 ? <div className="wand-board__registry-layout">
+    </GridRoot> : containers.length > 0 ? <div className="wand-board__registry-layout" style={{zoom:Math.min(1, (availableWidth || Infinity) / (equippedWands.reduce((sum,wand)=>sum+wand.width*56+6,0)+44+Math.max(0,equippedWands.length-1)*12))}}>
       <div className="wand-board__registry-actions" style={{ gridTemplateColumns: equippedWands.map(wand => `${wand.width * 56}px`).join(" ") }}>
         {equippedWands.map(wand => <WandClearButton key={wand.id} className="wand-board__registry-clear" wand={wand} state={state} dispatch={dispatch} />)}
       </div>

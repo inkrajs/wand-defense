@@ -1,9 +1,11 @@
-.inventory-dock { position: absolute; inset: 0; color: var(--inkra-ink); pointer-events: none; --inventory-board-top-inset: 4px; --inventory-board-extra: 8px; }
+.inventory-dock { position: absolute; inset: 0; color: var(--inkra-ink); pointer-events: none; --inventory-board-top-inset: 4px; --inventory-board-extra: 8px; --inventory-toolbar-width: 92px; }
+.inventory-dock[data-has-pages="true"] { --inventory-toolbar-width: 188px; }
+.inventory-dock[data-has-supply-selection="true"] { --inventory-toolbar-width: 140px; }
+.inventory-dock[data-has-pages="true"][data-has-supply-selection="true"] { --inventory-toolbar-width: 236px; }
 .inventory-dock__measure { position: absolute; left: var(--game-hud-inset); right: var(--game-hud-inset); height: 0; pointer-events: none; }
 .inventory-dock__grid { position: absolute; inset: 0; display: block; overflow: visible; pointer-events: none; }
 .inventory-dock__tabs, .inventory-dock__tab-content { position: absolute; inset: 0; pointer-events: none; }
-.inventory-dock__categories { position: absolute; z-index: 2; top: calc(100% - var(--inventory-panel-height, var(--inventory-space, 240px)) + var(--game-hud-inset)); left: var(--game-hud-inset); max-width: calc(100% - 2 * var(--game-hud-inset) - 52px); pointer-events: auto; }
-.inventory-dock[data-has-pages="true"] .inventory-dock__categories { max-width: calc(100% - 2 * var(--game-hud-inset) - 144px); }
+.inventory-dock__categories { position: absolute; z-index: 2; top: calc(100% - var(--inventory-panel-height, var(--inventory-space, 240px)) + var(--game-hud-inset)); left: var(--game-hud-inset); max-width: calc(100% - 2 * var(--game-hud-inset) - var(--inventory-toolbar-width) - 8px); pointer-events: auto; }
 .inventory-dock__tab-content { pointer-events: none; }
 
 .inventory-dock__wand-area,
@@ -24,8 +26,9 @@
 .inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { top: calc((100% - var(--inventory-space) + var(--game-hud-inset) + 56px - var(--game-defense-bottom) - var(--game-vitals-height) - 12px) / 2 - 28px); }
 .inventory-dock__wand-area > .inventory-dock__wand-slot,
 .inventory-dock__gear-area > .inkra-inventory-grid__container { position: relative; flex: 0 0 auto; width: max-content; max-width: 100%; pointer-events: auto; }
-.inventory-dock__wand-slot > .inkra-inventory-grid__container { position: relative; width: max-content; pointer-events: auto; }
-.inventory-dock__wand-slot > .wand-clear-button { position: absolute; z-index: 6; top: 0; right: 0; transform: translate(50%, -50%); pointer-events: auto; }
+.inventory-dock__wand-area { flex-wrap: nowrap; align-items: flex-start; padding: 22px; box-sizing: border-box; }
+.inventory-dock__wand-slot .inkra-inventory-grid__container { position: relative; width: max-content; max-width: none; overflow: visible; pointer-events: auto; }
+.inventory-dock__wand-slot .inkra-inventory-grid__scroll { padding: 3px; max-width: none; overflow: visible; }
 
 .inventory-dock__storage-viewport {
   position: absolute;
@@ -41,11 +44,13 @@
 }
 .inventory-dock__storage-viewport > .inkra-inventory-grid__container { position: relative; width: max-content; max-width: 100%; margin: 0; overflow: visible; pointer-events: auto; }
 .inventory-dock__storage-viewport .inkra-inventory-grid__scroll { max-width: 100%; overflow: visible; padding: var(--inventory-board-top-inset, 4px) 4px 4px; }
-.inventory-dock__toolbar { position: absolute; z-index: 3; top: calc(100% - var(--inventory-panel-height, var(--inventory-space, 240px)) + var(--game-hud-inset)); right: var(--game-hud-inset); display: flex; align-items: center; gap: 4px; pointer-events: auto; }
+.inventory-dock__toolbar { position: absolute; z-index: 3; top: calc(100% - var(--inventory-panel-height, var(--inventory-space, 240px)) + var(--game-hud-inset)); right: var(--game-hud-inset); display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; pointer-events: auto; }
 .inventory-dock__toolbar-spacer { width: 0; }
-.inventory-dock__toolbar > .inventory-dock__arrange { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; pointer-events: auto; }
+.inventory-dock__toolbar > .inventory-dock__arrange,
+.inventory-dock__toolbar > .inventory-dock__trash,
+.inventory-dock__toolbar > .inventory-dock__use-selected-supply { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; pointer-events: auto; }
 .inventory-dock__external-target--trash { position: relative !important; display: block !important; flex: 0 0 44px; width: 44px; height: 44px; pointer-events: auto; }
-.inventory-dock__pagination { display: flex; gap: 4px; pointer-events: auto; }
+.inventory-dock__pagination { display: flex; flex: 0 0 92px; gap: 4px; pointer-events: auto; }
 .inventory-dock__pagination > button { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; pointer-events: auto; }
 .inventory-dock__external-target--trash > .inventory-dock__trash { position: absolute; inset: 0; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; pointer-events: auto; }
 .inventory-dock__trash[data-drop-over="true"] { color: var(--inkra-danger, #a23f35); background: var(--inkra-danger-soft, #f6e6e3); outline: 2px solid currentColor; outline-offset: 1px; }
@@ -77,9 +82,12 @@
 html[data-game-reduce-motion="true"] .inventory-dock__grid .inkra-inventory-grid__item[data-combine-target="true"] .inkra-inventory-grid__shape-edge { animation: none; filter: brightness(1.35); }
 .inventory-dock__announcement, .inventory-dock__hint, .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 
-@media (max-width: 600px) { .inventory-dock[data-ready-group="true"] .inventory-dock__wand-area, .inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { top: calc((100% - var(--inventory-space) + var(--game-hud-inset) + 104px - var(--game-defense-bottom) - var(--game-vitals-height) - 12px) / 2 - 28px); } }
-
-@media (max-height: 760px) {
-  .inventory-dock[data-ready-group="true"] .inventory-dock__wand-area, .inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { transform: translateY(-50%) scale(.5); }
-  .inventory-dock[data-ready-group="true"] .inventory-dock__wand-slot > .wand-clear-button { transform: translate(50%, -50%) scale(2); }
+@media (max-width: 600px) {
+  .inventory-dock__categories { right: var(--game-hud-inset); width: auto; max-width: none; height: 48px; }
+  .inventory-dock__categories > .inkra-tabs__list { flex: 1 1 auto; overflow-x: hidden; }
+  .inventory-dock__categories [role="tab"] { flex: 1 1 0; min-width: 44px; min-height: 44px; justify-content: center; }
+  .inventory-dock__toolbar { top: calc(100% - var(--inventory-panel-height, var(--inventory-space, 240px)) + var(--game-hud-inset) + 48px); left: var(--game-hud-inset); height: 44px; justify-content: flex-end; }
+  .inventory-dock[data-ready-group="true"] .inventory-dock__wand-area, .inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { top: calc((100% - var(--inventory-space) + var(--game-hud-inset) + 104px - var(--game-defense-bottom) - var(--game-vitals-height) - 12px) / 2 - 28px); }
 }
+
+.inventory-dock__wand-area { gap: 24px; }

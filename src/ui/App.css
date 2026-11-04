@@ -81,7 +81,7 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .game-shell .inkra-tabs__trigger[aria-selected="true"] { color: var(--inkra-selection-foreground); }
 .game-shell .inkra-tabs__trigger[aria-selected="true"] > .inkra-tabs__selection { opacity: 1; }
 
-.game-reward-stage { position: absolute; z-index: 8; inset: var(--ready-area-top) var(--game-hud-inset) var(--ready-area-bottom); display: flex; align-items: safe center; justify-content: safe center; min-height: 0; overflow: auto; pointer-events: none; }
+.game-reward-stage { position: absolute; z-index: 8; inset: var(--ready-area-top) calc(var(--game-hud-inset) + 44px) var(--ready-area-bottom) var(--game-hud-inset); display: flex; align-items: safe center; justify-content: safe center; min-height: 0; overflow: auto; pointer-events: none; }
 .game-reward-stage .reward-choices { pointer-events: auto; }
 
 /* Fixed three-row drawer; the inventory grid itself remains draggable. */
@@ -175,3 +175,5 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 /* Selection is opt-in only when the user requests it for a specific surface.
  * Include portals mounted under body, such as tooltips and select menus. */
 html, body, body * { -webkit-user-select: none !important; user-select: none !important; }
+
+@media (max-width: 600px) { .game-shell { --inventory-content-offset: calc(96px + var(--game-hud-inset) - 4px); } }

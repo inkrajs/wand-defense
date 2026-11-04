@@ -1,0 +1,4 @@
+.fitted-wand { position: relative; display: flex; flex: 0 0 auto; justify-content: center; align-items: flex-start; min-width: 0; pointer-events: auto; }
+.fitted-wand__frame { position: relative; flex: 0 0 auto; }
+.fitted-wand__grid { position: relative; }
+.fitted-wand__action { position: absolute; z-index: 20; top: 0; right: 0; transform: translate(50%, -50%); pointer-events: auto; }

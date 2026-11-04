@@ -1,5 +1,5 @@
 .wand-board { width: max-content; max-width: none; min-width: 0; overflow: visible; white-space: nowrap; }
-.wand-board__root.inkra-inventory-grid[data-layout="composed"] { display: flex; align-items: flex-start; justify-content: center; flex-wrap: nowrap; gap: 12px; width: max-content; max-width: none; padding: 22px; overflow: visible; white-space: nowrap; }
+.wand-board__root.inkra-inventory-grid[data-layout="composed"] { display: flex; align-items: flex-start; justify-content: center; flex-wrap: nowrap; gap: 24px; width: max-content; max-width: none; padding: 22px; overflow: visible; white-space: nowrap; }
 .wand-board__registry-layout { position: relative; display: block; width: max-content; max-width: none; overflow: visible; }
 .wand-board__registry-actions { position: absolute; z-index: 20; top: 3px; left: 25px; display: grid; align-items: start; justify-content: start; gap: 12px; overflow: visible; pointer-events: none; }
 .wand-board__registry-clear { justify-self: end; margin-right: -22px; pointer-events: auto; }
