@@ -16,6 +16,9 @@ export function gradeStrengthRatio(instanceGrade: Grade, referenceGrade: Grade):
 export function gradedArcanaValue(definition: ArcanaDefinition, instanceGrade: Grade): number {
   const ratio = gradeStrengthRatio(instanceGrade, definition.grade);
   switch (definition.modifier) {
+    case 'hitTrigger':
+    case 'timerTrigger':
+      return definition.value;
     case 'amplify':
       return 1 + (definition.value - 1) * ratio * gradeModifierTuning.amplifyBonus;
     case 'focus':

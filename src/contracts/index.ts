@@ -18,6 +18,8 @@ export interface AreaSpec {
   radius: number; delayMs: number; durationMs: number; maxTargets: number;
   tickMs?: number; anchor?: "target" | "caster" | "field";
   moveSpeed?: number; pullRadius?: number; pullStrength?: number;
+  /** A ground strike can release several independently resolved impacts. */
+  shower?: { count: number; intervalMs: number; spread: number };
 }
 /** Enemy effects resolved only after a real successful contact. Durations use simulation time. */
 export interface OnHitSpec {
@@ -33,6 +35,8 @@ export interface BurnStatus {
 export interface EnemyStatus {
   slow?: { multiplier: number; remainingMs: number };
   burns?: BurnStatus[];
+  /** Remaining time during which lightning can conduct through a wet enemy. */
+  wetRemainingMs?: number;
 }
 /** Stateful summoned allies and placed structures; all durations use simulation time. */
 export interface ConstructSpec {
@@ -51,10 +55,27 @@ export interface SpellDefinition extends Growth {
   construct?: ConstructSpec;
   impact?: ProjectileImpact; beam?: BeamSpec; area?: AreaSpec; onHit?: OnHitSpec;
 }
+/** Detached cast snapshot. No nested triggers: compositions have a hard depth of one. */
+export interface TriggerPayload {
+  itemId: Id; definitionId: Id; effect: "projectile" | "area";
+  /** Optional only for legacy in-flight payloads. */
+  element?: Element;
+  power: number; manaCost: number; cooldownMs: number; range: number; speed?: number;
+  casts: number; burstCount: number; splitCount: number;
+  impact?: ProjectileImpact; area?: AreaSpec; onHit?: OnHitSpec; attackRoll?: AttackRollStats;
+}
+export interface SpellTrigger {
+  mode: "hit" | "timer";
+  /** Timer starts at actual launch, not while a burst is waiting. */
+  delayMs: number;
+  modifierItemId: Id;
+  payload: TriggerPayload;
+}
 export interface ArcanaDefinition extends Growth {
   id: Id; name: string; shape: Cell[]; asset: AssetRef;
   modifier: "amplify" | "double" | "split" | "focus" | "haste" | "efficiency" | "reach" | "velocity" | "area"
-    | "pierce" | "slow" | "burn" | "knockback" | "duration" | "capacity" | "precision"; value: number;
+    | "pierce" | "slow" | "burn" | "knockback" | "duration" | "capacity" | "precision"
+    | "hitTrigger" | "timerTrigger"; value: number;
 }
 export interface RecipeDefinition {
   id: Id; name: string; inputs: Id[]; output: Id; requireAdjacency: boolean;
@@ -148,6 +169,10 @@ export interface CombatEntity {
   splitWaypointX?: number; splitWaypointY?: number;
   headingX?:number; headingY?:number;
   travelledDistance?: number;
+  /** Optional in-flight composition state; legacy entities remain unchanged. */
+  trigger?: SpellTrigger; triggerRemainingMs?: number;
+  /** Triggered payload projectiles preserve their actual point through delayed launches. */
+  fixedOrigin?: boolean;
 }
 export type RewardKind = "item" | "character" | "wand" | "heal" | "coins" | "buff";
 export type RewardBuffType = "attackPercent" | "maxMana" | "manaRegen" | "rangePercent" | "cooldownPercent" | "luck" | "gatheringPercent";

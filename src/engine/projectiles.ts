@@ -1,4 +1,4 @@
-import type { AttackRollStats, CombatEntity, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
+import type { AttackRollStats, CombatEntity, Element, GameState, OnHitSpec, ProjectileImpact, SpellTrigger } from "../contracts";
 import { integrateMotion } from "./motion";
 import { normalizeImpact, resolveImpact } from "./impact";
 import { nearbyEnemies } from "./targets";
@@ -6,10 +6,13 @@ import { getCharacterAnchors } from "../content/characterAnchors";
 import { branchAngle, castPattern } from "./castPattern";
 import { buildProjectileCollisionCandidates, firstProjectileCollision } from "./projectileCollision";
 import { spawnProjectileField } from "./areaEffects";
+import { releaseSpellTrigger } from "./spellTriggers";
+import { TRIGGER_LIMITS } from "../contracts/trigger-limits";
 
 export interface ProjectileSpec {
   itemId: string;
   definitionId: string;
+  element?: Element;
   power: number;
   range: number;
   casts: number;
@@ -20,6 +23,9 @@ export interface ProjectileSpec {
   onHit?: OnHitSpec;
   origin?: { x: number; y: number };
   sourceEntityId?: string;
+  trigger?: SpellTrigger;
+  fixedOrigin?: boolean;
+  maxCasts?: number;
 }
 
 type Emit = (type: string, data: Record<string, unknown>) => void;
@@ -51,7 +57,10 @@ export function spawnProjectiles(
     && (entity.remainingMs === undefined || entity.remainingMs > 0)).length;
   const available = Math.max(0, PROJECTILE_LIMITS.alive - alive);
   if (available === 0) return false;
-  const pattern=castPattern(spec,Math.min(PROJECTILE_LIMITS.perCast,available));
+  const castLimit = spec.trigger ? TRIGGER_LIMITS.carrierCopies : PROJECTILE_LIMITS.perCast;
+  const requestedLimit = Number.isFinite(spec.maxCasts) ? Math.max(0, spec.maxCasts!) : PROJECTILE_LIMITS.perCast;
+  const pattern=castPattern(spec,Math.min(castLimit, requestedLimit, available));
+  if (pattern.length === 0) return false;
   const casts=pattern.length;
   const cap = Math.max(0, Number.isFinite(spec.speed) ? spec.speed : 0);
   const fireball = spec.definitionId === "fireball";
@@ -65,6 +74,7 @@ export function spawnProjectiles(
     const projectile: CombatEntity = {
       id,
       definitionId: spec.definitionId,
+      ...(spec.element ? { element: spec.element } : {}),
       kind: "projectile",
       faction: "player",
       x: origin.x,
@@ -88,6 +98,8 @@ export function spawnProjectiles(
       sourceCharacterId: characterId,
       sourceItemId: spec.itemId,
       ...(spec.sourceEntityId ? { sourceEntityId: spec.sourceEntityId } : {}),
+      ...(spec.fixedOrigin ? { fixedOrigin: true } : {}),
+      ...(spec.trigger ? { trigger: structuredClone(spec.trigger), triggerRemainingMs: Math.max(TRIGGER_LIMITS.minDelayMs, Math.min(TRIGGER_LIMITS.maxDelayMs, Number.isFinite(spec.trigger.delayMs) ? spec.trigger.delayMs : 500)) } : {}),
       targetId: target.id,
       originX: origin.x,
       originY: origin.y,
@@ -116,7 +128,11 @@ export function advanceProjectiles(state: GameState, dtMs: number, emit: Emit): 
   if (state.phase !== "battle" || state.paused || state.backpackOpen || dt <= 0) return;
   const collisionCandidates = buildProjectileCollisionCandidates(state);
 
-  for (const entity of state.entities) {
+  let releases = 0;
+  const release = (projectile: CombatEntity) => releaseSpellTrigger(state, projectile, emit, releases++ < TRIGGER_LIMITS.releasesPerStep, spawnProjectiles);
+  const countAtEntry = state.entities.length;
+  for (let index = 0; index < countAtEntry; index++) {
+    const entity = state.entities[index];
     if (entity.kind !== "projectile" || entity.hp <= 0 || (entity.remainingMs ?? 0) <= 0) continue;
     const projectile = entity;
     let slice=dt;
@@ -136,7 +152,11 @@ export function advanceProjectiles(state: GameState, dtMs: number, emit: Emit): 
     }
     if(!Number.isFinite(projectile.headingX)||!Number.isFinite(projectile.headingY))
       aimProjectile(projectile,projectile.targetX??projectile.x,projectile.targetY??projectile.y-1);
-    const life=Math.max(0,projectile.remainingMs??0),activeDt=Math.min(slice,life);
+    const life=Math.max(0,projectile.remainingMs??0);
+    const timer = projectile.trigger?.mode === "timer"
+      ? Math.max(0, Number.isFinite(projectile.triggerRemainingMs) ? projectile.triggerRemainingMs! : TRIGGER_LIMITS.minDelayMs) : Infinity;
+    const activeDt=Math.min(slice,life,timer);
+    if (projectile.trigger?.mode === "timer") projectile.triggerRemainingMs = Math.max(0, timer - activeDt);
     const motion=integrateMotion(projectile.moveSpeed??projectile.speed,projectile.speed,projectile.moveRampMs??0,activeDt);
     let distance=motion.distance,hit=false,escaped=false;
     const fieldImpact = projectile.impact?.type === "field" ? projectile.impact : undefined;
@@ -168,9 +188,16 @@ export function advanceProjectiles(state: GameState, dtMs: number, emit: Emit): 
         if(fieldImpact) {
           projectile.travelledDistance=travelled+contact.distance;
           spawnProjectileField(state,projectile,{x:contact.x,y:contact.y},fieldImpact,emit);
+          if (projectile.trigger?.mode === "hit") release(projectile);
           projectile.hp=0;projectile.remainingMs=0;hit=true;break;
         }
         const continues=resolveImpact(state,projectile,contact.target,{x:ux,y:uy},emit);
+        if (projectile.trigger?.mode === "hit") release(projectile);
+        else if (projectile.trigger?.mode === "timer") {
+          // Contact before the timer consumes the carrier without releasing the payload.
+          delete projectile.trigger; delete projectile.triggerRemainingMs;
+          projectile.hp=0;projectile.remainingMs=0;
+        }
         if(!continues){projectile.hp=0;projectile.remainingMs=0;}
         else if(projectile.impact?.type==="chain")aimProjectile(projectile,projectile.targetX!,projectile.targetY!);
         hit=true;break;
@@ -188,6 +215,10 @@ export function advanceProjectiles(state: GameState, dtMs: number, emit: Emit): 
         aimProjectile(projectile,projectile.targetX??projectile.x,projectile.targetY??projectile.y-1);
       } else break;
     }
+    if (!hit && !escaped && projectile.trigger?.mode === "timer" && projectile.triggerRemainingMs! <= 0) {
+      release(projectile); projectile.hp=0; projectile.remainingMs=0;
+      hit=true;
+    }
     if(!hit&&(escaped||projectile.remainingMs!<=0)) {
       projectile.hp=0;projectile.remainingMs=0;emitExpired(projectile,emit,escaped?"outOfBounds":"timeout");
     }
@@ -195,7 +226,7 @@ export function advanceProjectiles(state: GameState, dtMs: number, emit: Emit): 
 }
 
 function launchProjectile(state:GameState,projectile:CombatEntity,emit:Emit):boolean {
-  const origin = projectile.sourceEntityId
+  const origin = projectile.fixedOrigin ? undefined : projectile.sourceEntityId
     ? state.entities.find(entity => entity.id === projectile.sourceEntityId && entity.hp > 0)
     : getCharacterAnchors(state.characters).find(anchor=>anchor.characterId===projectile.sourceCharacterId);
   if (projectile.sourceEntityId && !origin) { projectile.hp=0;projectile.remainingMs=0;return false; }

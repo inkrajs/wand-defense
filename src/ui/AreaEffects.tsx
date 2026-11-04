@@ -6,6 +6,7 @@ import "./AreaEffects.css";
 import { useGraphicsSettings } from "./graphicsSettings";
 
 const MAX_AREA_EFFECTS = 32;
+const METEOR_SPELLS = new Set(["meteor", "meteor-shower-small", "meteor-shower-large", "worldfall"]);
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const bounded = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -76,7 +77,7 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
   const { entity, phase, progress, elapsedMs, windup, radiusX, radiusY, x, y } = visual;
   const mode = entity.area?.mode;
   if (mode !== "strike" && mode !== "ring" && mode !== "eruption" && mode !== "field" && mode !== "vortex") return null;
-  const meteor = entity.definitionId === "meteor";
+  const meteor = METEOR_SPELLS.has(entity.definitionId);
   const persistent = mode === "field" || mode === "vortex";
   const element = entity.element ?? (persistent ? demoContent.spells[entity.definitionId]?.element : undefined) ?? "neutral";
   const globalField = mode === "field" && entity.area?.anchor === "field";
@@ -143,6 +144,34 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
   </span>;
 }
 
+
+const FIELD_EDGE_PATHS: Record<string, { edge: string; accent: string }> = {
+  lightning: { edge: "M0 6 Q6 2 12 6 Q15 1 21 5 Q27 1 33 6 Q39 2 45 6 Q50 1 56 5 Q63 1 69 6 Q75 2 81 6 Q87 1 93 5 Q97 3 100 6", accent: "M18 7l-2 4h3l-2 4M52 7l-2 4h3l-2 4M83 7l-2 4h3l-2 4" },
+  fire: { edge: "M0 7 Q5 3 10 7 T20 7 T30 7 T40 7 T50 7 T60 7 T70 7 T80 7 T90 7 T100 7", accent: "M15 9q-2-3 0-6 1 3 3 4 2-2 2-4 3 4 0 7M48 9q-2-3 0-6 1 3 3 4 2-2 2-4 3 4 0 7M81 9q-2-3 0-6 1 3 3 4 2-2 2-4 3 4 0 7" },
+  water: { edge: "M0 6 Q5 2 10 6 T20 6 T30 6 T40 6 T50 6 T60 6 T70 6 T80 6 T90 6 T100 6", accent: "M13 10q4-3 8 0m25 0q4-3 8 0m25 0q4-3 8 0" },
+  wood: { edge: "M0 6 Q12 3 25 6 T50 6 T75 6 T100 6", accent: "M15 6q-3-5 2-5 1 4-2 5Zm34 0q-3-5 2-5 1 4-2 5Zm34 0q-3-5 2-5 1 4-2 5Z" },
+  earth: { edge: "M0 7l8-4 7 4 8-5 7 5 8-4 7 4 8-5 7 5 8-4 7 4 8-5 7 5 8-4 7 4", accent: "M15 9l3-2 3 2m28 0 3-2 3 2m28 0 3-2 3 2" },
+  metal: { edge: "M0 6h100", accent: "M15 3l3 3-3 3-3-3Zm34 0 3 3-3 3-3-3Zm34 0 3 3-3 3-3-3Z" },
+  wind: { edge: "M0 6q8-5 16 0t16 0 16 0 16 0 16 0 20 0", accent: "M13 10q5-3 10 0m24 0q5-3 10 0m24 0q5-3 10 0" },
+  light: { edge: "M0 6 Q12 3 25 6 T50 6 T75 6 T100 6", accent: "M16 2v8m-4-4h8m28-4v8m-4-4h8m28-4v8m-4-4h8" },
+  dark: { edge: "M0 6 Q6 10 12 6 T24 6 T36 6 T48 6 T60 6 T72 6 T84 6 T100 6", accent: "M15 3a3 3 0 1 0 3 5 3 3 0 0 1-3-5Zm34 0a3 3 0 1 0 3 5 3 3 0 0 1-3-5Zm34 0a3 3 0 1 0 3 5 3 3 0 0 1-3-5Z" },
+};
+
+/** Sparse viewport-edge marks, driven by the same simulation envelope as the field. */
+function GlobalFieldFrame({ visual, details }: { visual: AreaVisual; details: boolean }) {
+  const { entity, phase, windup, elapsedMs } = visual;
+  const element = entity.element ?? demoContent.spells[entity.definitionId]?.element ?? "neutral";
+  const paths = FIELD_EDGE_PATHS[element] ?? FIELD_EDGE_PATHS.wind;
+  const remaining = finite(entity.remainingMs) ? entity.remainingMs : 0;
+  const envelope = phase === "windup" ? windup * 0.65 : Math.min(1, elapsedMs / 300, remaining / 400);
+  return <svg className={`area-field-frame area-field-frame--${element}`} data-area-phase={phase} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ opacity: bounded(envelope, 0, 1) }}>
+    {[0, 90, 180, 270].map(angle => <g key={angle} transform={`rotate(${angle} 50 50)`}>
+      <path className="area-field-frame__edge" d={paths.edge} vectorEffect="non-scaling-stroke" />
+      {(details || angle === 0) && <path className="area-field-frame__accent" d={paths.accent} vectorEffect="non-scaling-stroke" />}
+    </g>)}
+  </svg>;
+}
+
 /** Decorative area telegraphs driven only by authoritative simulation timestamps/state. */
 export function AreaEffects({ state }: { state: GameState }) {
   const { settings } = useGraphicsSettings();
@@ -177,6 +206,7 @@ export function AreaEffects({ state }: { state: GameState }) {
   }, [size.height, size.width, state]);
 
   return <div ref={ref} className="area-effects" aria-hidden="true" data-paused={state.paused}>
+    {visuals.filter(visual => visual.entity.area?.mode === "field" && visual.entity.area.anchor === "field").map(visual => <GlobalFieldFrame key={`edge:${state.id}:${visual.entity.id}`} visual={visual} details={settings.areaDetails} />)}
     {visuals.map(visual => <AreaShape key={`${state.id}:${visual.entity.id}`} visual={visual} details={settings.areaDetails} resolution={settings.effectResolution} washScale={1 / Math.max(1, visuals.length)} />)}
   </div>;
 }

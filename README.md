@@ -1,10 +1,10 @@
-# 无尽巫师
+# 杀死那个巫师
 
 Inkra 的独立使用方游戏项目，第一版试玩原型已接通。
 
 [在线试玩与安装 PWA](https://inkrajs.github.io/wand-defense/)
 
-源码可查看、学习及个人试运行，其他用途需书面授权。**不是 MIT 或 OSI 开源项目**，详见 [LICENSE](LICENSE)。第三方依赖沿用各自许可证。
+源码可查看、学习及个人试运行，其他用途需书面授权。**不是 MIT 或 OSI 开源项目**，详见 [LICENSE](LICENSE)。第三方依赖沿用各自许可证，包括 [React Flow 的 MIT 许可证](public/licenses/xyflow/LICENSE)。
 
 ## 本地开发
 

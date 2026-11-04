@@ -109,9 +109,75 @@ export const expandedArcana: Record<string, ArcanaDefinition> = {
     asset: { key: "arcana.precision", label: "精准", color: "#a9c76a" },
     modifier: "precision", value: 0.1, level: 1, grade: "common",
   },
+  "hit-trigger": {
+    id: "hit-trigger", name: "命中触发", shape: [cell(0, 0)],
+    asset: { key: "arcana.hit-trigger", label: "命中触发", color: "#D39C61" },
+    modifier: "hitTrigger", value: 1, level: 1, grade: "common",
+  },
+  "timer-trigger": {
+    id: "timer-trigger", name: "定时触发", shape: [cell(0, 0)],
+    asset: { key: "arcana.timer-trigger", label: "定时触发", color: "#9D86C9" },
+    modifier: "timerTrigger", value: 500, level: 1, grade: "common",
+  },
+  "short-reach": {
+    id: "short-reach", name: "寸进", shape: [cell(0, 0)],
+    asset: { key: "arcana.short-reach", label: "寸进", color: "#9270DB" },
+    modifier: "reach", value: 1.12, level: 1, grade: "common",
+  },
+  "light-flight": {
+    id: "light-flight", name: "轻羽", shape: [cell(0, 0)],
+    asset: { key: "arcana.light-flight", label: "轻羽", color: "#42C2D3" },
+    modifier: "velocity", value: 1.15, level: 1, grade: "common",
+  },
+  "tiny-area": {
+    id: "tiny-area", name: "微域", shape: [cell(0, 0)],
+    asset: { key: "arcana.tiny-area", label: "微域", color: "#F2845C" },
+    modifier: "area", value: 1.12, level: 1, grade: "common",
+  },
+  "ember-core": {
+    id: "ember-core", name: "火芯", shape: [cell(0, 0)],
+    asset: { key: "arcana.ember-core", label: "火芯", color: "#D88562" },
+    modifier: "burn", value: 0.08, level: 1, grade: "common",
+  },
+  triple: {
+    id: "triple", name: "三发", shape: [cell(0, 0), cell(1, 0), cell(2, 0)],
+    asset: { key: "arcana.triple", label: "三发", color: "#E6A23C" },
+    modifier: "double", value: 3, level: 1, grade: "common",
+  },
+  octuple: {
+    id: "octuple", name: "八发", shape: [cell(0, 0), cell(1, 0), cell(2, 0), cell(0, 1), cell(1, 1), cell(2, 1), cell(0, 2), cell(1, 2)],
+    asset: { key: "arcana.octuple", label: "八发", color: "#DC765B" },
+    modifier: "double", value: 8, level: 1, grade: "common",
+  },
+  "greater-area": {
+    id: "greater-area", name: "宏域", shape: [cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1)],
+    asset: { key: "arcana.greater-area", label: "宏域", color: "#F2845C" },
+    modifier: "area", value: 1.7, level: 1, grade: "common",
+  },
+  "greater-burn": {
+    id: "greater-burn", name: "烈焰", shape: [cell(0, 0), cell(1, 0), cell(0, 1)],
+    asset: { key: "arcana.greater-burn", label: "烈焰", color: "#D88562" },
+    modifier: "burn", value: 0.35, level: 1, grade: "common",
+  },
+  "greater-reach": {
+    id: "greater-reach", name: "远界", shape: [cell(0, 0), cell(1, 0), cell(2, 0)],
+    asset: { key: "arcana.greater-reach", label: "远界", color: "#9270DB" },
+    modifier: "reach", value: 1.5, level: 1, grade: "common",
+  },
 };
 
 export const expandedArcanaDescriptions: Record<string, string> = {
+  "hit-trigger": "与两个法术相邻：前一个飞弹命中时释放后一个飞弹或区域法术，施放时预付两者法力。",
+  "timer-trigger": "与两个法术相邻：前一个飞弹飞行0.5秒后释放后一个飞弹或区域法术；提前碰撞则失效，预付两者法力。",
+  "short-reach": "相邻法术射程增加12%。",
+  "light-flight": "相邻飞弹速度增加15%。",
+  "tiny-area": "相邻法术的作用范围增加12%。",
+  "ember-core": "相邻攻击法术附加较弱的灼烧。",
+  triple: "相邻攻击法术分次连发3次。",
+  octuple: "相邻攻击法术分次连发8次。",
+  "greater-area": "相邻法术的作用范围增加70%。",
+  "greater-burn": "相邻攻击法术附加强力灼烧。",
+  "greater-reach": "相邻法术射程增加50%。",
   pierce: "相邻的普通或穿透飞弹额外穿透1个目标，最多8个；不覆盖溅射、连锁或领域效果。",
   slow: "相邻攻击法术命中后使敌人移动速度变为75%，持续1.5秒；已有更强迟缓保留。",
   burn: "相邻攻击法术命中后施加灼烧，每0.5秒造成法术威力20%的伤害，持续3秒；同一来源刷新。",

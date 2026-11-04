@@ -1,10 +1,10 @@
-import type { AttackRollStats, BeamSpec, CombatEntity, GameState, OnHitSpec } from "../contracts";
+import type { AttackRollStats, BeamSpec, CombatEntity, Element, GameState, OnHitSpec } from "../contracts";
 import { applyContactDamage, nearbyEnemies, type CombatEmit } from "./targets";
 import { getCharacterAnchors } from "../content/characterAnchors";
 import { branchAngle, castPattern } from "./castPattern";
 
 export const BEAM_LIMITS = Object.freeze({alive:24,maxTargets:8,minTickMs:100,maxDurationMs:5000});
-export interface BeamCastSpec { itemId:string;definitionId:string;power:number;range:number;casts:number;burstCount?:number;splitCount?:number;beam:BeamSpec;attackRoll?:AttackRollStats;onHit?:OnHitSpec }
+export interface BeamCastSpec { itemId:string;definitionId:string;element?:Element;power:number;range:number;casts:number;burstCount?:number;splitCount?:number;beam:BeamSpec;attackRoll?:AttackRollStats;onHit?:OnHitSpec }
 const finite = (n:number, fallback:number) => Number.isFinite(n) ? n : fallback;
 
 export function spawnBeams(state:GameState, characterId:string, spec:BeamCastSpec, emit:CombatEmit):boolean {
@@ -24,7 +24,7 @@ export function spawnBeams(state:GameState, characterId:string, spec:BeamCastSpe
   for(let i=0;i<casts;i++) {
     const base=`beam-${state.wave}-${state.nextEventSeq}-${i}`;let id=base,suffix=1;
     while(ids.has(id)) id=`${base}-${suffix++}`;ids.add(id);
-    const beam:CombatEntity={id,definitionId:spec.definitionId,kind:"beam",faction:"player",x:origin.x,y:origin.y,
+    const beam:CombatEntity={id,definitionId:spec.definitionId,...(spec.element?{element:spec.element}:{}),kind:"beam",faction:"player",x:origin.x,y:origin.y,
       originX:origin.x,originY:origin.y,hp:1,maxHp:1,damage:Math.max(0,finite(spec.power,0)),
       speed:0,range,cooldownMs:tickMs,attackRemainingMs:tickMs,remainingMs:duration,
       beamWidth:width,maxTargets,attackRoll:spec.attackRoll?{...spec.attackRoll}:undefined,sourceCharacterId:characterId,sourceItemId:spec.itemId,

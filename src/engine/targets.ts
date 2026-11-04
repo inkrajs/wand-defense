@@ -1,7 +1,7 @@
 import type { CombatEntity, GameState } from "../contracts";
 import { nextCombatRandom } from "./random";
 import { applyResolvedDamage, boundedCombatValue, COMBAT_ROLL_LIMITS } from "./damage";
-import { applyOnHitEffects } from "./statusEffects";
+import { applyElementalReaction, applyOnHitEffects } from "./statusEffects";
 export { COMBAT_ROLL_LIMITS } from "./damage";
 
 export type CombatEmit = (type: string, data: Record<string, unknown>) => void;
@@ -18,6 +18,7 @@ export function nearbyEnemies(state: GameState, x: number, y: number, radius: nu
 /** Only simulation contact/pulses call this; preserves the firing character's cause. */
 export function applyContactDamage(state:GameState, source: CombatEntity, target: CombatEntity, emit: CombatEmit): void {
   if (target.hp <= 0) return;
+  const wasWet = (target.status?.wetRemainingMs ?? 0) > 0;
   const bounded = boundedCombatValue;
   const accuracy = bounded(source.attackRoll?.accuracy,1,0,1);
   const critChance = bounded(source.attackRoll?.critChance,0,0,1);
@@ -41,5 +42,6 @@ export function applyContactDamage(state:GameState, source: CombatEntity, target
     ...(source.sourceEntityId ? { sourceEntityId: source.sourceEntityId } : {}),
     amount, critical, sourceLuck:bounded(source.attackRoll?.sourceLuck,0,0,COMBAT_ROLL_LIMITS.maxLuck),
     effect: source.definitionId }, emit);
+  if (resolved > 0) applyElementalReaction(state, source, target, resolved, wasWet, emit);
   if (resolved > 0 && target.hp > 0 && source.onHit) applyOnHitEffects(state, source, target, emit);
 }

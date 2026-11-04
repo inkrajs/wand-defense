@@ -1,4 +1,4 @@
-import type { AttackRollStats, CombatEntity, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
+import type { AttackRollStats, CombatEntity, Element, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
 import { getCharacterAnchors } from "../content/characterAnchors";
 import { castPattern, type CastPattern } from "./castPattern";
 import { applyContactDamage, nearbyEnemies, type CombatEmit } from "./targets";
@@ -6,6 +6,7 @@ import { applyContactDamage, nearbyEnemies, type CombatEmit } from "./targets";
 export interface ChainCastSpec extends CastPattern {
   itemId: string;
   definitionId: string;
+  element?: Element;
   power: number;
   range: number;
   impact: Extract<ProjectileImpact, { type: "chain" }>;
@@ -134,6 +135,7 @@ export function spawnChains(
     const chain: CombatEntity = {
       id,
       definitionId: spec.definitionId,
+      ...(spec.element ? { element: spec.element } : {}),
       kind: "chain",
       faction: "player",
       x: origin.x,

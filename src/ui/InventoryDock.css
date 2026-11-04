@@ -92,3 +92,7 @@ html[data-game-reduce-motion="true"] .inventory-dock__grid .inkra-inventory-grid
 }
 
 .inventory-dock__wand-area { gap: 24px; }
+
+.inventory-dock__recipe-actions { display: flex; justify-content: flex-end; gap: 12px; min-height: 44px; }
+.inventory-dock__recipe-actions .wand-actions { width: 88px; }
+.inventory-dock__recipe-actions .wand-actions__recipes { position: static; }

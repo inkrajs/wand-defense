@@ -1,8 +1,8 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
-import { InventoryGrid, PencilText, Tooltip } from "@inkra/react";
+import { Button, DropdownMenu, InventoryGrid, PencilIcon, PencilText, Tooltip } from "@inkra/react";
 import type { InventoryContainer, InventoryChangeDetails, InventoryGridProps, InventoryItemRenderState } from "@inkra/react/inventory-grid";
 import { AssetImage, resolveAsset } from "./assets";
-import type { Command, CommandResult, GameState } from "../contracts";
+import type { Command, CommandResult, GameState, WandInstance } from "../contracts";
 import { inventoryDefinition as getDefinition, makeGridItem, quarterTurn, type DockItem } from "./inventoryAdapter";
 import { getGameItemAppearance } from "./itemAppearance";
 import type { CastFlashLookup } from "./wandMiniatureEvents";
@@ -10,6 +10,7 @@ import { WandClearButton } from "./WandClearButton";
 import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
 import { enrichMagicReward } from "../content/magicDescriptions";
 import { demoContent } from "../content/demo";
+import { getWandRecipeOptions } from "../loadout/recipe-options";
 import "./WandBoard.css";
 import {useMagicInspectGesture} from "./useMagicInspectGesture";
 import {fitWandSlots} from "./wandSizing";
@@ -37,6 +38,34 @@ function MagicItemTooltip({ label, children }: { label: string; children: ReactN
     <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
     <Tooltip.Portal><Tooltip.Content side="top">{label}</Tooltip.Content></Tooltip.Portal>
   </Tooltip.Root></Tooltip.Provider>;
+}
+
+/** Explicit recipe action, separate from dragging identical items to upgrade them. */
+export function WandActions({wand, state, dispatch, className}: {
+  wand?: WandInstance; state: GameState; dispatch: Props['dispatch']; className?: string;
+}) {
+  const options = useMemo(() => wand ? getWandRecipeOptions(state, wand.id, demoContent) : [], [state, wand]);
+  const [open, setOpen] = useState(false);
+  const label = (id: string) => state.knowledge.spellIds.includes(id) || state.knowledge.arcanaIds.includes(id)
+    ? (demoContent.spells[id] ?? demoContent.arcana[id])?.name ?? '未知' : '未知';
+  return <span className={`wand-actions${className ? ` ${className}` : ''}`}>
+    <WandClearButton wand={wand} state={state} dispatch={dispatch} />
+    {wand && <DropdownMenu.Root open={open && options.length > 0} onOpenChange={setOpen}>
+      <DropdownMenu.Trigger asChild><Button type="button" size="icon" variant="ghost" className="wand-actions__recipes"
+        aria-label={`${wand.name}配方合成`} title={options.length ? '配方合成' : '将已发现配方的材料相邻放入法杖'} disabled={!options.length}>
+        <PencilIcon paths={[{d: 'M4 6h6v6H4zM14 6h6v6h-6zM7 15l5 5 5-5M12 13v7', mode: 'stroke'}]} sourceSize={24} size={24} seed="wand-recipes" decorative />
+        <span className="wand-actions__recipe-label">合成</span>
+      </Button></DropdownMenu.Trigger>
+      <DropdownMenu.Portal><DropdownMenu.Content className="wand-actions__menu" side="left" align="start" sideOffset={8} aria-label={`${wand.name}可合成配方`}>
+        {options.map(option => <DropdownMenu.Item key={option.recipeId} className="wand-actions__recipe" onSelect={() => {
+          setOpen(false);
+          dispatch({id: `wand-recipe-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, type: 'mergeRecipe', wandId: wand.id, recipeId: option.recipeId, itemIds: [...option.itemIds]});
+        }}>
+          <PencilText as="span">{`${option.itemIds.map(id => label(state.items[id].definitionId)).join(' + ')} → ${label(option.output)}`}</PencilText>
+        </DropdownMenu.Item>)}
+      </DropdownMenu.Content></DropdownMenu.Portal>
+    </DropdownMenu.Root>}
+  </span>;
 }
 
 export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeightChange, onInspectMagic }: Props) {
@@ -167,14 +196,14 @@ export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeigh
         const wand = equippedWands.find(entry => entry.id === wandId);
         if (!wand) return null;
         return <div key={container.id} className="wand-board__slot" role="group" aria-label={`${wand.name}法杖编辑器`}>
-          <FittedWand slotWidth={fit.slotWidth} {...fit.slots[index]} action={<WandClearButton wand={wand} state={state} dispatch={dispatch} />}>
+          <FittedWand slotWidth={fit.slotWidth} {...fit.slots[index]} action={<WandActions wand={wand} state={state} dispatch={dispatch} />}>
             <GridContainer containerId={container.id} showHeader={false} className="wand-board__inventory" />
           </FittedWand>
         </div>;
       })}
     </GridRoot> : containers.length > 0 ? <div className="wand-board__registry-layout" style={{zoom:Math.min(1, (availableWidth || Infinity) / (equippedWands.reduce((sum,wand)=>sum+wand.width*56+6,0)+44+Math.max(0,equippedWands.length-1)*12))}}>
       <div className="wand-board__registry-actions" style={{ gridTemplateColumns: equippedWands.map(wand => `${wand.width * 56}px`).join(" ") }}>
-        {equippedWands.map(wand => <WandClearButton key={wand.id} className="wand-board__registry-clear" wand={wand} state={state} dispatch={dispatch} />)}
+        {equippedWands.map(wand => <WandActions key={wand.id} className="wand-board__registry-clear" wand={wand} state={state} dispatch={dispatch} />)}
       </div>
       <InventoryGrid<BoardItem> {...gridProps} />
     </div> : <div className="wand-board__slot wand-board__slot--empty"><WandClearButton className="wand-board__clear-button" state={state} dispatch={dispatch} /></div>}

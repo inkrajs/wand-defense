@@ -1,9 +1,22 @@
 .skill-tree { display: grid; grid-template-rows: 48px minmax(0, 1fr); gap: 8px; width: 100%; height: 100%; min-width: 0; min-height: 0; }
-.skill-tree__tabs { width: 100%; }
-.skill-tree__tabs > .inkra-tabs__list { flex: 1 1 auto; display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.skill-tree__tabs { width: max-content; max-width: 100%; }
+.skill-tree__tabs > .inkra-tabs__list { flex: 0 1 auto; display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .skill-tree__tabs .inkra-tabs__trigger { flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; padding: 6px; }
 .skill-tree__tabs .inkra-tabs__label { display: none; }
-.skill-tree__content { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; min-width: 0; min-height: 0; }
+.skill-tree__content { position: relative; display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; }
 .skill-tree__graph { width: 100%; height: 100%; min-width: 0; min-height: 0; min-block-size: 0; background: transparent; }
-.skill-tree__detail { min-width: 0; max-height: 96px; overflow: auto; }
-.skill-tree__detail p { margin: 0; font-size: var(--inkra-text-sm, 13px); }
+.skill-tree__detail { position: absolute; z-index: 5; inset: 8px 8px auto auto; width: min(280px, calc(100% - 16px)); max-height: calc(100% - 16px); box-sizing: border-box; overflow: auto; padding: 12px; background: var(--inkra-paper); color: var(--inkra-ink); }
+.skill-tree__detail-close { position: absolute; top: 0; right: 0; z-index: 2; }
+.skill-tree__detail-heading { display: flex; align-items: center; gap: 8px; padding-right: 44px; min-height: 44px; }
+.skill-tree__detail-heading h3 { margin: 0; font-size: var(--inkra-text-md, 15px); font-weight: 400; overflow-wrap: anywhere; }
+.skill-tree__detail p { margin: 8px 0 0; font-size: var(--inkra-text-sm, 13px); }
+.skill-tree__detail-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 8px 0 0; font-size: var(--inkra-text-sm, 13px); }
+.skill-tree__detail-stats > div { display: flex; justify-content: space-between; gap: 6px; }
+.skill-tree__detail-stats dt { color: var(--inkra-ink-muted); }
+.skill-tree__detail-stats dd { margin: 0; text-align: end; }
+@media (max-width: 600px) { .skill-tree__detail { inset: 50% auto auto 50%; transform: translate(-50%, -50%); } }
+
+.skill-tree__recipes { display: grid; gap: 6px; margin-top: 8px; }
+.skill-tree__recipe { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; }
+.skill-tree__ingredient { display: inline-flex; align-items: center; gap: 2px; min-width: 0; font-size: var(--inkra-text-sm, 13px); }
+.skill-tree__ingredient-plus { margin-right: 2px; color: var(--inkra-ink-muted); }

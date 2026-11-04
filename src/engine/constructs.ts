@@ -1,4 +1,4 @@
-import type { AttackRollStats, CombatEntity, ConstructSpec, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
+import type { AttackRollStats, CombatEntity, ConstructSpec, Element, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
 import { getCharacterAnchor } from "../content/characterAnchors";
 import { applyContactDamage, nearbyEnemies, type CombatEmit } from "./targets";
 import { spawnProjectiles } from "./projectiles";
@@ -15,6 +15,7 @@ export interface ConstructCastSpec {
   kind: "summon" | "building";
   itemId: string;
   definitionId: string;
+  element?: Element;
   power: number;
   range: number;
   casts: number;
@@ -91,6 +92,7 @@ export function spawnConstructs(state: GameState, characterId: string, spec: Con
     const entity: CombatEntity = {
       id,
       definitionId: spec.definitionId,
+      ...(spec.element ? { element: spec.element } : {}),
       kind: spec.kind,
       faction: "player",
       x: position.x,
@@ -175,6 +177,7 @@ export function advanceConstructs(state: GameState, dtMs: number, emit: CombatEm
           const launched = spawnProjectiles(state, entity.sourceCharacterId ?? "", {
             itemId: entity.sourceItemId ?? "",
             definitionId: entity.definitionId,
+            ...(entity.element ? { element: entity.element } : {}),
             power: entity.damage,
             range: entity.range,
             casts: 1,

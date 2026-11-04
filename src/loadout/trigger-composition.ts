@@ -1,0 +1,56 @@
+import type { ArcanaDefinition, Cell, ContentCatalog, SpellTrigger, TriggerPayload, WandInstance } from '../contracts';
+import type { CompiledSpell } from './compile';
+import { areAdjacent, placementCells } from './geometry';
+
+import { TRIGGER_LIMITS } from '../contracts/trigger-limits';
+export function isTriggerModifier(modifier: ArcanaDefinition['modifier']): boolean {
+  return modifier === 'hitTrigger' || modifier === 'timerTrigger';
+}
+type Modifier = { itemId: string; definition: ArcanaDefinition; cells: Cell[] };
+
+/** Resolve unambiguous two-spell bridges in grid order, without depending on placement insertion order. */
+export function composeSpellTriggers(spells: CompiledSpell[], wand: WandInstance, modifiers: Modifier[], content: ContentCatalog): void {
+  const triggers = modifiers.filter(mod => isTriggerModifier(mod.definition.modifier));
+  if (triggers.length === 0) return;
+  const placements = new Map(wand.placements.map(placement => [placement.itemId, placement]));
+  const order = (a: { itemId: string }, b: { itemId: string }) => {
+    const first = placements.get(a.itemId)!, second = placements.get(b.itemId)!;
+    return first.y - second.y || first.x - second.x || a.itemId.localeCompare(b.itemId);
+  };
+  const reserved = new Set<string>();
+  for (const modifier of triggers.sort(order)) {
+    if (!Number.isFinite(modifier.definition.value) || modifier.definition.value <= 0) continue;
+    const adjacent = spells.filter(spell => areAdjacent(
+      placementCells(content.spells[spell.id].shape, placements.get(spell.itemId)!), modifier.cells,
+    )).sort(order);
+    if (adjacent.length !== 2) continue;
+    const [carrier, payload] = adjacent;
+    if (reserved.has(carrier.itemId) || reserved.has(payload.itemId) || carrier.effect !== 'projectile'
+      || (payload.effect !== 'area' && payload.effect !== 'projectile')
+      || (payload.effect === 'area' && !payload.area)
+      || ![carrier.manaCost, payload.manaCost, carrier.cooldownMs, payload.cooldownMs].every(value => Number.isFinite(value) && value >= 0)) continue;
+    const copies = Math.min(TRIGGER_LIMITS.payloadCopies, payload.copies);
+    const snapshot: TriggerPayload = {
+      itemId: payload.itemId, definitionId: payload.id, effect: payload.effect, element: payload.element,
+      power: payload.power, manaCost: payload.manaCost, cooldownMs: payload.cooldownMs,
+      range: payload.range, ...(payload.speed !== undefined ? { speed: payload.speed } : {}),
+      casts: copies, burstCount: Math.min(copies, payload.burstCount), splitCount: Math.min(copies, payload.splitCount),
+      ...(payload.impact ? { impact: structuredClone(payload.impact) } : {}),
+      ...(payload.area ? { area: structuredClone(payload.area) } : {}),
+      ...(payload.onHit ? { onHit: structuredClone(payload.onHit) } : {}),
+      attackRoll: { ...payload.attackRoll },
+    };
+    const trigger: SpellTrigger = {
+      mode: modifier.definition.modifier === 'hitTrigger' ? 'hit' : 'timer',
+      delayMs: Math.max(TRIGGER_LIMITS.minDelayMs, Math.min(TRIGGER_LIMITS.maxDelayMs, modifier.definition.value)),
+      modifierItemId: modifier.itemId, payload: snapshot,
+    };
+    carrier.trigger = trigger;
+    carrier.manaCost += payload.manaCost;
+    carrier.cooldownMs = Math.max(carrier.cooldownMs, payload.cooldownMs);
+    carrier.modifierItemIds.push(modifier.itemId);
+    payload.modifierItemIds.push(modifier.itemId);
+    payload.triggeredByItemId = carrier.itemId;
+    reserved.add(carrier.itemId); reserved.add(payload.itemId);
+  }
+}

@@ -1,6 +1,10 @@
 import type { BurnStatus, CombatEntity, EnemyStatus, GameState, OnHitSpec } from "../contracts";
-import { applyPeriodicDamage, boundedCombatValue, COMBAT_ROLL_LIMITS } from "./damage";
+import { demoContent } from "../content/demo";
+import { applyPeriodicDamage, applyResolvedDamage, boundedCombatValue, COMBAT_ROLL_LIMITS } from "./damage";
 import type { CombatEmit } from "./targets";
+
+export const WET_DURATION_MS = 1_500;
+export const WET_CONDUCTION = Object.freeze({ radius: 6, damageRatio: 0.5 });
 
 export const STATUS_LIMITS = Object.freeze({
   minSlowMultiplier: 0.1,
@@ -67,6 +71,14 @@ export function advanceEnemyStatuses(state: GameState, dtMs: number, emit: Comba
       }
     }
 
+    if (status.wetRemainingMs !== undefined) {
+      status.wetRemainingMs = Math.max(0, boundedDuration(status.wetRemainingMs) - dt);
+      if (status.wetRemainingMs <= 0) {
+        emit("statusExpired", { targetId: target.id, statusId: wetStatusId(target), statusType: "wet" });
+        delete status.wetRemainingMs;
+      }
+    }
+
     if (status.burns) {
       const activeBurns: BurnStatus[] = [];
       for (const burn of status.burns.slice(0, STATUS_LIMITS.maxBurnSources)) {
@@ -78,8 +90,69 @@ export function advanceEnemyStatuses(state: GameState, dtMs: number, emit: Comba
       else delete status.burns;
     }
 
-    if (!status.slow && !status.burns?.length) delete target.status;
+    if (!status.slow && !status.burns?.length && status.wetRemainingMs === undefined) delete target.status;
   }
+}
+
+/** Water applies wet; a later successful lightning contact consumes it and resolves one bounded arc. */
+export function applyElementalReaction(
+  state: GameState,
+  source: CombatEntity,
+  target: CombatEntity,
+  resolvedDamage: number,
+  wasWet: boolean,
+  emit: CombatEmit,
+): void {
+  if (resolvedDamage <= 0 || target.kind !== "enemy" || target.faction !== "enemy") return;
+  const definition = Object.hasOwn(demoContent.spells, source.definitionId)
+    ? demoContent.spells[source.definitionId] : undefined;
+  const element = source.element ?? definition?.element;
+  if (element === "water") {
+    if (target.hp <= 0) return;
+    target.status ??= {};
+    target.status.wetRemainingMs = Math.max(target.status.wetRemainingMs ?? 0, WET_DURATION_MS);
+    emit("statusApplied", { targetId: target.id, statusId: wetStatusId(target), statusType: "wet",
+      sourceCharacterId: source.sourceCharacterId, sourceItemId: source.sourceItemId,
+      effect: source.definitionId, remainingMs: target.status.wetRemainingMs });
+    return;
+  }
+  if (element !== "lightning" || !wasWet) return;
+
+  delete target.status?.wetRemainingMs;
+  if (target.status && !target.status.slow && !target.status.burns?.length) delete target.status;
+  emit("statusExpired", { targetId: target.id, statusId: wetStatusId(target), statusType: "wet", reason: "reaction" });
+  const neighbor = nearestConductiveTarget(state, target);
+  if (!neighbor && target.hp <= 0) return;
+  const recipient = neighbor ?? target;
+  const amount = resolvedDamage * WET_CONDUCTION.damageRatio;
+  emit("elementalReaction", { reaction: "wet-conduction", mode: neighbor ? "conduct" : "amplify",
+    sourceCharacterId: source.sourceCharacterId, sourceItemId: source.sourceItemId,
+    ...(source.sourceEntityId ? { sourceEntityId: source.sourceEntityId } : {}),
+    effect: source.definitionId, sourceTargetId: target.id, targetId: recipient.id,
+    amount, x: recipient.x, y: recipient.y });
+  applyResolvedDamage(recipient, amount, {
+    reaction: "wet-conduction", reactionMode: neighbor ? "conduct" : "amplify",
+    sourceKind: "reaction", sourceCharacterId: source.sourceCharacterId,
+    sourceItemId: source.sourceItemId, ...(source.sourceEntityId ? { sourceEntityId: source.sourceEntityId } : {}),
+    sourceLuck: boundedCombatValue(source.attackRoll?.sourceLuck, 0, 0, COMBAT_ROLL_LIMITS.maxLuck),
+    effect: source.definitionId,
+  }, emit);
+}
+
+function nearestConductiveTarget(state: GameState, origin: CombatEntity): CombatEntity | undefined {
+  let best: CombatEntity | undefined;
+  let bestDistance: number = WET_CONDUCTION.radius;
+  for (const candidate of state.entities) {
+    if (candidate.id === origin.id || candidate.kind !== "enemy" || candidate.faction !== "enemy" || candidate.hp <= 0) continue;
+    const candidateDistance = Math.hypot(candidate.x - origin.x, candidate.y - origin.y);
+    if (candidateDistance <= WET_CONDUCTION.radius
+      && (best === undefined || candidateDistance < bestDistance
+        || (candidateDistance === bestDistance && candidate.id.localeCompare(best.id) < 0))) {
+      best = candidate;
+      bestDistance = candidateDistance;
+    }
+  }
+  return best;
 }
 
 function applySlow(target: CombatEntity, source: CombatEntity, incoming: NonNullable<OnHitSpec["slow"]>, emit: CombatEmit): void {
@@ -194,6 +267,7 @@ function burnStatusId(target: CombatEntity, source: CombatEntity): string {
 }
 
 function slowStatusId(target: CombatEntity): string { return `slow:${target.id}`; }
+function wetStatusId(target: CombatEntity): string { return `wet:${target.id}`; }
 
 function sourceLuck(source: CombatEntity): number {
   return boundedCombatValue(source.attackRoll?.sourceLuck, 0, 0, COMBAT_ROLL_LIMITS.maxLuck);

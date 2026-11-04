@@ -1,8 +1,9 @@
-import type { AttackRollStats, ContentCatalog, GameState, SpellDefinition } from '../contracts';
+import type { AttackRollStats, ContentCatalog, GameState, SpellDefinition, SpellTrigger } from '../contracts';
 import { getCharacterStats } from '../content/characters';
 import { areAdjacent, placementCells } from './geometry';
 import { gradedArcanaValue, gradeStrengthRatio } from './grade-scaling';
 import { applyAdvancedModifiers, isAdvancedModifier } from './advanced-modifiers';
+import { composeSpellTriggers, isTriggerModifier } from './trigger-composition';
 
 /** Numeric fields already include arcana and the owner's current sequence. */
 export interface CompiledSpell extends SpellDefinition {
@@ -12,6 +13,8 @@ export interface CompiledSpell extends SpellDefinition {
   splitCount: number;
   modifierItemIds: string[];
   attackRoll: AttackRollStats;
+  trigger?: SpellTrigger;
+  triggeredByItemId?: string;
 }
 export interface CompiledWand {
   wandId: string;
@@ -58,7 +61,7 @@ export function compileWand(
       asset: { ...definition.asset },
       ...(definition.impact ? { impact: { ...definition.impact } } : {}),
       ...(definition.beam ? { beam: { ...definition.beam } } : {}),
-      ...(definition.area ? { area: { ...definition.area } } : {}),
+      ...(definition.area ? { area: { ...definition.area, ...(definition.area.shower ? { shower: { ...definition.area.shower } } : {}) } } : {}),
       ...(definition.construct ? { construct: { ...definition.construct } } : {}),
       ...(definition.onHit ? { onHit: {
         ...definition.onHit,
@@ -78,7 +81,7 @@ export function compileWand(
     for (const modifier of modifiers) {
       if (!areAdjacent(cells, modifier.cells)) continue;
       if (appliedModifierItems.has(modifier.itemId)) continue;
-      if (isAdvancedModifier(modifier.definition.modifier)) continue;
+      if (isAdvancedModifier(modifier.definition.modifier) || isTriggerModifier(modifier.definition.modifier)) continue;
       if (modifier.definition.modifier === 'velocity' && spell.effect !== 'projectile') continue;
       if (modifier.definition.modifier === 'area'
         && !spell.beam
@@ -104,6 +107,7 @@ export function compileWand(
           }
           if (spell.area) {
             spell.area.radius *= value;
+            if (spell.area.shower) spell.area.shower.spread *= value;
             if (spell.area.mode === 'vortex' && spell.area.pullRadius !== undefined) spell.area.pullRadius *= value;
             if (spell.area.mode === 'ring') spell.range *= value;
           }
@@ -126,5 +130,6 @@ export function compileWand(
     if (isConstruct && spell.construct) spell.construct.hp *= multiplier * gradeStrengthRatio(item.grade, definition.grade);
     return [spell];
   });
+  composeSpellTriggers(spells, wand, modifiers, content);
   return { wandId: wand.id, characterId: character.id, spells };
 }

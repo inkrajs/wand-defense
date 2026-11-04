@@ -1,4 +1,4 @@
-import type { AreaSpec, AttackRollStats, BeamSpec, ConstructSpec, ContentCatalog, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
+import type { AreaSpec, AttackRollStats, BeamSpec, ConstructSpec, ContentCatalog, Element, GameState, OnHitSpec, ProjectileImpact, SpellTrigger } from "../contracts";
 import { spawnProjectiles } from "./projectiles";
 import { spawnBeams } from "./beams";
 import { spawnAreaEffects } from "./areaEffects";
@@ -8,6 +8,7 @@ import { spawnConstructs } from "./constructs";
 export interface CastSpec {
   itemId: string;
   definitionId: string;
+  element?: Element;
   power: number;
   manaCost: number;
   cooldownMs: number;
@@ -23,6 +24,7 @@ export interface CastSpec {
   onHit?: OnHitSpec;
   construct?: ConstructSpec;
   position?: { x: number; y: number };
+  trigger?: SpellTrigger;
 }
 
 type Emit = (type: string, data: Record<string, unknown>) => void;
@@ -52,30 +54,31 @@ export function castSpell(
   const casts = Math.max(1, Math.floor(spec.casts));
   const amount = Math.max(0, spec.power);
   const onHit = spec.onHit ?? spell.onHit;
+  const element = spec.element ?? spell.element;
   if (spell.effect === "summon" || spell.effect === "building") {
     const construct = spec.construct ?? spell.construct;
-    return construct ? spawnConstructs(state, characterId, { ...spec, kind: spell.effect, construct, onHit }, emit) : false;
+    return construct ? spawnConstructs(state, characterId, { ...spec, kind: spell.effect, construct, onHit, element }, emit) : false;
   }
   if (spell.effect === "chain") {
     const impact = spec.impact ?? spell.impact;
-    return impact?.type === "chain" ? spawnChains(state, characterId, { ...spec, impact, onHit }, emit) : false;
+    return impact?.type === "chain" ? spawnChains(state, characterId, { ...spec, impact, onHit, element }, emit) : false;
   }
   if (spell.effect === "projectile") {
     return spawnProjectiles(state, characterId, {
       ...spec,
       speed: spec.speed ?? spell.speed ?? 72,
       impact: spec.impact ?? spell.impact,
-      onHit,
+      onHit, element,
     }, emit);
   }
 
   if (spell.effect === "beam") {
     const beam = spec.beam ?? spell.beam;
-    return beam ? spawnBeams(state, characterId, { ...spec, beam, onHit }, emit) : false;
+    return beam ? spawnBeams(state, characterId, { ...spec, beam, onHit, element }, emit) : false;
   }
   if (spell.effect === "area") {
     const area = spec.area ?? spell.area;
-    return area ? spawnAreaEffects(state, characterId, { ...spec, area, onHit }, emit) : false;
+    return area ? spawnAreaEffects(state, characterId, { ...spec, area, onHit, element }, emit) : false;
   }
   if (spell.effect === "shield") {
     if (state.territory.hp <= 0 || spec.range < 8) return false;

@@ -6,7 +6,7 @@ const host = process.env.BROKER_HOST ?? "0.0.0.0";
 const broker = createBrokerServer();
 const bound = await broker.listen(Number.isSafeInteger(port) && port >= 0 ? port : 8787, host);
 
-console.log(`无尽巫师 Playlink broker listening on http://${bound.host}:${bound.port}`);
+console.log(`杀死那个巫师 Playlink broker listening on http://${bound.host}:${bound.port}`);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {

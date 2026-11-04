@@ -10,7 +10,7 @@ import { localInventoryCombineCompat } from "./inventoryCombineCompat";
 import { carryMergeLayout, hasMeasuredInventoryWidth, projectInventoryLayout, rememberInventoryPosition, type InventoryLayoutState } from "./inventoryLayoutState";
 import { AssetImage, resolveAsset } from "./assets";
 import { getWandDetailLabel, WandPreview } from "./WandMiniatures";
-import { WandClearButton } from "./WandClearButton";
+import { WandActions } from "./WandBoard";
 import { fitWandSlots } from "./wandSizing";
 import { FittedWand } from "./FittedWand";
 import { useMagicInspectGesture } from "./useMagicInspectGesture";
@@ -410,7 +410,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     renderItemActions: (item: DockItem) => {
       if (item.kind !== "wand") return null;
       const wand = state.wands.find(entry => entry.id === item.wandId && entry.characterId === null);
-      return wand ? <WandClearButton wand={wand} state={state} dispatch={dispatch} commandId={commandId} /> : null;
+      return wand ? <WandActions wand={wand} state={state} dispatch={dispatch} /> : null;
     },
     ...(localGrid ? { getItemAppearance: getGameItemAppearance } : {}),
     renderItem: (item: DockItem, renderState: InventoryItemRenderState & { combineTarget?: boolean }) => {
@@ -546,11 +546,12 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
       <Tabs.Trigger value="supplies" aria-label="道具" title="道具" startIcon={<PencilIcon paths={categoryIcons.supplies} size={32} sourceSize={24} seed="supplies-tab" decorative />}>道具</Tabs.Trigger>
     </GameTabsList>
     <Tabs.Content className="inventory-dock__tab-content" value={category}>
+      {!composed && showWands && category === "spells" && <div className="inventory-dock__recipe-actions">{activeWands.map(wand => <WandActions key={wand.id} wand={wand} state={state} dispatch={dispatch} />)}</div>}
       {composed && showWands && category === "spells" && <div className="inventory-dock__wand-area" ref={topAreaRef} aria-label="当前角色法杖插槽">{wandContainers.map((container, index) => {
         const wandId = container.id.slice("wand:".length);
         const wand = state.wands.find(entry => entry.id === wandId);
         return <div key={container.id} className="inventory-dock__wand-slot">
-          <FittedWand slotWidth={wandFit.slotWidth} {...wandFit.slots[index]} action={<WandClearButton wand={wand} state={state} dispatch={dispatch} commandId={commandId} />}>
+          <FittedWand slotWidth={wandFit.slotWidth} {...wandFit.slots[index]} action={<WandActions wand={wand} state={state} dispatch={dispatch} />}>
             <GridContainer containerId={container.id} showHeader={false} />
           </FittedWand>
         </div>;

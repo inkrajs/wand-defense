@@ -47,3 +47,21 @@ html[data-game-reduce-motion="true"] .area-effect__mote { opacity: .65; }
 
 .area-effect__meteor { left: -13px; transform: rotate(-25deg); }
 .area-effect[data-area-phase="active"] .area-effect__meteor { opacity: 0; }
+
+/* Full-field borders stay sparse and translucent so the battle remains readable. */
+.area-field-frame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; color: var(--area-field-pigment, #a1d3c0); }
+.area-field-frame--lightning, .area-field-frame--light { --area-field-pigment: #d6bd61; }
+.area-field-frame--fire { --area-field-pigment: #e77b55; }
+.area-field-frame--water { --area-field-pigment: #72b9db; }
+.area-field-frame--wood { --area-field-pigment: #86bd69; }
+.area-field-frame--earth { --area-field-pigment: #c59b66; }
+.area-field-frame--metal { --area-field-pigment: #a7b7b9; }
+.area-field-frame--dark { --area-field-pigment: #a788c4; }
+.area-field-frame__edge, .area-field-frame__accent { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+.area-field-frame__edge { stroke-width: 1.5; opacity: .42; }
+.area-field-frame__accent { stroke-width: 1.5; opacity: .5; animation: area-field-pulse 1.6s ease-in-out infinite alternate; }
+@keyframes area-field-pulse { from { opacity: .24; } to { opacity: .7; } }
+.area-effects[data-paused="true"] .area-field-frame__accent { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .area-field-frame__accent { animation: none; opacity: .42; } }
+html[data-game-reduce-motion="true"] .area-field-frame__accent { animation: none; opacity: .42; }
+@media (forced-colors: active) { .area-field-frame { color: Highlight; } }

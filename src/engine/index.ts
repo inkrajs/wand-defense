@@ -143,7 +143,8 @@ function advanceBattle(state: GameState, dtMs: number, content: ContentCatalog, 
           }
           const compiled = compileWand(next, wand.id, content);
           for (const spell of compiled?.spells ?? []) {
-            if(spell.effect === "building") continue;
+            if(spell.effect === "building" || spell.triggeredByItemId) continue;
+            if (spell.trigger && (wand.cooldowns[spell.trigger.payload.itemId] ?? 0) > 0) continue;
             const constructCost=spell.effect === "summon"?(spell.construct?.coinCost??0):0;
             if(!Number.isSafeInteger(constructCost) || constructCost < 0 || next.coins < constructCost)continue;
             if ((wand.cooldowns[spell.itemId] ?? 0) > 0 || character.mana < spell.manaCost) continue;
@@ -151,6 +152,7 @@ function advanceBattle(state: GameState, dtMs: number, content: ContentCatalog, 
               character.mana = Math.max(0, character.mana - spell.manaCost);
               next.coins-=constructCost;
               wand.cooldowns[spell.itemId] = Math.max(BATTLE_STEP_MS, spell.cooldownMs);
+              if (spell.trigger) wand.cooldowns[spell.trigger.payload.itemId] = Math.max(BATTLE_STEP_MS, spell.cooldownMs);
             }
           }
         }

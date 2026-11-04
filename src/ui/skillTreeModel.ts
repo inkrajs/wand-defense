@@ -6,12 +6,13 @@ export interface SkillTreeNode {
   id: string;
   definitionId?: string;
   name: string;
-  kind: 'spell' | 'arcana' | 'recipe';
+  kind: 'spell' | 'arcana';
   known: boolean;
   atomic: boolean;
-  /** Graph node IDs, retaining repeated ingredient occurrences for recipe quantities. */
-  inputs?: string[];
-  output?: string;
+  /** External ingredient endpoint in this element view; independent of global atomicity. */
+  boundary: boolean;
+  /** Alternative recipes, each retaining repeated ingredient graph IDs for quantities. */
+  recipes?: {inputs: string[]}[];
 }
 export interface SkillTreeEdge { id: string; source: string; target: string }
 
@@ -25,19 +26,39 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
   const recipes = content.recipes.filter(recipe => recipe.inputs.length > 0
     && definition(recipe.output) && recipe.inputs.every(id => definition(id)));
   const generated = new Set(recipes.map(recipe => recipe.output));
+  const discovered = recipes.filter(recipe => recipeKnowledge.has(recipe.id));
+  const matchesElement = (id: string) => element !== 'all' && Object.hasOwn(content.spells, id)
+    && (content.spells[id].element === element || content.spells[id].fusionElements?.includes(element));
+  // Propagate participation forward through discovered ancestry, including cycles.
+  // Unseen recipes may determine atomicity, but must never change this view's expansion.
+  const participating = new Set(Object.keys(content.spells).filter(matchesElement));
+  const consumers = new Map<string, string[]>();
+  for (const recipe of discovered) {
+    for (const input of recipe.inputs) {
+      const list = consumers.get(input) ?? [];
+      list.push(recipe.output); consumers.set(input, list);
+    }
+  }
+  const participationQueue = [...participating];
+  for (let index = 0; index < participationQueue.length; index++) {
+    for (const output of consumers.get(participationQueue[index]) ?? []) {
+      if (participating.has(output)) continue;
+      participating.add(output); participationQueue.push(output);
+    }
+  }
   const producers = new Map<string, RecipeDefinition[]>();
   const seeds = new Set<string>();
   for (const id of knowledge.spellIds) {
-    if (Object.hasOwn(content.spells, id) && (element === 'all' || (content.spells[id].element === element || content.spells[id].fusionElements?.includes(element)))) seeds.add(id);
+    if (Object.hasOwn(content.spells, id) && (element === 'all' || matchesElement(id))) seeds.add(id);
   }
   if (element === 'all') {
     for (const id of knowledge.arcanaIds) if (Object.hasOwn(content.arcana, id)) seeds.add(id);
   }
-  for (const recipe of recipes) {
-    if (!recipeKnowledge.has(recipe.id)) continue;
+  for (const recipe of discovered) {
+    if (element !== 'all' && !matchesElement(recipe.output) && !recipe.inputs.some(input => participating.has(input))) continue;
     const list = producers.get(recipe.output) ?? [];
     list.push(recipe); producers.set(recipe.output, list);
-    if (element === 'all' || (Object.hasOwn(content.spells, recipe.output) && (content.spells[recipe.output].element === element || content.spells[recipe.output].fusionElements?.includes(element)))) seeds.add(recipe.output);
+    seeds.add(recipe.output);
   }
 
   const nodes = new Map<string, SkillTreeNode>();
@@ -54,6 +75,7 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
       ...(known ? {definitionId: id} : {}),
       name: known ? entry.value.name : '未知', kind: entry.kind, known,
       atomic: entry.kind === 'spell' && !generated.has(id),
+      boundary: element !== 'all' && !participating.has(id),
     };
     magicNodes.set(id, node); nodes.set(node.id, node);
     return node;
@@ -62,22 +84,22 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
     const id = `edge:${JSON.stringify([source, target])}`;
     edges.set(id, {id, source, target});
   }
-  const queue = [...seeds], expanded = new Set<string>();
+  const queue = [...seeds], expanded = new Set<string>(), expandedRecipes = new Set<string>();
   for (let index = 0; index < queue.length; index++) {
     const id = queue[index];
     if (expanded.has(id)) continue;
     expanded.add(id);
     const output = magicNode(id);
     for (const recipe of producers.get(id) ?? []) {
-      const recipeId = `recipe:${recipe.id}`;
-      if (nodes.has(recipeId)) continue;
+      if (expandedRecipes.has(recipe.id)) continue;
+      expandedRecipes.add(recipe.id);
       const inputs = recipe.inputs.map(input => magicNode(input).id);
-      nodes.set(recipeId, {id: recipeId, definitionId: recipe.id, name: '合成', kind: 'recipe',
-        known: true, atomic: false, inputs, output: output.id});
-      for (const input of inputs) connect(input, recipeId);
-      connect(recipeId, output.id);
+      (output.recipes ??= []).push({inputs});
+      for (const input of inputs) connect(input, output.id);
       queue.push(...recipe.inputs);
     }
   }
-  return {nodes: [...nodes.values()], edges: [...edges.values()]};
+  // Stable boundary ordering is a layout hint; edge direction remains ingredient → output.
+  const orderedNodes = [...nodes.values()];
+  return {nodes: [...orderedNodes.filter(node => !node.boundary), ...orderedNodes.filter(node => node.boundary)], edges: [...edges.values()]};
 }

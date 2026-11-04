@@ -29,6 +29,34 @@ function capture() {
   return { events, emit: (type: string, data: Record<string, unknown>) => events.push({ type, data }) };
 }
 
+test("meteor showers resolve separate delayed impacts on nearby enemies and obey the area budget", () => {
+  const state = battle([enemy("first", 50, 60), enemy("second", 60, 60)]);
+  const { events, emit } = capture();
+  const area = { mode: "strike" as const, radius: 2, delayMs: 100, durationMs: 200, maxTargets: 1,
+    shower: { count: 3, intervalMs: 250, spread: 6 } };
+  assert.equal(spawnAreaEffects(state, "character-1", spec(area), emit), true);
+  const impacts = state.entities.filter(entity => entity.kind === "area");
+  assert.equal(impacts.length, 3);
+  assert.deepEqual(impacts.map(impact => impact.launchDelayMs), [100, 350, 600]);
+  assert.deepEqual(impacts.map(impact => impact.x), [50, 60, 50]);
+  state.paused = true;
+  advanceAreaEffects(state, 1000, emit);
+  assert.equal(state.entities[0].hp, 100);
+  state.paused = false;
+  advanceAreaEffects(state, 100, emit);
+  assert.equal(state.entities[0].hp, 90);
+  assert.equal(state.entities[1].hp, 100);
+  advanceAreaEffects(state, 250, emit);
+  assert.equal(state.entities[1].hp, 90);
+  advanceAreaEffects(state, 250, emit);
+  assert.equal(state.entities[0].hp, 80);
+  assert.equal(events.filter(event => event.type === "areaActivated").length, 3);
+
+  const crowded = battle();
+  assert.equal(spawnAreaEffects(crowded, "character-1", spec(area, { burstCount: 6 }), emit), true);
+  assert.equal(crowded.entities.filter(entity => entity.kind === "area").length, AREA_LIMITS.perCast);
+});
+
 test("castSpell dispatches delayed strike areas without immediate damage and respects pause", () => {
   const state = battle();
   state.items["spark-1"].definitionId = "test-area";

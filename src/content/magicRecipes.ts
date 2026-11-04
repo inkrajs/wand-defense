@@ -11,9 +11,11 @@ export const baseMagicDefinitionIds: readonly string[] = Object.freeze([
   "rock-shot",
   "light-arrow",
   "dark-orb",
+  "ember-seed", "frost-drop", "thorn-seed", "iron-spark", "static-spark",
+  "gust", "pebble", "glimmer", "night-mote",
 ]);
 
-/** Adjacency-based recipes that connect the nine base spells to every other spell. */
+/** Adjacency-based spell and arcana recipes. */
 export const magicRecipeDefinitions: RecipeDefinition[] = [
   { id: "fireball-recipe", name: "火球", inputs: ["spark", "amplify"], output: "fireball", requireAdjacency: true },
   { id: "meteor-recipe", name: "陨石术", inputs: ["fireball", "rock-shot"], output: "meteor", requireAdjacency: true },
@@ -55,4 +57,18 @@ export const magicRecipeDefinitions: RecipeDefinition[] = [
   { id: "ember-turret-recipe", name: "烬火炮台", inputs: ["ember-comet", "capacity"], output: "ember-turret", requireAdjacency: true },
   { id: "frost-pylon-recipe", name: "霜纹塔", inputs: ["frost-ring", "focus"], output: "frost-pylon", requireAdjacency: true },
   { id: "restorative-totem-recipe", name: "复苏图腾", inputs: ["regrowth", "duration"], output: "restorative-totem", requireAdjacency: true },
+  { id: "quadruple-recipe", name: "四发", inputs: ["double", "double"], output: "quadruple", requireAdjacency: true },
+  { id: "sextuple-recipe", name: "六发", inputs: ["quadruple", "double"], output: "sextuple", requireAdjacency: true },
+  { id: "meteor-shower-small-recipe", name: "小流星雨", inputs: ["meteor", "double"], output: "meteor-shower-small", requireAdjacency: true },
+  { id: "meteor-shower-large-recipe", name: "大流星雨", inputs: ["meteor-shower-small", "quadruple"], output: "meteor-shower-large", requireAdjacency: true },
+  { id: "worldfall-recipe", name: "灭世陨石", inputs: ["meteor-shower-large", "sextuple", "area"], output: "worldfall", requireAdjacency: true },
+  { id: "triple-recipe", name: "三发", inputs: ["double", "focus"], output: "triple", requireAdjacency: true },
+  { id: "octuple-recipe", name: "八发", inputs: ["quadruple", "quadruple"], output: "octuple", requireAdjacency: true },
+  { id: "greater-area-recipe", name: "宏域", inputs: ["area", "area"], output: "greater-area", requireAdjacency: true },
+  { id: "greater-burn-recipe", name: "烈焰", inputs: ["burn", "burn"], output: "greater-burn", requireAdjacency: true },
+  { id: "greater-reach-recipe", name: "远界", inputs: ["reach", "reach"], output: "greater-reach", requireAdjacency: true },
+  { id: "steam-cloud-recipe", name: "蒸汽云", inputs: ["water-bolt", "ember-seed"], output: "steam-cloud", requireAdjacency: true },
+  { id: "conductive-tide-recipe", name: "导电潮", inputs: ["water-bolt", "arc-chain"], output: "conductive-tide", requireAdjacency: true },
+  { id: "magma-lance-recipe", name: "熔岩刺", inputs: ["meteor", "reach"], output: "magma-lance", requireAdjacency: true },
+  { id: "twilight-field-recipe", name: "暮光域", inputs: ["light-arrow", "dark-orb"], output: "twilight-field", requireAdjacency: true },
 ];

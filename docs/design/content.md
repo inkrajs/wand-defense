@@ -4,7 +4,7 @@
 
 ## 当前已实现内容目录（2026-11-04）
 
-以下从实际定义生成，优先于后文的历史草案。共 **113 种**：法术 49、奥术 18、装备 18、道具 8、怪物 18、额外法杖模板 2；另有 40 条合成配方。初始 3×3 法杖是初始实例，不重复计入模板数。
+以下从实际定义生成，优先于后文的历史草案。共 **140 种**：法术 65、奥术 29、装备 18、道具 8、怪物 18、额外法杖模板 2；另有 54 条合成配方。初始 3×3 法杖是初始实例，不重复计入模板数。
 
 数值是当前原型的基础定义，不是平衡定案；实例品质、角色成长、装备、奖励、途径和相邻奥术会改变实际效果。空间使用 0～100 战场坐标，时间参数以毫秒计。定义全表仅供开发；普通 Agent 与游戏手册继续按玩家已知信息过滤。更新本段：`node --import tsx scripts/update-content-doc.mjs`。
 
@@ -28,6 +28,22 @@
 | frost-pylon / 霜纹塔 | water / building | 0,0; 1,0; 0,1; 1,1 | 8 / 14 / 3200 / 32 | 部署霜纹塔（8金币），持续18秒远程攻击敌人；命中后敌人移动速度变为80%，持续1秒。 |
 | restorative-totem / 复苏图腾 | wood / building | 0,0; 1,0; 2,0; 0,1; 1,1; 2,1; 0,2; 1,2; 2,2 | 6 / 18 / 4000 / 24 | 部署复苏图腾（10金币），持续20秒治疗附近友军。 |
 | meteor / 陨石术 | earth / area | 0,0; 1,0; 0,1; 1,1 | 48 / 22 / 3000 / 34 | 陨石术锁定地面位置，延迟后落下攻击范围内敌人；灼烧每0.6秒造成威力12%伤害，持续1.8秒。 |
+| meteor-shower-small / 小流星雨 | earth / area | 0,0; 1,0; 0,1; 1,1 | 22 / 32 / 4200 / 34 | 在目标附近接连落下3颗陨石，分别造成范围伤害；灼烧每0.6秒造成威力10%伤害，持续1.2秒。 |
+| meteor-shower-large / 大流星雨 | earth / area | 0,0; 1,0; 2,0; 0,1; 1,1; 2,1; 0,2; 1,2; 2,2 | 28 / 48 / 6000 / 36 | 在目标附近接连落下5颗陨石，分别造成范围伤害；灼烧每0.6秒造成威力12%伤害，持续1.8秒。 |
+| worldfall / 灭世陨石 | earth / area | 0,0; 1,0; 2,0; 0,1; 1,1; 2,1; 0,2; 1,2; 2,2 | 40 / 80 / 9000 / 42 | 在目标附近接连落下8颗陨石，分别造成范围伤害；灼烧每0.6秒造成威力15%伤害，持续1.8秒。 |
+| ember-seed / 炽种 | fire / projectile | 0,0 | 7 / 5 / 900 / 23 | 发射炽种攻击目标，命中后造成伤害；灼烧每0.6秒造成威力20%伤害，持续1.8秒。 |
+| frost-drop / 霜滴 | water / projectile | 0,0 | 6 / 4 / 850 / 24 | 发射霜滴攻击目标，冲洗命中处附近血迹；命中后敌人移动速度变为70%，持续1.3秒。 |
+| thorn-seed / 棘种 | wood / projectile | 0,0 | 8 / 4 / 900 / 25 | 发射棘种沿直线穿透目标，最多命中2个敌人。 |
+| iron-spark / 铁砂 | metal / projectile | 0,0 | 5 / 3 / 600 / 27 | 发射铁砂攻击目标，命中后造成伤害。 |
+| static-spark / 静电 | lightning / chain | 0,0 | 6 / 5 / 1000 / 23 | 立即命中目标，再向附近敌人逐跳传导，每跳伤害乘以0.6，最多命中2个目标。 |
+| gust / 微风 | wind / projectile | 0,0 | 5 / 3 / 750 / 23 | 发射微风攻击目标，命中后造成伤害；命中时击退敌人。 |
+| pebble / 石子 | earth / projectile | 0,0 | 13 / 6 / 1300 / 24 | 发射石子攻击目标，命中后造成伤害。 |
+| glimmer / 微光 | light / shield | 0,0 | 8 / 6 / 2800 / 20 | 微光为领地提供少量护盾。 |
+| night-mote / 暗烬 | dark / projectile | 0,0 | 12 / 6 / 1400 / 26 | 发射暗烬攻击目标，命中后造成伤害；命中后敌人移动速度变为85%，持续0.9秒。 |
+| steam-cloud / 蒸汽云 | water / area | 0,0; 1,0; 0,1; 1,1 | 4 / 20 / 3200 / 30 | 蒸汽云覆盖区域，持续周期伤害附近敌人；命中后敌人移动速度变为80%，持续0.9秒。 |
+| conductive-tide / 导电潮 | lightning / chain | 0,0; 1,0; 0,1; 1,1 | 12 / 20 / 2400 / 32 | 立即命中目标，再向附近敌人逐跳传导，每跳伤害乘以0.75，最多命中4个目标；命中后敌人移动速度变为80%，持续0.9秒。 |
+| magma-lance / 熔岩刺 | fire / projectile | 0,0; 1,0; 2,0 | 24 / 16 / 1900 / 34 | 发射熔岩刺沿直线穿透目标，最多命中3个敌人；灼烧每0.6秒造成威力18%伤害，持续1.8秒。 |
+| twilight-field / 暮光域 | dark / area | 0,0; 1,0; 0,1; 1,1 | 6 / 24 / 3800 / 31 | 暮光域覆盖区域，持续周期伤害附近敌人。 |
 | spark / 火花 | fire / projectile | 0,0 | 10 / 4 / 700 / 24 | 发射火花攻击目标，命中后造成伤害。 |
 | fireball / 火球 | fire / projectile | 0,0; 1,0 | 25 / 10 / 1100 / 30 | 火球飞行中逐渐加速，接触目标后造成伤害；灼烧每0.6秒造成威力20%伤害，持续2.4秒。 |
 | regrowth / 回春 | wood / heal | 0,0; 1,0; 0,1 | 18 / 12 / 3200 / 20 | 恢复领地生命。 |
@@ -95,6 +111,17 @@
 | duration / 延时 | duration / 1.3 | 0,0; 1,0 | 相邻光束、持续领域和旋涡的持续时间增加30%，最多5秒；召唤物与建筑最多30秒；不改变伤害间隔。 |
 | capacity / 扩容 | capacity / 2 | 0,0; 1,0; 0,1 | 相邻已有多目标法术的目标容量增加2，通常最多8个；全战场领域最多64个；召唤物与建筑的同源存续上限增加2，最多8个。 |
 | precision / 精准 | precision / 0.1 | 0,0 | 相邻攻击法术命中率增加10个百分点，最高100%。 |
+| hit-trigger / 命中触发 | hitTrigger / 1 | 0,0 | 与两个法术相邻：前一个飞弹命中时释放后一个飞弹或区域法术，施放时预付两者法力。 |
+| timer-trigger / 定时触发 | timerTrigger / 500 | 0,0 | 与两个法术相邻：前一个飞弹飞行0.5秒后释放后一个飞弹或区域法术；提前碰撞则失效，预付两者法力。 |
+| short-reach / 寸进 | reach / 1.12 | 0,0 | 相邻法术射程增加12%。 |
+| light-flight / 轻羽 | velocity / 1.15 | 0,0 | 相邻飞弹速度增加15%。 |
+| tiny-area / 微域 | area / 1.12 | 0,0 | 相邻法术的作用范围增加12%。 |
+| ember-core / 火芯 | burn / 0.08 | 0,0 | 相邻攻击法术附加较弱的灼烧。 |
+| triple / 三发 | double / 3 | 0,0; 1,0; 2,0 | 相邻攻击法术分次连发3次。 |
+| octuple / 八发 | double / 8 | 0,0; 1,0; 2,0; 0,1; 1,1; 2,1; 0,2; 1,2 | 相邻攻击法术分次连发8次。 |
+| greater-area / 宏域 | area / 1.7 | 0,0; 1,0; 0,1; 1,1 | 相邻法术的作用范围增加70%。 |
+| greater-burn / 烈焰 | burn / 0.35 | 0,0; 1,0; 0,1 | 相邻攻击法术附加强力灼烧。 |
+| greater-reach / 远界 | reach / 1.5 | 0,0; 1,0; 2,0 | 相邻法术射程增加50%。 |
 
 ### 装备（每件一格）
 
@@ -208,6 +235,20 @@
 | 烬火炮台 | ember-comet + capacity → ember-turret | 是 |
 | 霜纹塔 | frost-ring + focus → frost-pylon | 是 |
 | 复苏图腾 | regrowth + duration → restorative-totem | 是 |
+| 四发 | double + double → quadruple | 是 |
+| 六发 | quadruple + double → sextuple | 是 |
+| 小流星雨 | meteor + double → meteor-shower-small | 是 |
+| 大流星雨 | meteor-shower-small + quadruple → meteor-shower-large | 是 |
+| 灭世陨石 | meteor-shower-large + sextuple + area → worldfall | 是 |
+| 三发 | double + focus → triple | 是 |
+| 八发 | quadruple + quadruple → octuple | 是 |
+| 宏域 | area + area → greater-area | 是 |
+| 烈焰 | burn + burn → greater-burn | 是 |
+| 远界 | reach + reach → greater-reach | 是 |
+| 蒸汽云 | water-bolt + ember-seed → steam-cloud | 是 |
+| 导电潮 | water-bolt + arc-chain → conductive-tide | 是 |
+| 熔岩刺 | meteor + reach → magma-lance | 是 |
+| 暮光域 | light-arrow + dark-orb → twilight-field | 是 |
 
 <!-- implemented-catalog:end -->
 

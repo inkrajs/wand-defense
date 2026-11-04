@@ -170,3 +170,9 @@ root审查指出ID直接拼commandId会超远程160限制、template宽度硬编
 ### 批量作弊最终交接：Sol验收通过、文件冻结
 事务Luna已交回helper与test：6/6通过、strict与scope diff通过；协议Luna已交回共享常量插值，strict/diff通过，保留先前9/9测试记录。Sol本人真实runtime7/7通过；相关定向合计22项均实际通过，不重复宣称全仓通过。最终三份新增tests导入链strict检查及owned diff检查通过。root全仓构建曾指出cheatCatalog.test两instances变量TS7 TS7022，作者最新收尾已加GameState['items'][string][]显式注解，Sol读取确认并复验定向strict，未重复修改或重跑业务矩阵。
 两个原生子任务均完成并保持idle，未发生provider/限流失败，未改用户所选模型。Sol最终代码审查通过权限/原子性/补缺幂等/保留grade与布局资源/XP真实成长/新级统计/远程边界/共享工厂与常量复用；未开新项目、未操作用户当前局、未提交推送。全部backend ownership释放给root：runtime/index.ts cheat块、cheatCatalog.ts、cheatCatalog.test.ts、catalog-cheats-integration.test.ts、agent/protocol.ts/projection.ts/catalog-cheats.test.ts及本记录。根统一全仓test/build与发布，UI视觉由用户确认，不加toast或raw error。
+
+## 奥术合成与技能树（2026-11-05）
+
+Sol 原生 chat `01a1a190-f915-7e63-b995-4fdb7bf581f7` 负责 `skillTreeModel.ts/test`、`recipe-options.ts/test` 及两处法杖配方入口，其他 battle 契约由对应负责人独占。合法已知配方可由玩家在法杖合成菜单显式执行，要求真实占格四边连通；重复材料必须是不同实例，原同品质拖拽升级不变。技能树保留每个配方的完整材料数量，图形边去重，外系材料只在相关主链上作为边界节点。
+
+Sol 以真实 runtime 搜索并逐一执行全部54条配方，验证放置、候选、合成和 JSON 恢复；还复审触发与元素快照在投射物、领域、射线、雷链、构造物及旧实体兼容路径的传递。定向测试和全项目类型检查通过，未操作用户存档、未提交；根负责整仓回归及发布。

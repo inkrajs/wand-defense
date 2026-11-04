@@ -7,10 +7,10 @@ import { baseMagicDefinitionIds, magicRecipeDefinitions } from "./magicRecipes";
 
 const spells = { ...demoContent.spells, ...fieldSpellDefinitions, ...expandedSpellDefinitions };
 
-test("the 40 recipes have unique IDs and outputs, with fireball preserved first", () => {
-  assert.equal(magicRecipeDefinitions.length, 40);
-  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.id)).size, 40);
-  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.output)).size, 40);
+test("spell and arcana recipes have unique IDs and outputs, with fireball preserved first", () => {
+  assert.equal(magicRecipeDefinitions.length, 54);
+  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.id)).size, 54);
+  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.output)).size, 54);
   assert.deepEqual(magicRecipeDefinitions[0], {
     id: "fireball-recipe", name: "火球", inputs: ["spark", "amplify"], output: "fireball", requireAdjacency: true,
   });
@@ -18,28 +18,28 @@ test("the 40 recipes have unique IDs and outputs, with fireball preserved first"
 
   for (const recipe of magicRecipeDefinitions) {
     assert.equal(recipe.requireAdjacency, true, `${recipe.id} requires adjacency`);
-    assert.ok(recipe.inputs.length === 2 || recipe.output === "thunderstorm" && recipe.inputs.length === 3,
+    assert.ok(recipe.inputs.length === 2 || ["thunderstorm", "worldfall"].includes(recipe.output) && recipe.inputs.length === 3,
       `${recipe.id} has its planned materials`);
     assert.equal(recipe.id, recipe.output === "fireball" ? "fireball-recipe" : `${recipe.output}-recipe`);
-    assert.equal(recipe.name, spells[recipe.output]?.name);
+    assert.equal(recipe.name, (spells[recipe.output] ?? demoContent.arcana[recipe.output])?.name);
   }
 });
 
-test("nine base spells and recipe outputs cover the 49 spell catalog with defined materials", () => {
-  assert.equal(baseMagicDefinitionIds.length, 9);
-  assert.equal(new Set(baseMagicDefinitionIds).size, 9);
+test("atomic spells and spell recipes cover the catalog; arcana recipes also have valid definitions", () => {
+  assert.equal(baseMagicDefinitionIds.length, 18);
+  assert.equal(new Set(baseMagicDefinitionIds).size, 18);
   const spellIds = Object.keys(spells);
   const arcanaIds = Object.keys(demoContent.arcana);
   const definedMagicIds = new Set([...spellIds, ...arcanaIds]);
-  const outputIds = magicRecipeDefinitions.map(recipe => recipe.output);
+  const outputIds = magicRecipeDefinitions.map(recipe => recipe.output).filter(id => Object.hasOwn(spells, id));
   const allAcquisitionIds = [...baseMagicDefinitionIds, ...outputIds];
 
-  assert.equal(spellIds.length, 49);
-  assert.equal(new Set(allAcquisitionIds).size, 49);
+  assert.equal(spellIds.length, 65);
+  assert.equal(new Set(allAcquisitionIds).size, 65);
   assert.deepEqual(new Set(allAcquisitionIds), new Set(spellIds));
   for (const id of baseMagicDefinitionIds) assert.ok(Object.hasOwn(spells, id), `base spell ${id} exists`);
   for (const recipe of magicRecipeDefinitions) {
-    assert.ok(Object.hasOwn(spells, recipe.output), `output ${recipe.output} exists`);
+    assert.ok(definedMagicIds.has(recipe.output), `output ${recipe.output} exists`);
     for (const input of recipe.inputs) {
       assert.ok(definedMagicIds.has(input), `ingredient ${input} exists for ${recipe.id}`);
       assert.notEqual(input, recipe.output, `${recipe.id} cannot consume its own output`);
@@ -66,5 +66,5 @@ test("recipe ingredient dependencies form a directed acyclic graph", () => {
   }
 
   for (const output of recipeByOutput.keys()) visit(output);
-  assert.equal(visited.size, 40);
+  assert.equal(visited.size, 54);
 });

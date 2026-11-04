@@ -1,4 +1,4 @@
-import type { AreaSpec, AttackRollStats, CombatEntity, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
+import type { AreaSpec, AttackRollStats, CombatEntity, Element, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
 import { getMonsterSize } from "../content/monsters";
 import { getCharacterAnchors } from "../content/characterAnchors";
 import { applyContactDamage, nearbyEnemies, type CombatEmit } from "./targets";
@@ -22,6 +22,7 @@ export const AREA_LIMITS = Object.freeze({
 export interface AreaCastSpec extends CastPattern {
   itemId: string;
   definitionId: string;
+  element?: Element;
   power: number;
   range: number;
   burstCount?: number;
@@ -29,6 +30,9 @@ export interface AreaCastSpec extends CastPattern {
   area: AreaSpec;
   attackRoll?: AttackRollStats;
   onHit?: OnHitSpec;
+  /** A paid trigger materializes at this exact point even when there is no nearby target. */
+  position?: { x: number; y: number };
+  maxCasts?: number;
 }
 
 type Point = { x: number; y: number };
@@ -62,6 +66,7 @@ export function spawnProjectileField(
   const field: AreaEntity = {
     id,
     definitionId: source.definitionId,
+    ...(source.element ? { element: source.element } : {}),
     kind: "area",
     faction: "player",
     x: point.x,
@@ -102,7 +107,9 @@ export function spawnAreaEffects(
 
   const castRange = Math.max(0, finite(spec.range, 0));
   const effectRange = area.mode === "ring" ? clamp(castRange, 0, AREA_LIMITS.maxRadius) : castRange;
-  const origin = getCharacterAnchors(state.characters).find(anchor => anchor.characterId === characterId);
+  if (spec.position && (![spec.position.x, spec.position.y].every(Number.isFinite)
+    || spec.position.x < 0 || spec.position.x > 100 || spec.position.y < 0 || spec.position.y > 100)) return false;
+  const origin = spec.position ?? getCharacterAnchors(state.characters).find(anchor => anchor.characterId === characterId);
   if (!origin) return false;
   const groundTargets = area.mode === "strike" || area.mode === "eruption"
     || (area.mode === "field" && area.anchor === "target")
@@ -129,13 +136,21 @@ export function spawnAreaEffects(
       if (initialTarget) center = { x: initialTarget.x, y: initialTarget.y };
     }
   }
-  if (!initialTarget) return false;
+  if (spec.position) center = { ...spec.position };
+  if (!initialTarget && !spec.position) return false;
 
   const alive = state.entities.filter(entity => entity.kind === "area" && entity.hp > 0
     && (entity.remainingMs === undefined || entity.remainingMs > 0)).length;
   const available = Math.max(0, AREA_LIMITS.alive - alive);
   if (available === 0) return false;
-  const pattern = castPattern(spec, Math.min(AREA_LIMITS.perCast, available));
+  const requestedLimit = Number.isFinite(spec.maxCasts) ? Math.max(0, Math.floor(spec.maxCasts!)) : AREA_LIMITS.perCast;
+  const budget = Math.min(AREA_LIMITS.perCast, available, requestedLimit);
+  const casts = castPattern(spec, budget);
+  const pattern = area.mode === "strike" && area.shower
+    ? casts.flatMap(cast => Array.from({ length: area.shower!.count }, (_, impact) => ({
+      ...cast, delay: cast.delay + impact * area.shower!.intervalMs, impact,
+    }))).slice(0, budget)
+    : casts.map(cast => ({ ...cast, impact: 0 }));
   if (pattern.length === 0) return false;
 
   const damage = Math.max(0, finite(spec.power, 0));
@@ -143,12 +158,17 @@ export function spawnAreaEffects(
   for (let index = 0; index < pattern.length; index++) {
     const branch = pattern[index].branch;
     const target = area.mode === "ring" ? ringTarget
-      : area.mode === "strike" || area.mode === "eruption" ? groundTargets[branch % groundTargets.length]
+      : area.mode === "strike" || area.mode === "eruption" ? groundTargets[(branch + pattern[index].impact) % groundTargets.length]
       : initialTarget;
-    const branchCenter = center && (area.mode === "strike" || area.mode === "eruption") && target
+    let branchCenter = !spec.position && center && (area.mode === "strike" || area.mode === "eruption") && target
       ? groundPoint(target, branch, pattern[index].branches, groundTargets.length, area.radius)
       : center!;
-    const delayMs = area.delayMs + pattern[index].delay;
+    if (area.mode === "strike" && area.shower && pattern[index].impact > 0 && groundTargets.length === 1) {
+      const angle = pattern[index].impact * 2.399963229728653;
+      const distance = area.shower.spread * Math.sqrt(pattern[index].impact / area.shower.count);
+      branchCenter = { x: clamp(branchCenter.x + Math.cos(angle) * distance, 0, 100), y: clamp(branchCenter.y + Math.sin(angle) * distance, 0, 100) };
+    }
+    const delayMs = Math.min(AREA_LIMITS.maxTotalLifetimeMs - 1, area.delayMs + pattern[index].delay);
     const requestedDuration = area.durationMs * (area.mode === "ring" ? 1 + branch * 0.15 : 1);
     const durationLimit = area.mode === "vortex" ? AREA_LIMITS.maxVortexDurationMs
       : area.mode === "field" ? AREA_LIMITS.maxFieldDurationMs : AREA_LIMITS.maxDurationMs;
@@ -168,6 +188,7 @@ export function spawnAreaEffects(
     const effect: AreaEntity = {
       id,
       definitionId: spec.definitionId,
+      ...(spec.element ? { element: spec.element } : {}),
       kind: "area",
       faction: "player",
       x: branchCenter.x,
@@ -201,7 +222,7 @@ export function spawnAreaEffects(
     sourceItemId: spec.itemId,
     definitionId: spec.definitionId,
     casts: pattern.length,
-    targetId: initialTarget.id,
+    ...(initialTarget ? { targetId: initialTarget.id } : {}),
   });
   return true;
 }
@@ -286,6 +307,11 @@ function normalizeArea(area: AreaSpec): AreaSpec | undefined {
     delayMs: clamp(finite(area.delayMs, 0), 0, AREA_LIMITS.maxDelayMs),
     durationMs: clamp(finite(area.durationMs, 100), 1, durationLimit),
     maxTargets,
+  };
+  if (area.mode === "strike" && area.shower) normalized.shower = {
+    count: Math.floor(clamp(finite(area.shower.count, 1), 1, AREA_LIMITS.perCast)),
+    intervalMs: clamp(finite(area.shower.intervalMs, 250), 0, 1000),
+    spread: clamp(finite(area.shower.spread, 0), 0, AREA_LIMITS.maxRadius),
   };
   if (area.mode === "field" || area.mode === "vortex") {
     normalized.tickMs = clamp(finite(area.tickMs, 400), AREA_LIMITS.minTickMs, AREA_LIMITS.maxTickMs);

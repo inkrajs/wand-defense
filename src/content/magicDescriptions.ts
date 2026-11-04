@@ -2,6 +2,10 @@ import type { ArcanaDefinition, ContentCatalog, RewardOption, SpellDefinition } 
 import { expandedArcanaDescriptions } from "./expandedArcana";
 
 const reservedDefinitionIds = new Set(["__proto__", "constructor", "prototype"]);
+const specificArcanaDescriptions = new Set([
+  "hit-trigger", "timer-trigger", "short-reach", "light-flight", "tiny-area", "ember-core",
+  "triple", "octuple", "greater-area", "greater-burn", "greater-reach",
+]);
 
 const arcanaDescriptions: Readonly<Record<ArcanaDefinition["modifier"], string>> = Object.freeze({
   amplify: "增强相邻法术的力量。",
@@ -20,6 +24,8 @@ const arcanaDescriptions: Readonly<Record<ArcanaDefinition["modifier"], string>>
   duration: expandedArcanaDescriptions.duration,
   capacity: expandedArcanaDescriptions.capacity,
   precision: expandedArcanaDescriptions.precision,
+  hitTrigger: expandedArcanaDescriptions["hit-trigger"],
+  timerTrigger: expandedArcanaDescriptions["timer-trigger"],
 });
 
 /** Returns a detached reward and describes only the current owned definition's behavior. */
@@ -65,6 +71,7 @@ function describeSpellBehavior(spell: SpellDefinition, content: ContentCatalog):
         : undefined;
     case "area":
       if (!spell.area) return undefined;
+      if (spell.area.mode === "strike" && spell.area.shower) return `在目标附近接连落下${spell.area.shower.count}颗陨石，分别造成范围伤害。`;
       if (spell.area.mode === "strike") return `${spell.name}锁定地面位置，延迟后落下攻击范围内敌人。`;
       if (spell.area.mode === "ring") return `以角色为中心扩散${spell.name}，命中周围敌人。`;
       if (spell.area.mode === "eruption") return `${spell.name}预兆后从地面刺出，攻击范围内敌人。`;
@@ -80,7 +87,7 @@ function describeSpellBehavior(spell: SpellDefinition, content: ContentCatalog):
         : "恢复领地生命。";
     }
     case "shield":
-      return "为领地增加护盾。";
+      return spell.id === "glimmer" ? "微光为领地提供少量护盾。" : "为领地增加护盾。";
     case "summon": {
       const construct = spell.construct;
       if (!construct) return undefined;
@@ -153,6 +160,7 @@ function describeImpact(spell: SpellDefinition): string | undefined {
 }
 
 function describeArcana(arcana: ArcanaDefinition): string | undefined {
+  if (specificArcanaDescriptions.has(arcana.id)) return expandedArcanaDescriptions[arcana.id];
   if (arcana.modifier === "double") {
     const count = Number.isFinite(arcana.value) && arcana.value >= 1 ? Math.floor(arcana.value) : undefined;
     return count

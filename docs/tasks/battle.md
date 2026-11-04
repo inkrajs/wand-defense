@@ -545,3 +545,24 @@ ConstructSpec公共契约由根确认落地，手动deployConstruct在准备、�
 
 
 订阅数准确性更正：直接核对混合runner只有一次`runtime.subscribe`与一次`runtime.subscribeEvents`，上述本轮混合及owned-step测量均为1full+1events；此前记录的1full+2events为转述误差，非新增测量。根已将runner纳入版本控制为`scripts/measure-combat.mjs`，默认加载仓库`src`、measure模式20秒，输出至`.local/combat-measurement`；可在仓库根目录用`SPEED=1 node --import tsx scripts/measure-combat.mjs`（或`SPEED=5`）复用。早一轮通知优化的独立3full对1full+2events记录不属于本轮混合fixture，保留其原记录。
+
+
+## 命中与定时载荷组合（2026-11-05，机制交付／内容由根接入）
+
+本轮按根转交的用户授权独立完成，不另派子任务、不提交或推送。独占contracts/index、loadout/compile、engine/effects/projectiles/index与新增trigger-limits、trigger-composition、spellTriggers及其行为测试；经根追加授权，小范围修改areaEffects的可选position/maxCasts入口及grade-scaling的触发兼容。根原有AreaSpec.shower、区域分落点、compile深拷贝和shower范围增幅，以及EnemyStatus.wetRemainingMs均保留。未改targets/statusEffects、内容定义、配方、UI或存档；hit-trigger/timer-trigger内容与说明由根添加。
+
+公共增量为ArcanaDefinition.modifier的hitTrigger/timerTrigger，以及非递归的TriggerPayload、SpellTrigger；CompiledSpell可含trigger或triggeredByItemId，CombatEntity可含trigger、triggerRemainingMs、fixedOrigin，全部是可选字段，旧实体/顶层存档语义不变。hit-trigger建议value=1，timer-trigger的value为模拟毫秒，夹100..2000，品级不改变触发时长。没有依赖浏览器定时器。
+
+有效桥要求一件触发奥术恰好正交邻接两个法术；按placement网格y、x、itemId排序，先者必须是projectile载体，后者必须是projectile或area载荷。触发奥术自身也按网格顺序解析，载体与载荷实例一旦分配就不再参与其他桥；载荷不能再次作载体，深度严格为1。缺邻居、3个以上邻居、先者不是投射物或后者是治疗/护盾/光束/链/构造等不支持类型时均不成桥，原自动施放和原代价保留。旧数值奥术仍各自按原邻接规则修饰载体和载荷；触发编译最后进行，不修改内容定义或权威状态。
+
+调用链为compileWand→composeSpellTriggers生成已修饰的独立载荷快照；stepBattle跳过triggeredByItemId载荷的普通自动施放，等待两item冷却均就绪、法力满足合计后才尝试发射载体。只有载体实际生成成功，才一次扣载体+载荷的manaCost，并将两item冷却同时设为max(两者已修饰cooldown,50ms)。副本不额外收费，载荷触发时不再扣费；未命中、到期、提前碰撞或预算导致载荷未投递不退费。无目标、法力不足、载荷尚在冷却或实体上限发射失败均不产生部分扣费。两item都设置冷却，避免暂停重排后绕过已预付载荷的冷却。
+
+advanceProjectiles沿真实运动线段找首次接触；hit模式在碰撞点释放一次载荷，载体自己的穿透/溅射/伤害照常，不要求伤害穿过护甲（实际接触即触发，飞空不触发），穿透后续接触不会再释放。timer模式从每颗载体实际发射开始计时，连发等待期间不计时；运动片截到到期时刻，在该位置释放并消耗载体，提前或同时接触则先结算碰撞并取消定时载荷。暂停、打开背包或非战斗状态冻结推进。新的载荷投射物只在下一次推进飞行，连发副本也保持触发点为固定发射源；区域载荷无论原anchor配置都从触发点生成，可在附近已无存活目标时正常出现。区域伤害仍由原advanceAreaEffects结算，没有伪造直接扣血。投射物载荷若当时无合法目标则不生成，spellTriggered记录spawned=false。
+
+releaseSpellTrigger复用既有投射物/区域工厂与实际伤害、状态、经验来源路径；伤害sourceItemId为载荷实例，sourceCharacterId为原发射角色。在途快照不再查询当前装备，暂停后移动/卸载物品不改变已发射效果。发射器通过显式函数参数传入，避免projectiles与spellTriggers运行时循环依赖。事件为spellTriggered（载体entityId、角色/载体/载荷item、modifierItemId、mode、真实x/y、spawned）及超预算spellTriggerSuppressed，沿用已有spellCast/projectileSpawned/areaSpawned/damage事件。
+
+有界预算集中在contracts/trigger-limits：载体每cast最多8弹，每颗载体一次释放、载荷最多4实体（含burst×split和shower最终总数），每次固定步推进最多16次释放，超出一次性消耗并记录stepBudget，不积压队列；仍叠加既有512活投射物、32活区域及各类型目标/寿命上限。深度1且类型不含嵌套trigger，编译保留互斥实例；运行时也只复制显式载荷字段，无法从载荷继续生成触发链。无触发奥术时编译立即返回，推进用入口实体数量上限遍历，避免为了新实体隔离再分配整实体数组。
+
+实际验证：新增spell-triggers.test.ts 11/11通过，涵盖网格顺序/原修饰与不可变性；真实命中点冰环伤害且无独立载荷双伤；timer大步精确位置及暂停/背包冻结；提前碰撞取消/护甲挡仍真实接触触发；连发等待不倒计时及载荷固定源；无效桥；合计法力/载荷cooldown/无目标原子失败；在途卸装与pure step冻结；密集8/4/16预算；飞空不触发、穿透仅一次；共享载荷/嵌套禁止。旧compile、advanced-modifiers、projectiles、碰撞与cache、area-effects（含根的shower）及construct-integration合计52/52通过。额外owned-step与projectile-speed连同新机制复核共17/17通过，git diff --check通过。初轮strict被并行内容magicDescriptions新modifier穷举和statusEffects中间状态阻塞；最后复查statusEffects已恢复，仅余根待补magicDescriptions的hitTrigger/timerTrigger，本域无类型错误，最终strict由根接入内容后更新。未跑e2e或视觉验收，最终可获得内容与文案、整仓回归由根持有。
+
+元素反应由 Luna 原生 chat `01a1a240-16cd-7392-be82-9400fc3c5fec` 接入：水系正伤使活敌潮湿1.5秒，后续雷击消耗潮湿并以50%伤害向最近敌人传导一次，无邻居时追加到原目标。Sol 审查发现自定义目录元素来源问题；battle Sol chat `01a1a190-f5e9-73e2-92ef-3468a1accc41` 补充施法、载荷、领域、光束、雷链及构造物的元素快照，旧存档缺字段仍可回查内置目录。Sol 原生 chat `01a1a190-f915-7e63-b995-4fdb7bf581f7` 复审通过，相关23项测试及完整类型检查通过。根接入陨石雨和新增内容；完整构建及回归由根统一执行。

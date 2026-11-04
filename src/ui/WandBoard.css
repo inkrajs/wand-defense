@@ -29,3 +29,10 @@ html[data-game-reduce-motion="true"] .wand-board__inventory .inkra-inventory-gri
 @keyframes wand-board-change { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .wand-board__inventory { animation-duration: 0ms; } }
 html[data-game-reduce-motion="true"] .wand-board__inventory { animation-duration: 0ms; }
+
+.wand-actions { position: relative; display: inline-flex; width: 44px; height: 44px; pointer-events: auto; }
+.wand-actions__recipes { display: flex; flex-direction: column; gap: 0; position: absolute; top: 44px; left: 0; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; }
+.wand-actions__menu { z-index: 100; max-width: min(360px, calc(100vw - 24px)); max-height: min(360px, 60vh); overflow-y: auto; }
+.wand-actions__recipe { white-space: normal; min-height: 44px; }
+
+.wand-actions__recipe-label { font-size: 10px; line-height: 12px; }

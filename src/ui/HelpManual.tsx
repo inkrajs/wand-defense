@@ -71,7 +71,7 @@ export function HelpManual({ state }: { state: GameState }) {
       {!groups.size && !unknownCount && <PencilText as="p">暂无配方</PencilText>}
     </>}</Tabs.Content>
     <Tabs.Content value="grades" className="help-manual__content">{tab === "grades" && <><p>同名同品质的两个法术或奥术可合成更高一档；神话为最高品质。</p><ol className="help-manual__grades">{gradeOrder.map(grade => <li key={grade}><PencilIcon paths={gradeIcon} size={32} sourceSize={24} decorative style={{ color: gradeDefinitions[grade].color }} /><PencilText as="span">{gradeDefinitions[grade].name}</PencilText></li>)}</ol></>}</Tabs.Content>
-    <Tabs.Content value="arcana" className="help-manual__content">{tab === "arcana" && <><p>奥术与法术相邻时修改施法，不消耗奥术。</p>{examples.length ? <div className="help-manual__groups">{examples.map(({ spell, modifier, key }) => {
+    <Tabs.Content value="arcana" className="help-manual__content">{tab === "arcana" && <><p>奥术与法术相邻时修改施法，不消耗奥术。</p><p>触发奥术与两个法术相邻时，按照从上到下、从左到右的顺序连接；前一个须为飞弹。</p><p>水系伤害使敌人潮湿1.5秒；雷击会消耗潮湿，向附近一名敌人传导额外伤害，附近没有敌人时追加伤害。</p>{examples.length ? <div className="help-manual__groups">{examples.map(({ spell, modifier, key }) => {
       const detail = enrichMagicReward({ id: modifier.id, kind: "item", label: modifier.name, definitionId: modifier.id }, demoContent).description;
       return <div className="help-manual__combination" key={key}><span className="help-manual__formula"><MagicToken id={spell.id} known={known} /><span className="help-manual__operator" aria-hidden="true">+</span><MagicToken id={modifier.id} known={known} /></span>{detail && <span className="help-manual__muted">{detail}</span>}</div>;
     })}</div> : <p className="help-manual__muted">将已发现的法术与奥术放在法杖相邻位置，可查看生效的搭配。</p>}</>}</Tabs.Content>
