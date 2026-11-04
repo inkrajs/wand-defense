@@ -100,3 +100,21 @@ test("unverified huge cached coordinates cannot expand the trusted layout extent
   assert.deepEqual(position(next.state, "a"), position(initial.state, "a"));
   assert.equal(next.packed.unplaced.length, 0);
 });
+
+test("changing to three-row pages preserves legal manual positions and relocates only a crossing shape", () => {
+  const square = {...item('square'), cells: [{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}], rotatable: false};
+  const items = [square, item('kept'), ...Array.from({length: 25}, (_, i) => item(`extra-${i}`))];
+  let desktop = projectInventoryLayout(items, 6).state;
+  desktop = rememberInventoryPosition(desktop, 'square', {x: 0, y: 2, rotation: 0});
+  desktop = rememberInventoryPosition(desktop, 'kept', {x: 5, y: 2, rotation: 0});
+  const before = structuredClone(desktop);
+  const mobile = projectInventoryLayout(items, 6, desktop, 3, 3);
+  assert.deepEqual(position(mobile.state, 'kept'), {x: 5, y: 2, rotation: 0});
+  assert.notEqual(position(mobile.state, 'square').y % 3, 2);
+  assert.equal(mobile.packed.items.length, items.length); assert.equal(mobile.packed.unplaced.length, 0);
+  assert.deepEqual(mobile.state.manualIds, desktop.manualIds);
+  assert.deepEqual(desktop, before);
+  const repeated = projectInventoryLayout(items, 6, mobile.state, 3, 3);
+  assert.deepEqual(repeated.state.positions, mobile.state.positions);
+  assert.deepEqual(projectInventoryLayout(items, 6, desktop), projectInventoryLayout(items, 6, desktop, 5, 5));
+});

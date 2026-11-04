@@ -29,8 +29,12 @@ export function makeGridItem(item: ItemInstance, position: { x: number; y: numbe
   return { id: item.id, label: resolveAsset(definition?.asset, { label: definition?.name ?? item.definitionId, icon: item.kind === "spell" ? "✦" : "◇" }).label,
     cells: definition?.shape?.length ? definition.shape : [{ x: 0, y: 0 }], position, rotation: (rotation * 90) as DockItem["rotation"], rotatable: true, kind: item.kind, definitionId: item.definitionId, grade: item.grade, element: item.kind === "spell" ? demoContent.spells[item.definitionId]?.element : undefined };
 }
-export function makeWandGridItem(wand: WandInstance, position: { x: number; y: number }, rotatable = false): DockItem {
-  return { id: wand.id, wandId: wand.id, kind: "wand", grade: wand.grade, label: wand.name, cells: Array.from({ length: wand.width * wand.height }, (_, index) => ({ x: index % wand.width, y: Math.floor(index / wand.width) })), position, rotatable };
+export function makeWandGridItem(wand: WandInstance, position: { x: number; y: number }, rotatable = false, maxPreviewRows?: number): DockItem {
+  const rowLimit = maxPreviewRows !== undefined && Number.isFinite(maxPreviewRows) ? Math.max(1, Math.floor(maxPreviewRows)) : wand.height;
+  const scale = Math.min(1, rowLimit / wand.height);
+  const width = Math.max(1, Math.round(wand.width * scale));
+  const height = Math.max(1, Math.round(wand.height * scale));
+  return { id: wand.id, wandId: wand.id, kind: "wand", grade: wand.grade, label: wand.name, cells: Array.from({ length: width * height }, (_, index) => ({ x: index % width, y: Math.floor(index / width) })), position, rotatable };
 }
 
 export function makeGearGridItem(gear: GearInstance, position: { x: number; y: number }): DockItem {
@@ -84,10 +88,13 @@ export function columnsForInventoryWidth(width: number, minColumns: number, cell
 }
 
 /** UI-only packing of real shapes into fixed-width inventory rows. */
-export function packInventory(items: DockItem[], columns: number, rows = INVENTORY_PAGE_ROWS, saved: InventoryLayout = {}) {
+export function packInventory(items: DockItem[], columns: number, rows = INVENTORY_PAGE_ROWS, saved: InventoryLayout = {}, pageRows = INVENTORY_PAGE_ROWS) {
   columns = Math.max(1, Math.min(MAX_CONTAINER_CELLS, Math.floor(columns)));
-  const baseRows = Math.max(INVENTORY_PAGE_ROWS, Math.floor(rows));
-  const segmentRowLimit = Math.max(1, Math.floor(MAX_CONTAINER_CELLS / columns));
+  pageRows = Number.isFinite(pageRows) ? Math.max(1, Math.min(MAX_CONTAINER_CELLS, Math.floor(pageRows))) : INVENTORY_PAGE_ROWS;
+  const baseRows = Math.max(pageRows, Math.floor(rows));
+  const containerRows = Math.max(1, Math.floor(MAX_CONTAINER_CELLS / columns));
+  // Whole-page segments avoid incompatible page/container boundaries stranding otherwise valid shapes.
+  const segmentRowLimit = containerRows >= pageRows ? Math.floor(containerRows / pageRows) * pageRows : containerRows;
   const heightBudget = items.reduce((total, item) => {
     const rotations = (item.rotatable === false ? [0] : [0, 90, 180, 270]) as (0 | 90 | 180 | 270)[];
     const heights = rotations.map(rotation => rotateInventoryCells(item.cells, rotation))
@@ -122,8 +129,8 @@ export function packInventory(items: DockItem[], columns: number, rows = INVENTO
     rotateInventoryCells(item.cells, rotation).map(cell => ({ x: cell.x + x, y: cell.y + y }));
   const fits = (cells: {x:number;y:number}[]) => {
     if (!cells.length || cells.some(cell => cell.x < 0 || cell.x >= columns || cell.y < 0 || cell.y >= height || occupied.has(`${cell.x},${cell.y}`))) return false;
-    const page = Math.floor(cells[0].y / INVENTORY_PAGE_ROWS);
-    if (cells.some(cell => Math.floor(cell.y / INVENTORY_PAGE_ROWS) !== page)) return false;
+    const page = Math.floor(cells[0].y / pageRows);
+    if (cells.some(cell => Math.floor(cell.y / pageRows) !== page)) return false;
     const segment = Math.floor(cells[0].y / segmentRowLimit);
     return cells.every(cell => Math.floor(cell.y / segmentRowLimit) === segment);
   };
@@ -145,7 +152,7 @@ export function packInventory(items: DockItem[], columns: number, rows = INVENTO
       const shape = rotateInventoryCells(item.cells, rotation);
       return shape.length > 0
         && Math.max(...shape.map(cell => cell.x)) - Math.min(...shape.map(cell => cell.x)) + 1 <= columns
-        && Math.max(...shape.map(cell => cell.y)) - Math.min(...shape.map(cell => cell.y)) + 1 <= INVENTORY_PAGE_ROWS;
+        && Math.max(...shape.map(cell => cell.y)) - Math.min(...shape.map(cell => cell.y)) + 1 <= pageRows;
     });
     if (!fitsAnyPage) { unplaced.push(item); continue; }
     const shapeKey = `${item.rotatable === false ? "fixed" : "rotatable"}:${JSON.stringify(item.cells)}`;

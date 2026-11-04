@@ -35,6 +35,7 @@ export function projectInventoryLayout(
   columns: number,
   previous?: InventoryLayoutState,
   minRows = INVENTORY_PAGE_ROWS,
+  pageRows = INVENTORY_PAGE_ROWS,
 ): InventoryLayoutProjection {
   const previousState = previous ?? { columns, positions: {}, manualIds: [], unclassifiedIds: [], activeIds: [], extentRows: minRows, itemBudget: Math.max(1, items.length) };
   const unclassifiedIds = previous?.unclassifiedIds ?? (previous && previous.manualIds === undefined ? Object.keys(previous.positions) : []);
@@ -54,7 +55,7 @@ export function projectInventoryLayout(
     const position = validPositions[item.id];
     return position ? Math.max(bottom, position.y + 1) : bottom;
   }, minRows);
-  const packed = packInventory(orderedItems, columns, previousExtent, validPositions);
+  const packed = packInventory(orderedItems, columns, previousExtent, validPositions, pageRows);
   const positions = { ...validPositions };
   for (const item of packed.items) positions[item.id] = { ...item.position, rotation: item.rotation ?? 0 };
   const extentRows = Math.max(validatedExtent, packed.rows, ...Object.values(positions).map(position => position.y + 1));

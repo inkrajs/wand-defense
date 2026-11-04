@@ -29,10 +29,10 @@
 .battlefield[data-progress-mode="fallback"] .battlefield__unit-health .inkra-progress__body { height: 4px; }
 .battlefield[data-progress-mode="fallback"] .battlefield__unit-health .inkra-progress__outline { visibility: hidden; }
 .battlefield[data-progress-mode="fallback"] .battlefield__unit-health .inkra-progress__fill { --inkra-selection-pigment: var(--inkra-danger-foreground); }
-.battlefield__heroes { position: absolute; z-index: 1; left: 0; right: 0; bottom: calc(var(--game-defense-bottom) + var(--game-vitals-height) + 12px); height: 96px; pointer-events: none; }
-.battlefield__hero-group { position: absolute; bottom: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
-.battlefield__hero-mini { position: absolute; top: calc(100% + var(--game-vitals-height) + 24px); left: 50%; height: 44px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.battlefield__hero { --hero-diameter: 96px; position: relative; width: var(--hero-diameter); height: var(--hero-diameter); pointer-events: auto; padding: 0; border: 0; border-radius: 50%; color: var(--inkra-success-foreground); background: transparent; font: inherit; cursor: pointer; }
+.battlefield__heroes { position: absolute; z-index: 1; left: 0; right: 0; bottom: var(--game-hud-inset); height: calc(var(--game-hero-size, 64px) + var(--game-hero-mini-height, 44px) + 4px); pointer-events: none; }
+.battlefield__hero-group { position: absolute; bottom: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
+.battlefield__hero-mini { height: var(--game-hero-mini-height, 44px); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.battlefield__hero { --hero-diameter: var(--game-hero-size, 64px); position: relative; width: var(--hero-diameter); height: var(--hero-diameter); pointer-events: auto; padding: 0; border: 0; border-radius: 50%; color: var(--inkra-success-foreground); background: transparent; font: inherit; cursor: pointer; }
 .battlefield__hero-wash { position: absolute !important; z-index: 0; inset: calc(var(--hero-diameter) / 6) !important; display: block; border-radius: 9999px; clip-path: circle(50%); opacity: 0; pointer-events: none; transition: opacity var(--game-motion-duration) var(--game-motion-ease); }
 .battlefield__hero.is-selected .battlefield__hero-wash, .battlefield__hero:focus-visible .battlefield__hero-wash { opacity: 1; }
 .battlefield__hero-mark { position: absolute; z-index: 1; inset: 0; display: grid; place-items: center; font-size: 30px; pointer-events: none; }
@@ -44,7 +44,7 @@
 .battlefield__pause { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: var(--inkra-overlay); color: var(--inkra-ink); font-size: var(--inkra-text-xl); }
 .battlefield__field.is-paused .battlefield__unit { filter: saturate(.55); transition: none; }
 .battlefield__field.is-paused .battlefield__status-spark { animation-play-state: paused; }
-@media (max-width: 560px) { .battlefield__unit:not(.battlefield__unit--enemy) .battlefield__unit-mark { width: 28px; height: 28px; } .battlefield__hero { --hero-diameter: clamp(44px, 20vw, 76px); } }
+@media (max-width: 560px) { .battlefield__unit:not(.battlefield__unit--enemy) .battlefield__unit-mark { width: 28px; height: 28px; } .battlefield__hero { --hero-diameter: var(--game-hero-size, 56px); } }
 @media (prefers-reduced-motion: reduce) {
   .battlefield *, .battlefield *::before, .battlefield *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   .battlefield__unit-mark[data-attacked="true"] { animation: none !important; }
@@ -56,6 +56,6 @@ html[data-game-reduce-motion="true"] .battlefield__status-spark { animation: non
 .battlefield[data-progress-mode="local"] { --game-vitals-height: 20px; }
 /* Absolute positioning otherwise shrink-wraps both rings to half the hero width. */
 .battlefield__hero .battlefield__xp[data-shape="circular"] { inline-size: var(--hero-diameter); block-size: var(--hero-diameter); max-inline-size: none; }
-.battlefield__hero .battlefield__mana[data-shape="circular"] { inline-size: calc(var(--hero-diameter) * .7916667); block-size: calc(var(--hero-diameter) * .7916667); max-inline-size: none; }
+.battlefield__hero .battlefield__mana[data-shape="circular"] { inline-size: calc(var(--hero-diameter) * .78125); block-size: calc(var(--hero-diameter) * .78125); max-inline-size: none; }
 .battlefield__hero-mark .character-presentation-icon { width: 70%; height: 70%; }
 .battlefield__unit--enemy .battlefield__unit-mark { border: 0; border-radius: 0; background: transparent; }

@@ -104,10 +104,10 @@ export function Battlefield({ state, flashes, activeCharacterId, hideActiveMini 
             return <div className="battlefield__hero-group" key={character.id} style={{ left: `${anchors.get(character.id)?.x ?? 50}%` }}><button type="button" className={`battlefield__hero${character.id === activeCharacterId ? " is-selected" : ""}`} data-character-id={character.id}
               aria-label={`选择角色：${character.name}，法力 ${mana} / ${maxMana}`} aria-pressed={character.id === activeCharacterId}
               title={`${character.name} · 法力 ${mana} / ${maxMana}`} onClick={() => onCharacterSelect(character.id)}>
-              <Progress className="battlefield__xp" shape="circular" diameter={96} thickness={3} value={getExperienceProgress(character.xp ?? 0, character.level).value} max={getExperienceProgress(character.xp ?? 0, character.level).max} aria-label={`${character.name}经验`} seed={`experience-ring-${character.id}`} {...ringOptions("var(--inkra-success-pigment)")} />
-              <Progress className="battlefield__mana" shape="circular" diameter={76} thickness={3} value={mana} max={Math.max(1, maxMana)} aria-label={`${character.name} 法力`} seed={`mana-${character.id}`} {...ringOptions("var(--inkra-info-pigment)")} />
+              <Progress className="battlefield__xp" shape="circular" diameter={64} thickness={3} value={getExperienceProgress(character.xp ?? 0, character.level).value} max={getExperienceProgress(character.xp ?? 0, character.level).max} aria-label={`${character.name}经验`} seed={`experience-ring-${character.id}`} {...ringOptions("var(--inkra-success-pigment)")} />
+              <Progress className="battlefield__mana" shape="circular" diameter={50} thickness={3} value={mana} max={Math.max(1, maxMana)} aria-label={`${character.name} 法力`} seed={`mana-${character.id}`} {...ringOptions("var(--inkra-info-pigment)")} />
               <PencilSurface as="span" className="battlefield__hero-wash" variant="selection" radius={12} seed={`hero-selection-${character.id}`} aria-hidden="true" />
-              <span aria-hidden="true" className="battlefield__hero-mark"><CharacterPresentationIcon pathwayId={demoContent.sequences[character.sequenceId]?.pathwayId} seed={`battle-hero-${character.id}`} size={64} /></span>
+              <span aria-hidden="true" className="battlefield__hero-mark"><CharacterPresentationIcon pathwayId={demoContent.sequences[character.sequenceId]?.pathwayId} seed={`battle-hero-${character.id}`} size={44} /></span>
             </button>
             <div className="battlefield__hero-mini"><WandMiniatures state={state} characterId={character.id} activeCharacterId={activeCharacterId} hideActive={hideActiveMini} flashes={flashes} /></div>
             </div>;

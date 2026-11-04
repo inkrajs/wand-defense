@@ -23,7 +23,7 @@ test("UI session round-trips only the supported UI fields", () => {
   assert.equal(writeUiSession("run-a", { ...session, menuPage: "menu", backpackOpen: true }, characters, storage), true);
   assert.deepEqual(readUiSession("run-a", characters, storage), session);
   assert.equal(storage.values.get("wand-defense:ui-session:run-a"), JSON.stringify(session));
-  for (const characterTab of ["radar", "elements"] as const) {
+  for (const characterTab of ["radar", "elements", "equipment"] as const) {
     assert.equal(writeUiSession("run-a", { ...session, characterTab }, characters, storage), true);
     assert.equal(readUiSession("run-a", characters, storage)?.characterTab, characterTab);
   }

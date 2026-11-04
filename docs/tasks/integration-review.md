@@ -654,3 +654,30 @@ SW v2以构建bundle生成的pwa-assets.json枚举全部必需JS/CSS/字体/图�
 图标源码使用公开PencilIcon实际canvas渲染、wash/细笔触及圆角导出；index的favicon/apple图标、manifest独立any rounded与全底maskable、SW v3 metadata及预缓存列表均接到新文件，所读入口未残留已删除旧图标引用。仅确认资产与缓存接线，不替用户认定视觉效果，亦不把此前v2浏览器验证称v3已实测。backend批量cheats与无Tabs设置未冻结，本轮未审；本批最终整仓、构建和部署待根报告，仅改本审计。
 
 根随后报告含wall与cheats的整仓543/543及build通过，日志`../../work/wand-defense-wall-cheats-tests.log`、`../../work/wand-defense-wall-cheats-build.log`。backend由两名Luna执行、模块Sol验收22项定向后交付；根另实读并修正bounded IDs超过160及模板硬编码两点，UI调试由根审gate/9 actions/no auto-call，设置无Tabs亦经根审。以上均按根/模块执行与验收报告记入历史，本审查未另审整块backend、设置或重跑矩阵，不冒称独立源码验收。用户随后新增背包双击装备/法杖与详情品质边框，由Terra独立任务实施、尚待冻结；543项结果不覆盖之后追加的UI修改。最终发布仍待根结果。
+
+### 手机奖励卡宽度修复（本次限定实现）
+
+根按用户新请求明确授权本审查直接写RewardChoices.css/必要TSX。本次仅改CSS：移除固定220px flex列与横向scroll，容器宽min(936px,100%)，四列minmax(0,1fr)，实际容器不超过759px时改两列两行；保留4卡、整面领取、44px右下翻面、真实内容和品级变量，TSX/概率/运行时未动。标题/介绍及背面属性可断行，背面使用border-box与min-width0；刷新仍在下方，改为容器内预留60px，避免可纵向滚动的父区中绝对外置入口不计高度。未加toast或隐藏卡片。
+
+CSS几何按12px两侧inset核算：320px视口可用296px、2列各140px；390px可用366px、2列各175px；1280px容器936px、4列各220px，均含4px两侧padding和8/16px列隙，合计不超可用宽，翻面点击区44px不缩小。容器查询依据实际宽度，安全区更大时继续等分收缩。独立Playwright实际组件夹具因脱离主题导致stage inset无效，后续浏览器命令未取得有效返回；不记DOM几何或交互通过。另无运行时CSS夹具亦未取得可用返回，已关闭该测试session。仅完成源码/几何核算与git diff check，无截图、镜像测试或整仓；实际游戏手机视觉与触屏效果仍由用户确认，根可用现有有效浏览器会话补DOM检查。
+
+### 清波奖励幸运加权（本次限定实现）
+
+实际roll位于content/randomRewards.ts，runtime/rewards.ts不存在。已向根报明并限定修改content/randomRewards.ts、content/rewards.ts，新增runtime/rewardLuck.ts及两份reward-luck测试；runtime/index.ts接线仍由根独占。getWaveRewardLuck按当前队伍去重，取每人stats.final.luck（有效基础/双向装备贡献，不含global）加state.luck一次，有限非负并封顶1,000,000；不求和totalLuck。采样用t=L/(L+20)，魔法item/character/wand种类原权重乘1+2t，品质rank(0..5)原权重乘1+3rank*t再归一化，其余种类权重及池/去重/候选uniform选择不变。当前清波池没有gear/supply领取路径，未借此新增交易类型。正luck平滑有界提高高品质和现有稀有类别相对概率，不加卡数或保底；零luck完全保原权重及三draw/卡随机顺序。幸运短文案提及清波品质/稀有内容，并导出单一文案供根刷新旧offer展示，不重抽旧卡。
+
+本审查实际执行抽样新旧reward测试8/8、聚合单项通过；固定stream 2048组共8192卡，luck0→100时rare+1473→3971（17.981%→48.474%），item/character/wand合计3391→5325（41.394%→65.002%），每组4种语义无重复、共12次draw且相同seed完整复现，高luck仍有common。理论品质概率luck0为60/22/12/4/1.5/0.5%，luck100约22.535/28.920/27.042/12.770/6.197/2.535%，曲线上限仍约20.033% common。已写清波/免费与付费刷新、价格、stale与幂等、恢复RNG的集成用例；首次运行因根尚未接luck而失败，不将其写为完成，待接线复验。一次strict TS仅报告并行PWA state.ts:193/195 TS2367，已转根处理，未改该模块。当前尚不宣称本机制运行时完成或已发布。
+
+根随后完成index三入口luck与旧offer文案接线；本审查已实读调用，并实际运行content/reward-luck、content/rewards、runtime/reward-luck、runtime/rewards及原reward-refresh-integration单批14/14通过，关闭前述接线失败。另加旧luck offer恢复仅换文案、不重抽grade/value/ID/RNG/金币/已领幸运的用例后，runtime/reward-luck单文件3/3通过（新增1项、其余2项复验），相关diff check通过。实现与测试现冻结：上述5份限定源/测试及本审计，未改index/UI/PWA或commit；无新增P1/P2。单批证据覆盖本机制与刷新边界，最终整仓/类型/build/发布仍由根统一汇总，不据本批结果称已上线。
+
+
+## 根集成：移动端布局、PWA、幸运及领域可读性（2026-11-04）
+
+原生独立任务复用loadout Sol（01a1a190-f915-7e63-b995-4fdb7bf581f7）、UI Terra（01a1a190-ff34-7c61-b77a-96d74a49a31c）及Sol审查（01a1a194-6104-7960-81fb-9b9dcf9be0b3）。已按文件边界读实际实现：分页参数贯穿布局/缓存/UI，装备页只在自己的Tab挂载drop DOM，英雄HUD与游戏世界坐标分离，链电首段复用真实DOM投影。根接App vars/分类切页、三处奖励luck、旧offer文案和构建SW stamp。PWA独立注入状态层→浏览器适配→Inkra设置页，无新依赖，无自动skip/reload；等候更新只在点击应用的tab监听精确新worker控制权。SW保留旧资源供未刷新的tab，旧v3没有ACK时明确要求关闭旧窗口重开，不清存档。
+
+参考仅读取旅行项目commit 3dc1628c8eeb5657dcd89121823b0fcdc9bb85ce 的src/pwa/updateState.js和installState.js机制。构建将资源清单、HTML、manifest、图标与worker模板hash替换dist/sw.js的__PWA_BUILD_ID__，源模板保持占位；资源变化也能被SW update发现。领域大黄块定位为area field高浓度大尺寸wash及叠加，根去掉全屏wash、同元素装饰去重、局部wash总预算收敛；未改engine。
+
+根全量564/564测试通过，strict类型检查及production build通过（仍有既有大chunk提示，未声称所有性能问题解决）。桌面1281×954隔离夹具实测mini与左右按钮center y592一致，bars bottom494、hero top502，Tabs上下12px；手机390×844为三行144px、56px外环，mini与按钮center y578一致。验证从独立fixture runtime生成，不读取用户存档、不做AI截图审美验收。后续生产双tab更新/手机奖励交互及发布结果另补，不能据此提前称完成。
+
+根后续生产隔离双tab实测：首装v4控制成功、资源cache建立；模拟下一release worker后设置页检测到waiting并显示应用更新。点击后仅主动tab重载（菜单消失），另一tab的内存sentinel仍alive，localStorage sentinel仍yes；新旧cache并存。夹具8个真实area实体在UI只显示1个同元素全屏装饰、0个巨幅ground wash，运行时仍保留8个实体。手机独立验证390×844三行board336×144、文档scrollWidth390，奖励四张175×240为2×2且无横向溢出，翻面未领取；领取点击的CLI后续无结果，未将其写为浏览器验收成功，领取运行时仍由既有测试覆盖。未做操作系统层安装完成验收，视觉仍待用户确认。
+
+最终补验：首次离线重开与dist替换并发时出现旧JS/CSS ERR_FAILED，未将Vary猜测当作证实根因（同cache三种match对照均true）。根补充仅同scope哈希资源ignoreVary精确URL兼容及拒绝200 HTML chunk/SPA fallback，新增2项SW回归测试通过；稳定dist新独立context首装后，真实offline reload已正常渲染game-shell。最终全量566/566通过，strict和production build通过。应用缓存/离线已验证，不宣称OS安装已执行；用户存档与IAB未用于测试。

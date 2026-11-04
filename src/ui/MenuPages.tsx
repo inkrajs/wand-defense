@@ -1,6 +1,7 @@
 import { Fragment, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, PencilIcon, PencilLine, PencilText, Select, Slider, Switch, type PencilIconPath } from "@inkra/react";
 import { CheatActions } from "./CheatActions";
+import { PwaActions } from "./PwaActions";
 import { useGraphicsSettings } from "./graphicsSettings";
 import type { Command, CommandResult, GameState } from "../contracts";
 import "./MenuPages.css";
@@ -9,7 +10,7 @@ import "./MenuSettings.css";
 
 const HelpManual = lazy(() => import("./HelpManual").then(module => ({ default: module.HelpManual })));
 
-export type MenuPage = "menu" | "settings" | "agent" | "accessibility" | "character" | "help" | "graphics" | "music" | "controls" | "debug";
+export type MenuPage = "menu" | "settings" | "agent" | "accessibility" | "character" | "help" | "graphics" | "music" | "controls" | "debug" | "pwa";
 type Props = {
   dispatch: (command: Command) => CommandResult;
   page: MenuPage | null;
@@ -46,18 +47,20 @@ function MenuLinks({ label, items }: { label: string; items: readonly { label: s
   </nav>;
 }
 
-type SettingsPage = "graphics" | "music" | "controls" | "debug";
+type SettingsPage = "graphics" | "music" | "controls" | "debug" | "pwa";
 const graphicsPaths: readonly PencilIconPath[] = [{ d: "M3 4h18v13H3zM8 21h8m-4-4v4M6 13l4-4 3 3 3-5 3 6", mode: "stroke" }];
 const musicPaths: readonly PencilIconPath[] = [{ d: "M9 17V5l11-2v12M9 8l11-2M9 17c0 2-2 4-4 4s-3-2-2-3c1-2 4-2 6-1Zm11-2c0 2-2 4-4 4s-3-2-2-3c1-2 4-2 6-1Z", mode: "stroke" }];
 const controlsPaths: readonly PencilIconPath[] = [{ d: "M3 6h18v13H3zM6 10h1m3 0h1m3 0h1m3 0h1M6 14h1m3 0h1m3 0h4M7 17h10", mode: "stroke" }];
 const debugPaths: readonly PencilIconPath[] = [{ d: "M8 8h8v10H8zM10 8V5h4v3M4 9h4m8 0h4M4 14h4m8 0h4M6 21l3-3m6 0 3 3M9 3l2 2m4-2-2 2", mode: "stroke" }];
+const pwaPaths: readonly PencilIconPath[] = [{ d: "M4 3h16v13H4zM8 21h8m-4-5v5M9 8l3 3 3-3m-3-3v6", mode: "stroke" }];
 const settingsEntries: readonly { page: SettingsPage; label: string; icon: readonly PencilIconPath[] }[] = [
   { page: "graphics", label: "画面", icon: graphicsPaths },
   { page: "music", label: "音乐", icon: musicPaths },
   { page: "controls", label: "控制", icon: controlsPaths },
   { page: "debug", label: "调试", icon: debugPaths },
+  { page: "pwa", label: "安装与更新", icon: pwaPaths },
 ];
-const titles: Record<MenuPage, string> = { menu: "菜单", settings: "设置", agent: "Agent", accessibility: "控制", character: "角色", help: "帮助手册", graphics: "画面", music: "音乐", controls: "控制", debug: "调试" };
+const titles: Record<MenuPage, string> = { menu: "菜单", settings: "设置", agent: "Agent", accessibility: "控制", character: "角色", help: "帮助手册", graphics: "画面", music: "音乐", controls: "控制", debug: "调试", pwa: "安装与更新" };
 const isSettingsPage = (page: MenuPage | null): page is SettingsPage => settingsEntries.some(entry => entry.page === page);
 
 type PreferencesValue = { reduceMotion: boolean; textEffects: boolean; musicEnabled: boolean; musicVolume: number };
@@ -188,6 +191,7 @@ export function MenuPages({ page, navigate, close, restart, agentPanel, state, d
           {displayPage === "graphics" && <GraphicsSettings {...preferenceProps} />}
           {displayPage === "music" && <MusicSettings {...preferenceProps} />}
           {(displayPage === "controls" || displayPage === "accessibility") && <ControlSettings {...preferenceProps} />}
+          {displayPage === "pwa" && <PwaActions />}
           {displayPage === "debug" && <div className="menu-settings__fields">
             {!state.cheats.unlocked ? <>
               <PencilText as="p" className="menu-settings__note">作弊功能尚未解锁。</PencilText>

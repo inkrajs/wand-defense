@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertInventoryContainers, type InventoryItem } from "@inkra/react/inventory-grid";
-import { columnsForInventoryWidth, INVENTORY_PAGE_ROWS, minimumRequiredColumns, packInventory, type DockItem } from "./inventoryAdapter";
+import { assertInventoryContainers, rotateInventoryCells, type InventoryItem } from "@inkra/react/inventory-grid";
+import type { WandInstance } from "../contracts";
+import { columnsForInventoryWidth, INVENTORY_PAGE_ROWS, makeWandGridItem, minimumRequiredColumns, packInventory, type DockItem } from "./inventoryAdapter";
 
 function item(id: string, cells: InventoryItem["cells"] = [{ x: 0, y: 0 }], rotatable = true): DockItem {
   return { id, label: id, kind: "spell", definitionId: id, grade: "common", cells, position: { x: 0, y: 0 }, rotatable };
@@ -108,4 +109,60 @@ test("invalid far-away UI coordinates are ignored within the packing row bound",
   assert.equal(packed.unplaced.length, 0);
   assert.deepEqual(packed.items[0].position, { x: 0, y: 0 });
   assert.equal(packed.segments.reduce((count, segment) => count + segment.rows, 0), INVENTORY_PAGE_ROWS);
+});
+
+test("three-row pages retain every mixed shape whole, preserve legal spots and keep rows as minimum extent", () => {
+  const shapes = [
+    [{x: 0, y: 0}],
+    [{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}],
+    [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}],
+  ];
+  const items = Array.from({length: 80}, (_, i) => item(`mobile-${i}`, shapes[i % shapes.length], false));
+  const saved = {"mobile-0": {x: 5, y: 2, rotation: 0 as const}, "mobile-1": {x: 0, y: 2, rotation: 0 as const}};
+  const packed = packInventory(items, 6, 11, saved, 3);
+  assert.equal(packed.unplaced.length, 0);
+  assert.equal(packed.items.length, items.length);
+  assert.equal(new Set(packed.items.map(value => value.id)).size, items.length);
+  assert.ok(packed.rows >= 11);
+  assert.deepEqual(packed.items.find(value => value.id === 'mobile-0')!.position, {x: 5, y: 2});
+  assert.notEqual(packed.items.find(value => value.id === 'mobile-1')!.position.y, 2);
+  for (const placed of packed.items) {
+    const pages = new Set(rotateInventoryCells(placed.cells, placed.rotation).map(cell => Math.floor((cell.y + placed.position.y) / 3)));
+    assert.equal(pages.size, 1, placed.id);
+  }
+  assertInventoryContainers(packed.segments.map((segment, index) => ({id: `mobile-${index}`, columns: 6, rows: segment.rows, items: segment.items})));
+  assert.deepEqual(packInventory(items, 6, 5, saved), packInventory(items, 6, 5, saved, 5));
+});
+
+test("three-row pagination stays aligned with 4096-cell segments without losing items", () => {
+  const singles = Array.from({length: 4100}, (_, i) => item(`segmented-${i}`));
+  const packed = packInventory(singles, 1, 3, {}, 3);
+  assert.equal(packed.items.length, singles.length); assert.equal(packed.unplaced.length, 0);
+  assert.equal(new Set(packed.segments.flatMap(segment => segment.items.map(value => value.id))).size, singles.length);
+  assert.ok(packed.segments.every(segment => segment.rows <= 4096 && segment.rowOffset % 3 === 0));
+  assertInventoryContainers(packed.segments.map((segment, i) => ({id: `segment-${i}`, columns: 1, rows: segment.rows, items: segment.items})));
+  // A raw four-row segment conflicts with global three-row pages unless segments align to pages.
+  const wide = Array.from({length: 6}, (_, i) => item(`wide-page-${i}`, [{x: 0, y: 0}, {x: 1023, y: 0}, {x: 0, y: 2}], false));
+  const widePacked = packInventory(wide, 1024, 3, {}, 3);
+  assert.equal(widePacked.unplaced.length, 0); assert.equal(widePacked.items.length, wide.length);
+  assert.ok(widePacked.segments.every(segment => segment.rows * 1024 <= 4096));
+});
+
+test("mobile wand previews scale display cells proportionally without changing authoritative wand data", () => {
+  for (const [width, height, expectedWidth, expectedHeight] of [[5, 5, 3, 3], [4, 4, 3, 3], [6, 4, 5, 3], [2, 5, 1, 3], [3, 2, 3, 2]]) {
+    const wand: WandInstance = {id: `wand-${width}-${height}`, name: '法杖', width, height, characterId: null,
+      level: 7, grade: 'rare', placements: [{itemId: 'kept-spell', x: 1, y: 1, rotation: 1}], cooldowns: {'kept-spell': 750}};
+    const before = structuredClone(wand);
+    assert.equal(makeWandGridItem(wand, {x: 0, y: 0}).cells.length, width * height);
+    const preview = makeWandGridItem(wand, {x: 2, y: 3}, false, 3);
+    assert.equal(Math.max(...preview.cells.map(cell => cell.x)) + 1, expectedWidth);
+    assert.equal(Math.max(...preview.cells.map(cell => cell.y)) + 1, expectedHeight);
+    assert.equal(preview.cells.length, expectedWidth * expectedHeight);
+    assert.deepEqual(preview.position, {x: 2, y: 3});
+    assert.ok(preview.kind === 'wand');
+    assert.equal(preview.wandId, wand.id); assert.equal(preview.grade, wand.grade);
+    assert.deepEqual(wand, before);
+    const packed = packInventory([preview], expectedWidth, 3, {}, 3);
+    assert.equal(packed.unplaced.length, 0);
+  }
 });

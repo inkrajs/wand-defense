@@ -1,4 +1,5 @@
 import { GameTabsList } from "./GameTabsList";
+import type { CharacterTab } from "./uiSession";
 import { useMemo, useRef, useState } from "react";
 import { PencilIcon, PencilSurface, PencilText, Radar, Tabs, Tooltip } from "@inkra/react";
 import type { RadarAxis, RadarSeries } from "@inkra/react/radar";
@@ -15,7 +16,7 @@ import { CharacterPresentationIcon } from "./characterPresentationIcons";
 import { WandPreview } from "./WandMiniatures";
 import "./CharacterPage.css";
 
-export type CharacterPageTab = "overview" | "radar" | "attributes" | "elements" | "pathways" | "growth";
+export type CharacterPageTab = CharacterTab;
 type Props = { state: GameState; dispatch: (command: Command) => CommandResult; activeCharacterId: string; showLoadout?: boolean; loadoutCategory?: "items" | "equipment"; tab?: CharacterPageTab; onTabChange?: (tab: CharacterPageTab) => void };
 
 const pathwayNames: Record<string, string> = { fire: "火之途径", wood: "木之途径", metal: "金之途径", water: "水之途径", earth: "土之途径", light: "光之途径", dark: "暗之途径", lightning: "雷之途径", wind: "风之途径" };
@@ -78,8 +79,8 @@ export function CharacterPage({ state, dispatch: _dispatch, activeCharacterId, s
     onTabChange?.(nextTab);
   };
   const character = state.characters.find((entry) => entry.id === activeCharacterId) ?? state.characters[0];
-  const gearLoadout = showLoadout && loadoutCategory === "items";
-  const wandLoadout = showLoadout && loadoutCategory === "equipment";
+  const gearLoadout = tab === "equipment" && showLoadout && loadoutCategory === "items";
+  const wandLoadout = tab === "equipment" && showLoadout && loadoutCategory === "equipment";
   const knownSequences = useMemo(() => state.knowledge.sequenceIds
     .map((id) => demoContent.sequences[id])
     .filter((sequence) => sequence !== undefined), [state.knowledge.sequenceIds]);
@@ -144,6 +145,18 @@ export function CharacterPage({ state, dispatch: _dispatch, activeCharacterId, s
 
   return <section className="character-page" aria-label="角色详情">
     {character ? <div className="character-page__layout">
+      <section className="character-page__details" aria-label="角色属性与成长">
+        <Tabs.Root orientation="vertical" value={tab} onValueChange={handleTabChange}>
+          <GameTabsList className="character-page__tabs" orientation="vertical" aria-label="角色详情标签" fullWidth>
+            <Tabs.Trigger value="equipment" aria-label="装备" startIcon={<PencilIcon paths={bodyPaths} size={32} sourceSize={24} seed="equipment-tab" decorative />} />
+            <Tabs.Trigger value="overview" aria-label="概览" startIcon={<PencilIcon paths={overviewPaths} size={32} sourceSize={24} seed="overview-tab" decorative />} />
+            <Tabs.Trigger value="radar" aria-label="雷达" startIcon={<PencilIcon paths={radarPaths} size={32} sourceSize={24} seed="radar-tab" decorative />} />
+            <Tabs.Trigger value="attributes" aria-label="属性" startIcon={<PencilIcon paths={attributesPaths} size={32} sourceSize={24} seed="attributes-tab" decorative />} />
+            <Tabs.Trigger value="elements" aria-label="元素" startIcon={<PencilIcon paths={elementPaths} size={32} sourceSize={24} seed="elements-tab" decorative />} />
+            <Tabs.Trigger value="pathways" aria-label="途径" startIcon={<PencilIcon paths={pathwaysPaths} size={32} sourceSize={24} seed="pathways-tab" decorative />} />
+            <Tabs.Trigger value="growth" aria-label="成长" startIcon={<PencilIcon paths={growthPaths} size={32} sourceSize={24} seed="growth-tab" decorative />} />
+          </GameTabsList>
+          <Tabs.Content className="character-page__panel character-page__equipment-panel" value="equipment">
       <section className="character-page__equipment" aria-label="角色与装备位">
         <div className="character-page__gear-grid">
           <GearSlot className="character-page__slot--head" icon={headPaths} label="头部" slot="head" state={state} characterId={character.id} loadout={gearLoadout} />
@@ -158,16 +171,7 @@ export function CharacterPage({ state, dispatch: _dispatch, activeCharacterId, s
         </div>
       </section>
 
-      <section className="character-page__details" aria-label="角色属性与成长">
-        <Tabs.Root orientation="vertical" value={tab} onValueChange={handleTabChange}>
-          <GameTabsList className="character-page__tabs" orientation="vertical" aria-label="角色详情标签" fullWidth>
-            <Tabs.Trigger value="overview" aria-label="概览" startIcon={<PencilIcon paths={overviewPaths} size={32} sourceSize={24} seed="overview-tab" decorative />} />
-            <Tabs.Trigger value="radar" aria-label="雷达" startIcon={<PencilIcon paths={radarPaths} size={32} sourceSize={24} seed="radar-tab" decorative />} />
-            <Tabs.Trigger value="attributes" aria-label="属性" startIcon={<PencilIcon paths={attributesPaths} size={32} sourceSize={24} seed="attributes-tab" decorative />} />
-            <Tabs.Trigger value="elements" aria-label="元素" startIcon={<PencilIcon paths={elementPaths} size={32} sourceSize={24} seed="elements-tab" decorative />} />
-            <Tabs.Trigger value="pathways" aria-label="途径" startIcon={<PencilIcon paths={pathwaysPaths} size={32} sourceSize={24} seed="pathways-tab" decorative />} />
-            <Tabs.Trigger value="growth" aria-label="成长" startIcon={<PencilIcon paths={growthPaths} size={32} sourceSize={24} seed="growth-tab" decorative />} />
-          </GameTabsList>
+          </Tabs.Content>
           <Tabs.Content className="character-page__panel character-page__overview" value="overview">
             <SummaryRow icon={levelPaths} label="等级" value={String(character.level)} seed="overview-level" />
             <SummaryRow icon={manaPaths} label="法力" value={stats ? `${Math.floor(stats.final.mana)} / ${statNumber(stats.final.maxMana)}` : `${Math.floor(character.mana)} / ${character.maxMana}`} seed="overview-mana" />

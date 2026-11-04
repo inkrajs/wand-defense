@@ -34,7 +34,7 @@ const categoryIcons = {
 const trashPaths = [{ d: "M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6", mode: "stroke" as const }];
 const arrangePaths = [{ d: "M4 6h16M4 12h10M4 18h6M17 10l3 2-3 2M12 16l3 2-3 2", mode: "stroke" as const }];
 const gearSlotLabels: Record<GearSlot, string> = { head: "头部", body: "身体", feet: "足部", accessory: "饰品" };
-type Props = { category: Category; state: GameState; dispatch: (command: Command) => CommandResult; activeCharacterId: string; showWands?: boolean; showLoadout?: boolean; onCategoryChange?: (category: Category) => void; onWandAreaHeightChange?: (height: number) => void };
+type Props = { category: Category; state: GameState; dispatch: (command: Command) => CommandResult; activeCharacterId: string; showWands?: boolean; showLoadout?: boolean; onCategoryChange?: (category: Category) => void; onWandAreaHeightChange?: (height: number) => void; pageRows?: number };
 type PendingStorageMove = { kind: "spell" | "equipment"; itemId: string; position: { x: number; y: number; rotation: 0 | 90 | 180 | 270 } };
 
 function magicIcon(item: DockItem) {
@@ -83,22 +83,22 @@ function filterPackedItems(packed: ReturnType<typeof packInventory>, predicate: 
     segments: packed.segments.map(segment => ({ ...segment, items: segment.items.filter(predicate) })),
   };
 }
-function extendPackedRows(packed: ReturnType<typeof packInventory>, rows: number): ReturnType<typeof packInventory> {
-  const totalRows = Math.max(INVENTORY_PAGE_ROWS, Math.ceil(Math.max(rows, packed.rows) / INVENTORY_PAGE_ROWS) * INVENTORY_PAGE_ROWS);
-  const segmentCount = Math.max(1, totalRows / INVENTORY_PAGE_ROWS);
+function extendPackedRows(packed: ReturnType<typeof packInventory>, rows: number, pageRows: number): ReturnType<typeof packInventory> {
+  const totalRows = Math.max(pageRows, Math.ceil(Math.max(rows, packed.rows) / pageRows) * pageRows);
+  const segmentCount = Math.max(1, totalRows / pageRows);
   const pageItems = Array.from({ length: segmentCount }, () => [] as DockItem[]);
   for (const item of packed.items) {
-    const page = Math.floor(item.position.y / INVENTORY_PAGE_ROWS);
-    if (page < pageItems.length) pageItems[page].push({ ...item, position: { ...item.position, y: item.position.y - page * INVENTORY_PAGE_ROWS } });
+    const page = Math.floor(item.position.y / pageRows);
+    if (page < pageItems.length) pageItems[page].push({ ...item, position: { ...item.position, y: item.position.y - page * pageRows } });
   }
   return {
     ...packed,
     rows: totalRows,
     segments: Array.from({ length: segmentCount }, (_, index) => {
-      const rowOffset = index * INVENTORY_PAGE_ROWS;
+      const rowOffset = index * pageRows;
       return {
         rowOffset,
-        rows: INVENTORY_PAGE_ROWS,
+        rows: pageRows,
         items: pageItems[index],
       };
     }),
@@ -130,7 +130,7 @@ function dropSourceContainerId(source: InventoryPlacement | InventoryContainer<D
   return "containerId" in source ? source.containerId : source.id;
 }
 
-export function InventoryDock({ category, state, dispatch, activeCharacterId, showWands = true, showLoadout = false, onCategoryChange, onWandAreaHeightChange }: Props) {
+export function InventoryDock({ category, state, dispatch, activeCharacterId, showWands = true, showLoadout = false, onCategoryChange, onWandAreaHeightChange, pageRows = INVENTORY_PAGE_ROWS }: Props) {
   const [pageIndex, setPageIndex] = useState(0);
   const measureRef = useRef<HTMLDivElement>(null);
   const topAreaRef = useRef<HTMLDivElement>(null);
@@ -186,13 +186,14 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
   const inventoryGridHandle = useRef<InventoryGridHandle>(null);
   const dragging = useRef(false);
   const lastDragEnd = useRef(-Infinity);
+  useEffect(() => { inventoryGridHandle.current?.cancelDrag(); setPageIndex(0); }, [pageRows]);
   const [pendingStorageMoves, setPendingStorageMoves] = useState<Record<string, PendingStorageMove>>({});
   const [mergeEventCursor, setMergeEventCursor] = useState(state.nextEventSeq);
   const primaryCharacter = state.characters.find((character) => character.id === activeCharacterId) ?? state.characters[0];
   const activeWands = useMemo(() => state.wands.filter(entry => entry.characterId === primaryCharacter?.id && primaryCharacter.wandIds.includes(entry.id)), [primaryCharacter, state.wands]);
 
   const spellItems = useMemo(() => state.backpack.flatMap(id => state.items[id] ? [makeGridItem(state.items[id], { x: 0, y: 0 })] : []), [state.backpack, state.items]);
-  const storedWandItems = useMemo(() => state.wands.filter(entry => entry.characterId === null).map(entry => makeWandGridItem(entry, { x: 0, y: 0 }, true)), [state.wands]);
+  const storedWandItems = useMemo(() => state.wands.filter(entry => entry.characterId === null).map(entry => makeWandGridItem(entry, { x: 0, y: 0 }, true, pageRows)), [state.wands, pageRows]);
   const gearItems = useMemo(() => Object.values(state.gear ?? {}).filter(entry => entry.characterId === null).map(entry => makeGearGridItem(entry, { x: 0, y: 0 })), [state.gear]);
   const supplyItems = useMemo(() => Object.values(state.supplies ?? {}).map(entry => makeSupplyGridItem(entry, { x: 0, y: 0 })), [state.supplies]);
   const spellColumns = columnsForInventoryWidth(availableWidth, minimumRequiredColumns(spellItems), GRID_CELL_SIZE);
@@ -204,15 +205,15 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
   const spellLayoutAfterMerges = useMemo(() => spellLayout && pendingMergeEvents.length
     ? pendingMergeEvents.reduce(carryMergeLayout, spellLayout)
     : spellLayout, [spellLayout, pendingMergeEvents]);
-  const spellProjection = useMemo(() => projectInventoryLayout(spellItems, spellColumns, spellLayoutAfterMerges), [spellItems, spellColumns, spellLayoutAfterMerges]);
-  const equipmentProjection = useMemo(() => projectInventoryLayout(storedWandItems, equipmentColumns, equipmentLayout), [storedWandItems, equipmentColumns, equipmentLayout]);
-  const gearProjection = useMemo(() => projectInventoryLayout(gearItems, gearColumns, gearLayout), [gearItems, gearColumns, gearLayout]);
-  const supplyProjection = useMemo(() => projectInventoryLayout(supplyItems, supplyColumns, supplyLayout), [supplyItems, supplyColumns, supplyLayout]);
-  const sharedRows = Math.max(INVENTORY_PAGE_ROWS, spellProjection.packed.rows, equipmentProjection.packed.rows, gearProjection.packed.rows, supplyProjection.packed.rows);
-  const spellPacked = extendPackedRows(spellProjection.packed, sharedRows);
-  const equipmentPacked = extendPackedRows(equipmentProjection.packed, sharedRows);
-  const gearPacked = extendPackedRows(gearProjection.packed, sharedRows);
-  const supplyPacked = extendPackedRows(supplyProjection.packed, sharedRows);
+  const spellProjection = useMemo(() => projectInventoryLayout(spellItems, spellColumns, spellLayoutAfterMerges, pageRows, pageRows), [spellItems, spellColumns, spellLayoutAfterMerges, pageRows]);
+  const equipmentProjection = useMemo(() => projectInventoryLayout(storedWandItems, equipmentColumns, equipmentLayout, pageRows, pageRows), [storedWandItems, equipmentColumns, equipmentLayout, pageRows]);
+  const gearProjection = useMemo(() => projectInventoryLayout(gearItems, gearColumns, gearLayout, pageRows, pageRows), [gearItems, gearColumns, gearLayout, pageRows]);
+  const supplyProjection = useMemo(() => projectInventoryLayout(supplyItems, supplyColumns, supplyLayout, pageRows, pageRows), [supplyItems, supplyColumns, supplyLayout, pageRows]);
+  const sharedRows = Math.max(pageRows, spellProjection.packed.rows, equipmentProjection.packed.rows, gearProjection.packed.rows, supplyProjection.packed.rows);
+  const spellPacked = extendPackedRows(spellProjection.packed, sharedRows, pageRows);
+  const equipmentPacked = extendPackedRows(equipmentProjection.packed, sharedRows, pageRows);
+  const gearPacked = extendPackedRows(gearProjection.packed, sharedRows, pageRows);
+  const supplyPacked = extendPackedRows(supplyProjection.packed, sharedRows, pageRows);
   const pageCount = Math.max(1, spellPacked.segments.length, equipmentPacked.segments.length, gearPacked.segments.length, supplyPacked.segments.length);
   useEffect(() => setPageIndex(current => Math.min(current, pageCount - 1)), [pageCount]);
 
@@ -251,7 +252,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
       const maxWidth = Math.max(1, ...state.wands.map((entry) => entry.width));
       const maxHeight = Math.max(1, ...state.wands.map((entry) => entry.height));
       const storedWands = equipmentPacked;
-      const storageContainers = packedContainers("equipment-backpack", "未装备法杖", storedWands, equipmentColumns).filter(container => container.id === `equipment-backpack:${pageIndex * INVENTORY_PAGE_ROWS}`);
+      const storageContainers = packedContainers("equipment-backpack", "未装备法杖", storedWands, equipmentColumns).filter(container => container.id === `equipment-backpack:${pageIndex * pageRows}`);
       const activeGear: InventoryContainer<DockItem>[] = primaryCharacter ? [0, 1].map(slotIndex => {
         const wandId = primaryCharacter.wandIds[slotIndex];
         const equipped = state.wands.find(entry => entry.id === wandId && entry.characterId === primaryCharacter.id);
@@ -266,11 +267,11 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
       return { containers: [...storageContainers, ...activeGear], overflow: storedWands.unplaced.length };
     }
     if (category === "items") {
-      const storageContainers = packedContainers("gear-backpack", "未装备装备", gearPacked, gearColumns).filter(container => container.id === `gear-backpack:${pageIndex * INVENTORY_PAGE_ROWS}`);
+      const storageContainers = packedContainers("gear-backpack", "未装备装备", gearPacked, gearColumns).filter(container => container.id === `gear-backpack:${pageIndex * pageRows}`);
       return { containers: storageContainers, overflow: gearPacked.unplaced.length };
     }
     if (category === "supplies") {
-      const storageContainers = packedContainers("supplies", "道具", supplyPacked, supplyColumns).filter(container => container.id === `supplies:${pageIndex * INVENTORY_PAGE_ROWS}`);
+      const storageContainers = packedContainers("supplies", "道具", supplyPacked, supplyColumns).filter(container => container.id === `supplies:${pageIndex * pageRows}`);
       return { containers: storageContainers, overflow: supplyPacked.unplaced.length };
     }
     const wandContainers: InventoryContainer<DockItem>[] = category === "spells" ? activeWands.map(activeWand => ({
@@ -283,10 +284,10 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
         return instance ? [makeGridItem(instance, { x: placement.x, y: placement.y }, placement.rotation)] : [];
       }),
     })) : [];
-    const storageContainers = packedContainers("backpack", "背包", spellPacked, spellColumns).filter(container => container.id === `backpack:${pageIndex * INVENTORY_PAGE_ROWS}`);
+    const storageContainers = packedContainers("backpack", "背包", spellPacked, spellColumns).filter(container => container.id === `backpack:${pageIndex * pageRows}`);
     return { containers: [...wandContainers, ...storageContainers], overflow: spellPacked.unplaced.length };
 
-  }, [activeWands, category, spellPacked, equipmentPacked, gearPacked, supplyPacked, state.characters, state.items, state.wands, primaryCharacter, spellColumns, equipmentColumns, gearColumns, supplyColumns, pageIndex]);
+  }, [activeWands, category, spellPacked, equipmentPacked, gearPacked, supplyPacked, state.characters, state.items, state.wands, primaryCharacter, spellColumns, equipmentColumns, gearColumns, supplyColumns, pageIndex, pageRows]);
 
   function onInventoryChange(_next: readonly InventoryContainer<DockItem>[], details: InventoryChangeDetails) {
     const { from, to } = details;
@@ -407,8 +408,12 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
         if (!wand) return null;
         const naturalWidth = wand.width * GRID_CELL_SIZE;
         const naturalHeight = wand.height * GRID_CELL_SIZE;
+        const previewScale = Math.min(1,
+          (Math.max(...item.cells.map(cell => cell.x)) + 1) / wand.width,
+          (Math.max(...item.cells.map(cell => cell.y)) + 1) / wand.height,
+        );
         return <span className="inventory-dock__item inventory-dock__item--wand" data-kind={item.kind} data-combine-target={renderState.combineTarget || undefined}>
-          <span className="inventory-dock__wand-preview" style={{ width: naturalWidth, height: naturalHeight, transform: `translate(-50%, -50%) rotate(${renderState.rotation}deg)` }}><WandPreview state={state} wand={wand} size={Math.max(wand.width, wand.height) * GRID_CELL_SIZE} detailMode /></span>
+          <span className="inventory-dock__wand-preview" style={{ width: naturalWidth * previewScale, height: naturalHeight * previewScale, transform: `translate(-50%, -50%) rotate(${renderState.rotation}deg)` }}><WandPreview state={state} wand={wand} size={Math.max(wand.width, wand.height) * GRID_CELL_SIZE * previewScale} detailMode /></span>
         </span>;
       }
       const label = iconDefinition ? magicItemLabel(item) : item.label ?? item.id;
@@ -441,6 +446,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
         : category === "equipment" ? storedWandItems
           : category === "items" ? gearItems : supplyItems,
       category === "spells" ? spellColumns : category === "equipment" ? equipmentColumns : category === "items" ? gearColumns : supplyColumns,
+      undefined, pageRows, pageRows,
     ).state;
     if (category === "spells") setSpellLayout(compact);
     else if (category === "equipment") setEquipmentLayout(compact);
@@ -579,7 +585,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     const response = dispatch(command);
     setResult(response.status === "rejected" ? response : null);
   }
-  return <section className="inventory-dock" onDoubleClickCapture={equipOnDoubleClick} onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": INVENTORY_PAGE_ROWS } as React.CSSProperties}>
+  return <section className="inventory-dock" onDoubleClickCapture={equipOnDoubleClick} onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": pageRows } as React.CSSProperties}>
     <div className="inventory-dock__measure" ref={measureRef} aria-hidden="true" />
 
     {localGrid ? <GridRoot {...gridProps} {...combineProps}>{renderTabs(true)}{renderToolbar()}</GridRoot> : <>{renderTabs(false)}{renderToolbar()}</>}

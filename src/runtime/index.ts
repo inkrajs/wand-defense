@@ -5,7 +5,7 @@ import { createGearFromDefinition } from "../content/gear";
 import { createSupplyFromDefinition } from "../content/supplies";
 import { demoContent } from "../content/demo";
 import { createWaveRewards } from "../content/rewards";
-import { fillUniqueRewardOffers, getRewardOfferKey } from "../content/randomRewards";
+import { fillUniqueRewardOffers, getRewardOfferKey, rewardLuckDescription } from "../content/randomRewards";
 import { enrichMagicReward } from "../content/magicDescriptions";
 import { discoverAvailableRecipes } from "../content/recipeKnowledge";
 import { normalizeCharacterProgression } from "../content/progression";
@@ -13,6 +13,7 @@ import { createCharacterBaseStats, getCharacterStats, normalizeCharacterStats } 
 import { BATTLE_STEP_MS, startBattle, stepBattle, advanceOwnedBattle } from "../engine";
 import { applyLoadoutCommand } from "../loadout";
 import { createInitialState } from "./initial";
+import { getWaveRewardLuck } from "./rewardLuck";
 import { GAME_SPEEDS } from "../contracts";
 import { applyTerritoryUpgrade, applyTerritoryRepair } from "./territory";
 import { applyTerritoryRecoveryUpgrade } from "./territoryRecovery";
@@ -58,12 +59,13 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
   state.runStatistics = restoreRunStatistics(state, content);
   state.rewardRefresh = normalizeRewardRefresh(state.rewardRefresh, state.wave);
   // Refresh presentation of already-offered cards without drawing new rewards.
-  state.rewards=state.rewards.map(reward=>enrichMagicReward(reward,content));
+  state.rewards=state.rewards.map(reward=>enrichMagicReward(reward.kind === "buff" && reward.effect?.type === "luck"
+    ? {...reward,description:rewardLuckDescription} : reward,content));
   // Repair only legacy duplicate offers. Existing distinct choices and their IDs stay stable.
   if (state.phase === "reward" && new Set(state.rewards.map(getRewardOfferKey)).size < state.rewards.length) {
     state.rewards=fillUniqueRewardOffers(state.rewards,{
       wave:state.wave,characterCount:state.characters.length,wandCount:state.wands.length,content,
-      random:()=>nextRewardDraw(state),canHeal:state.territory.hp<state.territory.maxHp,
+      random:()=>nextRewardDraw(state),luck:getWaveRewardLuck(state,content),canHeal:state.territory.hp<state.territory.maxHp,
       cooldownCapped:(state.runBonuses?.cooldownPercent??0)>=70,
     });
     // Newly visible replacement cards are discoveries, not grants or historical claims.
@@ -134,7 +136,7 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
   function prepareRewards() {
     state.rewardRefresh = normalizeRewardRefresh(state.rewardRefresh, state.wave);
     state.rewards = createWaveRewards(state.wave,state.characters.length,state.wands.length,content,()=>nextRewardDraw(state),
-      {canHeal:state.territory.hp < state.territory.maxHp,cooldownCapped:(state.runBonuses?.cooldownPercent ?? 0) >= 70});
+      {luck:getWaveRewardLuck(state,content),canHeal:state.territory.hp < state.territory.maxHp,cooldownCapped:(state.runBonuses?.cooldownPercent ?? 0) >= 70});
     // Reward offers are visible discoveries; unoffered definitions stay undisclosed.
     for (const reward of state.rewards) if (reward.definitionId) discover(reward.definitionId);
     emit("reward.offered", {wave: state.wave, rewards: structuredClone(state.rewards)});
@@ -216,7 +218,7 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
         const rewards = createWaveRewards(state.wave,state.characters.length,state.wands.length,content,()=>{
           rng = (Math.imul(rng,1664525) + 1013904223) >>> 0;
           return rng / 0x1_0000_0000;
-        }, {canHeal:state.territory.hp<state.territory.maxHp,cooldownCapped:(state.runBonuses?.cooldownPercent??0)>=70});
+        }, {luck:getWaveRewardLuck(state,content),canHeal:state.territory.hp<state.territory.maxHp,cooldownCapped:(state.runBonuses?.cooldownPercent??0)>=70});
         if (rewards.length !== 4 || new Set(rewards.map(getRewardOfferKey)).size !== rewards.length) return "REWARD_REFRESH_UNAVAILABLE";
         const refreshCount = refresh.refreshCount + 1;
         state.coins -= quote.cost;

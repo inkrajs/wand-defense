@@ -1,6 +1,6 @@
 
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-.game-shell { --game-board-space: 0px; --inventory-page-rows: 5; --inventory-space: calc(var(--inventory-page-rows) * 48px + 82px + 2 * var(--game-hud-inset)); --game-inventory-space: var(--inventory-space); --game-defense-bottom: calc(var(--game-hud-inset) + 44px + 12px); --game-motion-duration: 280ms; --game-motion-ease: cubic-bezier(.22,1,.36,1); --game-hud-inset: max(var(--inkra-space-3), env(safe-area-inset-top), env(safe-area-inset-right), env(safe-area-inset-bottom), env(safe-area-inset-left)); position: relative; isolation: isolate; width: 100%; height: 100vh; height: 100dvh; overflow: hidden; color: var(--inkra-ink); font-family: var(--inkra-font-body); background: var(--inkra-paper); }
+.game-shell { --game-board-space: 0px; --inventory-page-rows: 5; --inventory-content-offset: calc(48px + var(--game-hud-inset) - 4px); --inventory-space: calc(var(--inventory-page-rows) * 48px + var(--inventory-content-offset) + 8px + 2 * var(--game-hud-inset)); --game-inventory-space: var(--inventory-space); --game-hero-size: 64px; --game-hero-mini-height: 44px; --game-defense-bottom: calc(var(--game-hud-inset) + var(--game-hero-size) + var(--game-hero-mini-height) + 12px); --game-motion-duration: 280ms; --game-motion-ease: cubic-bezier(.22,1,.36,1); --game-hud-inset: max(var(--inkra-space-3), env(safe-area-inset-top), env(safe-area-inset-right), env(safe-area-inset-bottom), env(safe-area-inset-left)); position: relative; isolation: isolate; width: 100%; height: 100vh; height: 100dvh; overflow: hidden; color: var(--inkra-ink); font-family: var(--inkra-font-body); background: var(--inkra-paper); }
 .game-shell *, .game-shell *::before, .game-shell *::after { box-sizing: border-box; }
 /* Center the authored, unrotated canvas in the rotation-aware icon frame.
    The icon module owns rotation; this only centers its pre-rotation canvas so
@@ -11,7 +11,7 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .inventory-dock__item-icon--magic > span > canvas,
 .wand-board__item-icon--magic > span > canvas,
 .wand-preview__detail-icon > span > canvas { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
-.game-scene { --scene-inventory-space: 0px; --ready-area-top: calc(var(--game-hud-inset) + 56px); --ready-hero-diameter: 96px; --ready-area-bottom: calc(var(--game-defense-bottom) + var(--game-vitals-height) + 12px + var(--ready-hero-diameter) + 12px); --workspace-padding-block: clamp(0px, calc((100dvh - var(--scene-inventory-space) - var(--ready-area-top) - var(--ready-area-bottom)) / 8), 40px); --ready-center: calc((100% + var(--ready-area-top) - var(--ready-area-bottom)) / 2); position: absolute; inset: 0; transition: bottom var(--game-motion-duration) var(--game-motion-ease); }
+.game-scene { --scene-inventory-space: 0px; --ready-area-top: calc(var(--game-hud-inset) + 56px); --ready-area-bottom: calc(var(--game-defense-bottom) + var(--game-vitals-height) + 12px); --workspace-padding-block: clamp(0px, calc((100dvh - var(--scene-inventory-space) - var(--ready-area-top) - var(--ready-area-bottom)) / 8), 40px); --ready-center: calc((100% + var(--ready-area-top) - var(--ready-area-bottom)) / 2); position: absolute; inset: 0; transition: bottom var(--game-motion-duration) var(--game-motion-ease); }
 .game-scene--inventory { --scene-inventory-space: var(--game-inventory-space); bottom: var(--game-inventory-space); }
 .game-header { position: absolute; z-index: 5; inset: var(--game-hud-inset) 0 auto; height: 44px; display: flex; justify-content: center; align-items: center; pointer-events: none; }
 .game-meta, .game-coins { font-size: var(--inkra-text-sm); }
@@ -108,9 +108,8 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .game-territory-stage { padding: 40px 24px; }
 .panel-backdrop__wash { mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent), linear-gradient(to bottom, transparent, #000 40px, #000 calc(100% - 40px), transparent); -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent), linear-gradient(to bottom, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
 
-/* The lower boundary is 12px above the experience ring: hero anchor bottom,
-   hero diameter, then the gap. All workspaces use the wand's ready center. */
-@media (max-width: 560px) { .game-scene { --ready-hero-diameter: clamp(44px, 20vw, 76px); } }
+/* Workspaces stop above both defense bars; the compact character HUD sits below them. */
+@media (max-width: 560px) { .game-shell { --game-hero-size: 56px; } }
 .game-scene > .game-character-stage,
 .game-scene > .game-territory-stage {
   --workspace-bottom: max(0px, calc(100% - var(--ready-area-bottom)));
@@ -172,3 +171,7 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
   align-content: safe center;
   height: 100%;
 }
+
+/* Selection is opt-in only when the user requests it for a specific surface.
+ * Include portals mounted under body, such as tooltips and select menus. */
+html, body, body * { -webkit-user-select: none !important; user-select: none !important; }

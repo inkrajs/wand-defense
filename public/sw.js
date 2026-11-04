@@ -1,7 +1,7 @@
 /* The shell is updated only after its built assets are safely cached. */
 const scopeUrl = new URL(self.registration.scope);
 const PREFIX = `wand-defense-shell-${encodeURIComponent(scopeUrl.pathname)}-`;
-const CACHE = `${PREFIX}v3`;
+const CACHE = `${PREFIX}v4-__PWA_BUILD_ID__`;
 const MAX_ASSETS = 128;
 const shellUrl = scopeUrl.href;
 
@@ -33,7 +33,7 @@ function urlsFromCss(css, stylesheet) {
 }
 async function fetchOk(url) {
   const response = await fetch(url, { cache: "reload" });
-  if (!response.ok || response.type === "opaque") throw new Error("PWA asset unavailable");
+  if (!response.ok || response.type === "opaque" || (new URL(url).href !== shellUrl && response.headers.get("content-type")?.includes("text/html"))) throw new Error("PWA asset unavailable");
   return response;
 }
 async function saveShell(response) {
@@ -88,10 +88,36 @@ self.addEventListener("install", event => {
   event.waitUntil((async () => saveShell(await fetchOk(shellUrl)))());
 });
 self.addEventListener("activate", event => {
-  event.waitUntil((async () => {
-    for (const name of await caches.keys()) if (name.startsWith(PREFIX) && name !== CACHE) await caches.delete(name);
-  })());
+  // Taking control does not reload clients. Keep old shells/assets for tabs still running them.
+  event.waitUntil(self.clients.claim());
 });
+self.addEventListener("message", event => {
+  const message = event.data;
+  if (message?.protocol !== 1 || !event.ports?.[0] || !event.source?.url) return;
+  let source;
+  try { source = new URL(event.source.url); } catch { return; }
+  if (!inScope(source)) return;
+  if (message.type === "PWA_UPDATE_CAPABILITIES") {
+    event.ports[0].postMessage({ type: "PWA_UPDATE_CAPABILITIES", protocol: 1, canSkipWaiting: true });
+  } else if (message.type === "SKIP_WAITING") {
+    event.waitUntil((async () => {
+      await self.skipWaiting();
+      event.ports[0].postMessage({ type: "PWA_UPDATE_ACCEPTED", protocol: 1 });
+    })());
+  }
+});
+// Content-hashed same-origin bytes do not vary with a module request's Origin header.
+async function cachedAsset(request) {
+  const current = await (await caches.open(CACHE)).match(request, { ignoreVary: true });
+  if (current) return current;
+  // A client can still request a lazy chunk from its previous release after another tab updates.
+  for (const name of await caches.keys()) {
+    if (name.startsWith(PREFIX) && name !== CACHE) {
+      const cached = await (await caches.open(name)).match(request, { ignoreVary: true });
+      if (cached) return cached;
+    }
+  }
+}
 self.addEventListener("fetch", event => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -119,9 +145,10 @@ self.addEventListener("fetch", event => {
   } else if (immutableAsset(url)) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE);
-      const cached = await cache.match(request);
+      const cached = await cachedAsset(request);
       if (cached) return cached;
       const response = await fetch(request);
+      if (response.headers.get("content-type")?.includes("text/html")) return Response.error();
       if (response.ok && response.type !== "opaque") event.waitUntil(cache.put(request, response.clone()));
       return response;
     })());

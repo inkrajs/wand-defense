@@ -1,7 +1,8 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import { lstatSync, realpathSync, mkdirSync, writeFileSync } from "node:fs";
+import { lstatSync, realpathSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { createHash } from "node:crypto";
 export default defineConfig(({mode}) => {
   const previewEnv = loadEnv(mode,process.cwd(),"");
   const requestId = previewEnv.WAND_DEFENSE_PREVIEW_GRANT;
@@ -21,6 +22,15 @@ export default defineConfig(({mode}) => {
       const files=Object.keys(bundle).filter(file=>/^assets\//.test(file)&&/\.(?:js|css|woff2?|png|webp|svg)$/.test(file));
       const optional=files.filter(file=>/ui-hand-xiaolai-extended-/.test(file));
       this.emitFile({type:"asset",fileName:"pwa-assets.json",source:JSON.stringify({assets:files.filter(file=>!optional.includes(file)),optional})});
+    },writeBundle(options) {
+      // Content-hashed resource names also change the worker bytes on each release.
+      const output=resolve(options.dir ?? "dist");
+      const workerPath=resolve(output,"sw.js");
+      const template=readFileSync(workerPath,"utf8");
+      const hash=createHash("sha256");
+      for (const file of ["pwa-assets.json","manifest.webmanifest","index.html","icons/wizard-rounded.svg","icons/wizard-rounded-192.png","icons/wizard-rounded-512.png","icons/wizard-maskable-512.png"]) hash.update(readFileSync(resolve(output,file)));
+      hash.update(template);
+      writeFileSync(workerPath,template.replaceAll("__PWA_BUILD_ID__",hash.digest("hex").slice(0,16)));
     }},{name:"local-preview-request",apply:"serve",configureServer(server) {
       server.ws.on("wand-defense:targeted-result",result=>{
         if(["user-revive-20261104-01","user-chain-magic-20261104-01","user-large-wands-20261104-01","user-mythic-wands-20261104-01","user-area-arcana-20261104-01","user-fields-multicast-20261104-01","user-all-items-20261104-01","user-all-items-20261104-02","user-max-catalog-20261104-01"].includes(result?.requestId)) {

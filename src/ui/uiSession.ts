@@ -1,5 +1,5 @@
 export type InventoryCategory = "items" | "spells" | "equipment" | "supplies";
-export type CharacterTab = "overview" | "radar" | "attributes" | "elements" | "pathways" | "growth";
+export type CharacterTab = "equipment" | "overview" | "radar" | "attributes" | "elements" | "pathways" | "growth";
 
 export type UiSession = {
   activeCharacterId: string;
@@ -14,7 +14,7 @@ export type UiSessionStorage = Pick<Storage, "getItem" | "setItem">;
 export type CharacterRef = { id: string };
 
 const INVENTORY_CATEGORIES = new Set<InventoryCategory>(["items", "spells", "equipment", "supplies"]);
-const CHARACTER_TABS = new Set<CharacterTab>(["overview", "radar", "attributes", "elements", "pathways", "growth"]);
+const CHARACTER_TABS = new Set<CharacterTab>(["equipment", "overview", "radar", "attributes", "elements", "pathways", "growth"]);
 const KEY_PREFIX = "wand-defense:ui-session:";
 
 function sessionKey(runId: string): string {

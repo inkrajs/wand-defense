@@ -72,7 +72,7 @@ function areaVisual(entity: CombatEntity, state: GameState, width: number, heigh
   };
 }
 
-function AreaShape({ visual, details, resolution }: { visual: AreaVisual; details: boolean; resolution: number }) {
+function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVisual; details: boolean; resolution: number; washScale: number }) {
   const { entity, phase, progress, elapsedMs, windup, radiusX, radiusY, x, y } = visual;
   const mode = entity.area?.mode;
   if (mode !== "strike" && mode !== "ring" && mode !== "eruption" && mode !== "field" && mode !== "vortex") return null;
@@ -95,7 +95,7 @@ function AreaShape({ visual, details, resolution }: { visual: AreaVisual; detail
     "--area-progress": progress,
     "--area-windup": windup,
     "--area-fade": phase === "active" ? 1 - progress : 1,
-    "--area-ground-opacity": persistent ? 0.5 * sustain : phase === "active" ? (1 - progress) * 0.4 : (mode === "eruption" ? 0.15 + windup * 0.3 : 0.18 + windup * 0.28),
+    "--area-ground-opacity": (persistent ? 0.12 * sustain : phase === "active" ? (1 - progress) * 0.18 : 0.08 + windup * 0.1) * washScale,
     "--area-sustain": sustain,
     "--area-cadence": 0.5 + 0.25 * Math.cos(tickProgress * Math.PI * 2),
     "--area-swirl-angle": `${elapsedMs * 0.09}deg`,
@@ -110,7 +110,8 @@ function AreaShape({ visual, details, resolution }: { visual: AreaVisual; detail
     "--area-spike-inner-height": `${innerSpikeHeight}px`,
   } as CSSProperties;
   return <span className={`area-effect area-effect--${mode} area-effect--${element}`} data-area-id={entity.id} data-area-mode={mode} data-area-phase={phase} data-area-coverage={globalField ? "field" : "local"} style={style}>
-    <MagicEffectArt resolution={resolution} className="area-effect__ground" kind="field" width={radiusX * 2} height={radiusY * 2} />
+    {/* Full-field damage uses sparse marks, never a viewport-sized opaque wash. */}
+    {!globalField && <MagicEffectArt resolution={resolution} className="area-effect__ground" kind="field" width={radiusX * 2} height={radiusY * 2} />}
     {mode === "ring" && <MagicEffectArt resolution={resolution} className="area-effect__ring" kind="ring" width={radiusX * 2} height={radiusY * 2} />}
     {mode === "strike" && <>
       <MagicEffectArt resolution={resolution} className="area-effect__marker" kind="lightning" width={8} height={Math.max(34, radiusY)} />
@@ -161,13 +162,20 @@ export function AreaEffects({ state }: { state: GameState }) {
 
   const visuals = useMemo(() => {
     if (state.phase !== "battle" || size.width <= 0 || size.height <= 0) return [];
-    return state.entities.filter(entity => entity.kind === "area" && entity.hp > 0).slice(-MAX_AREA_EFFECTS).flatMap(entity => {
+    const globals = new Set<string>();
+    return state.entities.filter(entity => entity.kind === "area" && entity.hp > 0).slice(-MAX_AREA_EFFECTS).reverse().flatMap(entity => {
       const visual = areaVisual(entity, state, size.width, size.height);
-      return visual ? [visual] : [];
+      if (!visual) return [];
+      if (entity.area?.mode === "field" && entity.area.anchor === "field") {
+        const element = entity.element ?? demoContent.spells[entity.definitionId]?.element ?? "neutral";
+        if (globals.has(element)) return [];
+        globals.add(element);
+      }
+      return [visual];
     });
   }, [size.height, size.width, state]);
 
   return <div ref={ref} className="area-effects" aria-hidden="true" data-paused={state.paused}>
-    {visuals.map(visual => <AreaShape key={`${state.id}:${visual.entity.id}`} visual={visual} details={settings.areaDetails} resolution={settings.effectResolution} />)}
+    {visuals.map(visual => <AreaShape key={`${state.id}:${visual.entity.id}`} visual={visual} details={settings.areaDetails} resolution={settings.effectResolution} washScale={1 / Math.max(1, visuals.length)} />)}
   </div>;
 }

@@ -1,5 +1,5 @@
 .character-page { display: grid; justify-items: center; gap: var(--inkra-space-3); width: min(1120px, calc(100% - 2 * var(--game-hud-inset, 16px))); margin-inline: auto; min-width: 0; color: var(--inkra-ink); }
-.character-page__layout { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(440px, 1.4fr); align-items: center; gap: clamp(32px, 4vw, 48px); width: 100%; min-width: 0; }
+.character-page__layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; width: 100%; min-width: 0; }
 .character-page__equipment, .character-page__details { min-width: 0; }
 .character-page__gear-grid { display: grid; grid-template-columns: 56px minmax(96px, 112px) 56px; grid-template-rows: 56px 56px 56px; grid-template-areas: "head portrait wand-one" "body portrait wand-two" "feet portrait accessory"; align-items: center; justify-content: center; gap: var(--inkra-space-2); }
 .character-page__portrait { grid-area: portrait; display: grid; place-items: center; width: 100%; height: 100%; color: var(--inkra-ink-muted); }
@@ -15,12 +15,13 @@
 .character-page__slot--head { grid-area: head; }.character-page__slot--wand-one { grid-area: wand-one; }.character-page__slot--body { grid-area: body; }.character-page__slot--wand-two { grid-area: wand-two; }.character-page__slot--feet { grid-area: feet; }.character-page__slot--accessory { grid-area: accessory; }
 .character-page__details > .inkra-tabs { display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: center; gap: clamp(24px, 3vw, 40px); min-width: 0; }
 /* Keep this sizing independent of shared vertical Tabs CSS import order. */
-.character-page .character-page__tabs { grid-column: 2; grid-row: 1; height: 320px; max-height: min(320px, max(60px, calc(100dvh - var(--scene-inventory-space, 0px) - var(--ready-area-top, 0px) - var(--ready-area-bottom, 0px) - 8px))); }
+.character-page .character-page__tabs { grid-column: 2; grid-row: 1; height: 372px; max-height: min(372px, max(60px, calc(100dvh - var(--scene-inventory-space, 0px) - var(--ready-area-top, 0px) - var(--ready-area-bottom, 0px) - 8px))); }
 .character-page .character-page__tabs > .inkra-tabs__list { height: auto; min-height: 0; max-height: none; flex: 1 1 auto; flex-direction: column; gap: 8px; overflow-x: hidden; overflow-y: auto; }
 .character-page .character-page__tabs .inkra-tabs__trigger { flex: 0 0 44px; min-width: 44px; min-height: 44px; height: 44px; padding: 6px; gap: 0; }
 .character-page__tabs .inkra-tabs__divider[data-orientation="horizontal"] { top: -8px; }
 .character-page__tabs .inkra-tabs__label { display: none; }
 .character-page__panel { grid-column: 1; grid-row: 1; min-width: 0; }
+.character-page__equipment-panel { display: grid; place-items: center; }
 .character-page__overview { display: grid; gap: var(--inkra-space-2); align-content: center; }
 .character-page__details { container-name: character-details; container-type: inline-size; }
 @container character-details (min-width: 560px) {

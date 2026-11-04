@@ -14,13 +14,14 @@ export const rewardBuffValues = {
 
 type BuffType = keyof typeof rewardBuffValues;
 const buffTypes = Object.keys(rewardBuffValues) as BuffType[];
+export const rewardLuckDescription = '提高击杀金币、装备掉落概率及清波奖励品质和稀有内容概率。';
 const buffMetadata: Record<BuffType, { name: string; unit: string; description: string }> = {
   attackPercent: { name: '攻击提升', unit: '%', description: '提升本局全队攻击魔法伤害，同类加成相加。' },
   maxMana: { name: '法力上限', unit: '', description: '增加本局每名角色的法力上限。' },
   manaRegen: { name: '法力回复', unit: '/秒', description: '增加本局每名角色每秒回复的法力。' },
   rangePercent: { name: '射程提升', unit: '%', description: '提升本局全队法术射程，同类加成相加。' },
   cooldownPercent: { name: '冷却缩减', unit: '%', description: '缩短本局全队法术冷却，同类加成相加，总缩减上限70%。' },
-  luck: { name: '幸运', unit: '', description: '提高击杀金币和装备掉落概率。' },
+  luck: { name: '幸运', unit: '', description: rewardLuckDescription },
   gatheringPercent: { name: '采集', unit: '%', description: '提升本局全队金币收入，包括击杀、清波和金币奖励，同类加成相加。' },
 };
 const gradeWeights = [60, 22, 12, 4, 1.5, 0.5] as const;
@@ -38,6 +39,8 @@ export interface WaveRewardSampling {
   random: () => number;
   canHeal?: boolean;
   cooldownCapped?: boolean;
+  /** Run luck once plus the current team's personal luck; supplied by runtime. */
+  luck?: number;
 }
 
 type OfferCandidate =
@@ -125,14 +128,21 @@ function buildCandidatePools(
   return pools;
 }
 
-function availableKinds(pools: CandidatePool): { value: RewardKind; weight: number }[] {
-  return (Object.keys(kindWeights) as RewardKind[])
-    .filter(kind => (pools[kind]?.length ?? 0) > 0)
-    .map(kind => ({ value: kind, weight: kindWeights[kind]! }));
+/** Diminishing returns, bounded even for malformed input; consumes no RNG. */
+function luckStrength(luck: number | undefined): number {
+  const value = typeof luck === 'number' && Number.isFinite(luck) ? Math.min(1_000_000, Math.max(0, luck)) : 0;
+  return value / (value + 20);
 }
 
-function takeCandidate(pools: CandidatePool, random: () => number): OfferCandidate | undefined {
-  const kinds = availableKinds(pools);
+function availableKinds(pools: CandidatePool, strength: number): { value: RewardKind; weight: number }[] {
+  return (Object.keys(kindWeights) as RewardKind[])
+    .filter(kind => (pools[kind]?.length ?? 0) > 0)
+    .map(kind => ({ value: kind, weight: kindWeights[kind]!
+      * (kind === 'item' || kind === 'character' || kind === 'wand' ? 1 + 2 * strength : 1) }));
+}
+
+function takeCandidate(pools: CandidatePool, random: () => number, strength: number): OfferCandidate | undefined {
+  const kinds = availableKinds(pools, strength);
   if (kinds.length === 0) return undefined;
   const kind = weighted(kinds, random);
   const candidates = pools[kind]!;
@@ -140,8 +150,8 @@ function takeCandidate(pools: CandidatePool, random: () => number): OfferCandida
   return candidates.splice(index, 1)[0];
 }
 
-function sampleGrade(random: () => number): Grade {
-  return weighted(gradeOrder.map((value, index) => ({ value, weight: gradeWeights[index] })), random);
+function sampleGrade(random: () => number, strength: number): Grade {
+  return weighted(gradeOrder.map((value, index) => ({ value, weight: gradeWeights[index] * (1 + 3 * index * strength) })), random);
 }
 
 function makeReward(candidate: OfferCandidate, wave: number, index: number, grade: Grade, content: ContentCatalog): RewardOption {
@@ -243,11 +253,12 @@ export function fillUniqueRewardOffers(
   }
 
   const pools = buildCandidatePools(sampling, usedKeys);
+  const strength = luckStrength(sampling.luck);
   for (const [index, slot] of replacementBases) {
-    const candidate = takeCandidate(pools, sampling.random);
+    const candidate = takeCandidate(pools, sampling.random, strength);
     if (!candidate) continue;
     usedKeys.add(candidate.key);
-    const reward = makeReward(candidate, safeWave(sampling.wave), index, sampleGrade(sampling.random), sampling.content);
+    const reward = makeReward(candidate, safeWave(sampling.wave), index, sampleGrade(sampling.random, strength), sampling.content);
     const id = slot.replacesDuplicate
       ? replacementId(slot.id, usedIds, reservedOldIds)
       : uniqueId(slot.id, usedIds, reservedOldIds);

@@ -1,3 +1,4 @@
+import { useInventoryPageRows } from "./inventoryViewport";
 import { PanelBackdrop } from "./PanelBackdrop";
 import { getCharacterPresentationIcon } from "./characterPresentationIcons";
 import { RunSummary } from "./RunSummary";
@@ -48,6 +49,7 @@ function commandId(): string {
 }
 
 export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?: ReactNode }) {
+  const inventoryPageRows = useInventoryPageRows();
   const [state, setState] = useState<GameState>(() => runtime.getState());
   const [initialUi] = useState(() => readUiSession(state.id, state.characters));
   const [uiRunId, setUiRunId] = useState(state.id);
@@ -166,11 +168,11 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
     if (result.status === "executed") { pendingPauseRestore.current = null; pausedBeforeMenu.current = false; setMenuPage(null); setTerritoryOpen(false); }
   }
   const activeCharacter = state.characters.find(c => c.id === activeCharacterId) ?? state.characters[0];
-  const loadoutVisible = state.backpackOpen && characterOpen && (inventoryCategory === "equipment" || inventoryCategory === "items") && !territoryOpen && !talentOpen;
+  const loadoutVisible = state.backpackOpen && characterOpen && characterTab === "equipment" && (inventoryCategory === "equipment" || inventoryCategory === "items") && !territoryOpen && !talentOpen;
   const readyWandHeight = state.backpackOpen ? inventoryWandAreaHeight : wandBoardHeight;
   const speedIndex = Math.max(0, GAME_SPEEDS.indexOf(state.speed));
   const phaseLabel = { ready: "准备中", battle: "战斗中", reward: "选择奖励", defeat: "领地失守" }[state.phase];
-  return <main className={`game-shell game-shell--${state.phase}`} style={{ "--game-vitals-height": localProgress ? "20px" : "28px", "--game-hero-mini-space": "0px", "--game-board-space": state.phase === "battle" ? `${wandBoardHeight * .2}px` : "0px", "--wand-height": `${wandBoardHeight}px`, "--ready-wand-height": `${readyWandHeight}px` } as CSSProperties} aria-label="无尽巫师游戏画面">
+  return <main className={`game-shell game-shell--${state.phase}`} style={{ "--inventory-page-rows": inventoryPageRows, "--game-vitals-height": localProgress ? "20px" : "28px", "--game-hero-mini-space": "0px", "--game-board-space": state.phase === "battle" ? `${wandBoardHeight * .2}px` : "0px", "--wand-height": `${wandBoardHeight}px`, "--ready-wand-height": `${readyWandHeight}px` } as CSSProperties} aria-label="无尽巫师游戏画面">
     <div className={`game-scene${state.backpackOpen ? " game-scene--inventory" : ""}`} inert={menuPage !== null}><Battlefield state={state} flashes={castFlashes} activeCharacterId={territoryOpen || talentOpen ? "" : activeCharacter?.id ?? ""} hideActiveMini={state.phase === "ready" && !territoryOpen && !talentOpen} onCharacterSelect={characterId => { setActiveCharacterId(characterId); setTerritoryOpen(false); setTalentOpen(false); }} />
     <ConstructDeployment state={state} characterId={activeCharacter?.id ?? ""} runtime={runtime} dispatch={dispatch} enabled={menuPage === null && !state.backpackOpen && !characterOpen && !territoryOpen && !talentOpen} />
     {!characterOpen && !territoryOpen && !talentOpen && menuPage === null && <WaveProgress state={state} />}
@@ -205,7 +207,7 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
     </div>
     <div id="game-inventory-panel" ref={loadoutRef} className="game-inventory" data-open={state.backpackOpen && menuPage === null} inert={!state.backpackOpen || menuPage !== null} aria-hidden={!state.backpackOpen || menuPage !== null} aria-label="背包" role="region" tabIndex={-1}>
       <PencilLine className="game-inventory__separator" seed="inventory-separator" aria-hidden="true" />
-      <div className="game-inventory__content"><InventoryDock key={state.id} category={inventoryCategory} activeCharacterId={activeCharacter?.id ?? ""} state={state} dispatch={dispatch} showWands={!characterOpen && !territoryOpen && !talentOpen} showLoadout={loadoutVisible} onCategoryChange={category => { setInventoryCategory(category); if (category === "equipment" || category === "items") { setTerritoryOpen(false); setTalentOpen(false); setCharacterOpen(true); } else if (category === "spells") { setCharacterOpen(false); setTalentOpen(false); } }} onWandAreaHeightChange={setInventoryWandAreaHeight} /></div>
+      <div className="game-inventory__content"><InventoryDock key={state.id} pageRows={inventoryPageRows} category={inventoryCategory} activeCharacterId={activeCharacter?.id ?? ""} state={state} dispatch={dispatch} showWands={!characterOpen && !territoryOpen && !talentOpen} showLoadout={loadoutVisible} onCategoryChange={category => { setInventoryCategory(category); if (category === "equipment" || category === "items") { setTerritoryOpen(false); setTalentOpen(false); setCharacterOpen(true); setCharacterTab("equipment"); } else if (category === "spells") { setCharacterOpen(false); setTalentOpen(false); } }} onWandAreaHeightChange={setInventoryWandAreaHeight} /></div>
     </div>
     {menuMounted && <Suspense fallback={<span role="status">正在加载菜单…</span>}><MenuPages restart={restart} dispatch={dispatch} page={menuPage} navigate={setMenuPage} close={closeMenu} agentPanel={agentPanel} state={state} unlock={() => send({type:"unlockCheats"})} toggleCheats={() => send({type:"setCheats", enabled:!state.cheats.enabled})} heal={() => send({type:"cheat", action:"heal"})} /></Suspense>}
   </main>;

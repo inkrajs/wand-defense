@@ -21,7 +21,7 @@
   pointer-events: none;
 }
 .inventory-dock[data-ready-group="true"] .inventory-dock__wand-area,
-.inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { top: calc((100% - var(--inventory-space) + var(--game-hud-inset) + 56px - var(--game-defense-bottom) - var(--game-vitals-height) - var(--game-hero-mini-space) - 120px) / 2 - 28px); }
+.inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { top: calc((100% - var(--inventory-space) + var(--game-hud-inset) + 56px - var(--game-defense-bottom) - var(--game-vitals-height) - 12px) / 2 - 28px); }
 .inventory-dock__wand-area > .inventory-dock__wand-slot,
 .inventory-dock__gear-area > .inkra-inventory-grid__container { position: relative; flex: 0 0 auto; width: max-content; max-width: 100%; pointer-events: auto; }
 .inventory-dock__wand-slot > .inkra-inventory-grid__container { position: relative; width: max-content; pointer-events: auto; }
@@ -31,7 +31,7 @@
   position: absolute;
   left: var(--game-hud-inset);
   right: var(--game-hud-inset);
-  top: calc(100% - var(--inventory-panel-height, var(--inventory-space, 346px)) + var(--game-hud-inset) + 74px);
+  top: calc(100% - var(--inventory-panel-height, var(--inventory-space, 346px)) + var(--game-hud-inset) + var(--inventory-content-offset));
   height: calc(var(--inventory-page-rows, 5) * var(--inventory-cell-size, 48px) + var(--inventory-board-extra, 8px));
   min-height: 0;
   overflow: visible;
@@ -77,7 +77,7 @@
 html[data-game-reduce-motion="true"] .inventory-dock__grid .inkra-inventory-grid__item[data-combine-target="true"] .inkra-inventory-grid__shape-edge { animation: none; filter: brightness(1.35); }
 .inventory-dock__announcement, .inventory-dock__hint, .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 
-@media (max-width: 600px) { .inventory-dock[data-ready-group="true"] .inventory-dock__wand-area, .inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { top: calc((100% - var(--inventory-space) + var(--game-hud-inset) + 104px - var(--game-defense-bottom) - var(--game-vitals-height) - var(--game-hero-mini-space) - 120px) / 2 - 28px); } }
+@media (max-width: 600px) { .inventory-dock[data-ready-group="true"] .inventory-dock__wand-area, .inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { top: calc((100% - var(--inventory-space) + var(--game-hud-inset) + 104px - var(--game-defense-bottom) - var(--game-vitals-height) - 12px) / 2 - 28px); } }
 
 @media (max-height: 760px) {
   .inventory-dock[data-ready-group="true"] .inventory-dock__wand-area, .inventory-dock[data-ready-group="true"] .inventory-dock__gear-area { transform: translateY(-50%) scale(.5); }
