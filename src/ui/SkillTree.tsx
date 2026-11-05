@@ -7,11 +7,10 @@ import { enrichMagicReward } from "../content/magicDescriptions";
 import { GameTabsList } from "./GameTabsList";
 import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
 import { SkillTreeElementIcon } from "./SkillTreeElementIcon";
-import { buildSkillTree, type SkillTreeFilter, type SkillTreeNode } from "./skillTreeModel";
+import { buildSkillTree, type SkillTreeNode } from "./skillTreeModel";
 import "./SkillTree.css";
 
 const elements: readonly Element[] = ["fire", "water", "wood", "metal", "earth", "lightning", "wind", "light", "dark"];
-const categories: readonly SkillTreeFilter[] = ["all", ...elements];
 const unknownPaths: PencilIconPath[] = [{ d: "M8 8a4 4 0 1 1 6 3.5c-1.5.9-2 1.5-2 3M12 18v1", mode: "stroke" }];
 const closePaths: PencilIconPath[] = [{ d: "M6 6l12 12M18 6 6 18", mode: "stroke" }];
 const elementFallback: PencilIconPath[] = [{ d: "M12 3c-2 4-6 7-6 11a6 6 0 0 0 12 0c0-4-4-7-6-11Z", mode: "stroke" }];
@@ -28,7 +27,7 @@ function nodeIcon(node: SkillTreeNode) {
 }
 
 export function SkillTree({ state }: { state: GameState }) {
-  const [element, setElement] = useState<SkillTreeFilter>("all");
+  const [element, setElement] = useState<Element>("fire");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const graphRef = useRef<DependencyGraphRef>(null);
@@ -50,11 +49,11 @@ export function SkillTree({ state }: { state: GameState }) {
   const nodes = useMemo<GraphNode[]>(() => model.nodes.map(node => ({
     id: node.id, label: node.known ? node.name : "未知", icon: nodeIcon(node), data: node,
   })), [model]);
-  // Focus a readable root on phones and in large all-element graphs; fit-all remains available in controls.
-  const focusInitial = narrow || (element === "all" && model.nodes.length > 24);
+  // Focus a readable root on phones; the controls can still fit the whole element tree.
+  const focusInitial = narrow;
   useEffect(() => {
     if (!focusInitial || !workspace.width || !model.nodes.length) return;
-    const origin = model.nodes.find(node => node.atomic && node.known && node.definitionId && (element === "all" || demoContent.spells[node.definitionId]?.element === element)) ?? model.nodes[0];
+    const origin = model.nodes.find(node => node.atomic && node.known && node.definitionId && demoContent.spells[node.definitionId]?.element === element) ?? model.nodes[0];
     const ids = [origin.id];
     let cancelled = false, frame = 0, attempts = 0;
     const fit = () => {
@@ -79,14 +78,14 @@ export function SkillTree({ state }: { state: GameState }) {
   }, [selected]);
 
   return <Tabs.Root ref={root} className="skill-tree" value={element} onValueChange={value => {
-    if (categories.includes(value as SkillTreeFilter)) { setElement(value as SkillTreeFilter); setSelectedId(null); }
+    if (elements.includes(value as Element)) { setElement(value as Element); setSelectedId(null); }
   }}>
     <GameTabsList className="skill-tree__tabs" aria-label="元素分类" overflow="scroll" labelVisibility="hidden">
-      {categories.map(entry => <Tabs.Trigger key={entry} value={entry} aria-label={entry === "all" ? "全部" : `${elementAppearances[entry].name}系`} startIcon={<span style={{ color: entry === "all" ? "currentColor" : elementAppearances[entry].pigment }}><SkillTreeElementIcon element={entry} /></span>} />)}
+      {elements.map(entry => <Tabs.Trigger key={entry} value={entry} aria-label={`${elementAppearances[entry].name}系`} startIcon={<span style={{ color: elementAppearances[entry].pigment }}><SkillTreeElementIcon element={entry} /></span>} />)}
     </GameTabsList>
     <Tabs.Content value={element} className="skill-tree__content">
-      <DependencyGraph.Root ref={graphRef} className="skill-tree__graph" aria-label={element === "all" ? "全部技能树" : `${elementAppearances[element].name}系技能树`}
-        nodes={nodes} edges={model.edges} direction={element === "all" ? narrow ? "TB" : "LR" : "RL"} nodeWidth={80} nodeHeight={80} rankGap={52} nodeGap={12} nodeVariant="icon"
+      <DependencyGraph.Root ref={graphRef} className="skill-tree__graph" aria-label={`${elementAppearances[element].name}系技能树`}
+        nodes={nodes} edges={model.edges} direction="RL" nodeWidth={80} nodeHeight={80} rankGap={52} nodeGap={12} nodeVariant="icon"
         selectedId={selectedId} onSelectedIdChange={setSelectedId} highlight="both"
         onClick={event => { if (event.target instanceof Element && event.target.classList.contains("react-flow__pane")) setSelectedId(null); }}
         style={{ minHeight: 0 }}
