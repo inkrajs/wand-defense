@@ -46,10 +46,11 @@ test('real arcana tree includes its isolated arcana and the double to six-shot l
   const known = knowledge(Object.keys(demoContent.spells), Object.keys(demoContent.arcana), demoContent.recipes.map(value => value.id));
   const tree = buildSkillTree(demoContent, known, 'arcana');
   for (const id of known.arcanaIds) assert.ok(tree.nodes.some(node => node.definitionId === id), id);
-  assert.ok(tree.nodes.every(node => node.kind === 'arcana'));
+  assert.ok(tree.nodes.every(node => node.kind === 'arcana' || node.boundary));
+  assert.ok(tree.edges.some(edge => edge.source === 'spell:iron-spark' && edge.target === 'arcana:oxidation'));
   assert.ok(tree.edges.some(edge => edge.source === 'arcana:double' && edge.target === 'arcana:quadruple'));
   assert.ok(tree.edges.some(edge => edge.source === 'arcana:quadruple' && edge.target === 'arcana:sextuple'));
-  assert.ok(tree.nodes.every(node => !node.boundary));
+  assert.ok(tree.nodes.filter(node => node.kind === 'arcana').every(node => !node.boundary));
   assert.deepEqual(buildSkillTree(demoContent, knowledge(), 'arcana'), {nodes: [], edges: []});
 });
 

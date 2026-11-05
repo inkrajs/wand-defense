@@ -10,6 +10,7 @@ export const elementAppearances = {
   light:{name:"光",pigment:"var(--game-element-light, #e5cf83)"},
   dark:{name:"暗",pigment:"var(--game-element-dark, #937aaf)"},
   lightning:{name:"雷",pigment:"var(--game-element-lightning, #c5af4b)"},
+  undead:{name:"亡灵",pigment:"var(--game-element-undead, #a993c5)"},
   wind:{name:"风",pigment:"var(--game-element-wind, #70b4a7)"},
 } as const satisfies Record<Element,{name:string;pigment:string}>;
 export const neutralMagicPigment = "var(--game-element-neutral, #aaa596)";

@@ -43,8 +43,8 @@ const critPaths = [{ d: "m12 3 2.4 5.3 5.8.7-4.3 4 1.1 5.8-5-2.9-5 2.9 1.1-5.8-4
 const luckPaths = [{ d: "M12 20C6 17 3 13 4 8c.7-3 4-4 6-1l2 3 2-3c2-3 5.3-2 6 1 1 5-2 9-8 12Z", mode: "stroke" as const }];
 const gatheringPaths = [{ d: "M4 14h4l3 3h5l4-5M4 20h4l4 1 8-6M4 13v8M13 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0 2v4", mode: "stroke" as const }];
 const elementPaths = [{ d: "M12 3c-2 4-6 7-6 11a6 6 0 0 0 12 0c0-4-4-7-6-11Zm-2 12c.4 1.3 1.2 2 2.5 2", mode: "stroke" as const }];
-const elementShortNames: Record<Element, string> = { fire: "火系", wood: "木系", metal: "金系", water: "水系", earth: "土系", light: "光系", dark: "暗系", lightning: "雷系", wind: "风系" };
-const elementOrder: Element[] = ["fire", "wood", "metal", "water", "earth", "light", "dark", "lightning", "wind"];
+const elementShortNames: Record<Element, string> = { fire: "火系", wood: "木系", metal: "金系", water: "水系", earth: "土系", light: "光系", dark: "暗系", lightning: "雷系", wind: "风系", undead: "亡灵系" };
+const elementOrder: Element[] = ["fire", "wood", "metal", "water", "earth", "light", "dark", "lightning", "wind", "undead"];
 
 function statNumber(value: number): string {
   return String(Math.round(value * 100) / 100);

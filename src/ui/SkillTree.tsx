@@ -14,7 +14,7 @@ import { SkillTreeElementIcon } from "./SkillTreeElementIcon";
 import { buildSkillTree, getKnownRecipesForDefinition, type SkillTreeNode } from "./skillTreeModel";
 import "./SkillTree.css";
 
-const elements: readonly Element[] = ["fire", "water", "wood", "metal", "earth", "lightning", "wind", "light", "dark"];
+const elements: readonly Element[] = ["fire", "water", "wood", "metal", "earth", "lightning", "wind", "light", "dark", "undead"];
 const unknownPaths: PencilIconPath[] = [{ d: "M8 8a4 4 0 1 1 6 3.5c-1.5.9-2 1.5-2 3M12 18v1", mode: "stroke" }];
 const closePaths: PencilIconPath[] = [{ d: "M6 6l12 12M18 6 6 18", mode: "stroke" }];
 const backPaths: PencilIconPath[] = [{ d: "M19 12H5m0 0 6-6m-6 6 6 6", mode: "stroke" }];

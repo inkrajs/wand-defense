@@ -38,6 +38,7 @@ export function normalizeConstruct(spec?: ConstructSpec): ConstructSpec | undefi
     || !Number.isFinite(spec.maxAlive) || !Number.isInteger(spec.maxAlive) || spec.maxAlive < 1
     || (spec.attackMode !== "contact" && spec.attackMode !== "projectile")
     || !["attack", "heal", "shield"].includes(spec.behavior)) return undefined;
+  if (spec.baseCount !== undefined && (!Number.isInteger(spec.baseCount) || spec.baseCount < 1 || spec.baseCount > CONSTRUCT_LIMITS.perCast)) return undefined;
   if (spec.moveSpeed !== undefined && (!Number.isFinite(spec.moveSpeed) || spec.moveSpeed < 0)) return undefined;
   if (spec.projectileSpeed !== undefined && (!Number.isFinite(spec.projectileSpeed) || spec.projectileSpeed < 0)) return undefined;
   if (spec.coinCost !== undefined && (!Number.isFinite(spec.coinCost) || spec.coinCost < 0)) return undefined;
@@ -77,7 +78,10 @@ export function spawnConstructs(state: GameState, characterId: string, spec: Con
   const fromSource = live.filter(entity => sameConstructSource(entity, characterId, spec.itemId, spec.definitionId)).length;
   const availableGlobal = Math.max(0, CONSTRUCT_LIMITS.alive - live.length);
   const availableSource = Math.max(0, construct.maxAlive - fromSource);
-  const pattern = castPattern(spec, Math.min(CONSTRUCT_LIMITS.perCast, availableGlobal, availableSource));
+  const cast = construct.baseCount === undefined ? spec : {
+    ...spec, burstCount: (spec.burstCount ?? 1) * construct.baseCount,
+  };
+  const pattern = castPattern(cast, Math.min(CONSTRUCT_LIMITS.perCast, availableGlobal, availableSource));
   const count = pattern.length;
   if (count < 1) return false;
 

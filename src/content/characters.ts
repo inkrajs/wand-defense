@@ -9,7 +9,7 @@ import { getCharacterGrowth, type CharacterGrowthAttributes } from "./characterG
 import { demoContent } from "./demo";
 
 const ELEMENTS: readonly Element[] = [
-  "fire", "wood", "metal", "water", "earth", "light", "dark", "lightning", "wind",
+  "fire", "wood", "metal", "water", "earth", "light", "dark", "lightning", "wind", "undead",
 ];
 const GEAR_SLOTS = ["head", "body", "feet", "accessory"] as const;
 const MAX_FLAT_STAT = 1_000_000;

@@ -3,7 +3,7 @@ import { gradeOrder, gradePower } from "./grades";
 
 const cell = (x: number, y: number) => ({ x, y });
 const asset = (id: string, label: string, color: string) => ({ key: `gear.${id}`, label, color });
-const elements: readonly Element[] = ["fire", "wood", "metal", "water", "earth", "light", "dark", "lightning", "wind"];
+const elements: readonly Element[] = ["fire", "wood", "metal", "water", "earth", "light", "dark", "lightning", "wind", "undead"];
 const statKeys = [
   "attack", "castSpeedPercent", "projectileSpeedPercent", "range", "accuracy", "critChance",
   "critMultiplier", "luck", "maxMana", "manaRegen", "gatheringPercent",

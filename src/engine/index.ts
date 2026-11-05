@@ -13,6 +13,7 @@ import { advanceEnemies, beginWave } from "./waves";
 import { advanceTerritoryRecovery } from "./territoryRecovery";
 import { grantEnemyLoot } from "./loot";
 import { grantCoinIncome } from "../content/economy";
+import { discardExpiredRemains, rememberFallenUnit } from "./remains";
 import { advanceConstructs } from "./constructs";
 
 export const BATTLE_STEP_MS = 50;
@@ -53,9 +54,12 @@ export function startBattle(state: GameState, _content: ContentCatalog): Transit
 }
 
 function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills, content: ContentCatalog): void {
+  discardExpiredRemains(state);
   const beneficiaries = new Set<CharacterInstance>();
   for (const entity of state.entities) {
-    if (entity.hp > 0 || entity.kind !== "enemy") continue;
+    if (entity.hp > 0) continue;
+    rememberFallenUnit(state, entity);
+    if (entity.kind !== "enemy") continue;
     const xp = Math.max(1, Math.round(entity.maxHp / 8));
     state.xp += xp;
     const cause = pendingKills.get(entity.id);
@@ -117,6 +121,7 @@ function advanceBattle(state: GameState, dtMs: number, content: ContentCatalog, 
       if (next.territory.hp <= 0) {
         next.territory.hp = 0;
         next.phase = "defeat";
+        delete next.remains;
         next.entities = next.entities.filter(entity => entity.kind === "enemy");
         emit("defeat", { wave: next.wave });
         break;
@@ -144,7 +149,8 @@ function advanceBattle(state: GameState, dtMs: number, content: ContentCatalog, 
           const compiled = compileWand(next, wand.id, content);
           for (const spell of compiled?.spells ?? []) {
             if(spell.effect === "building" || spell.triggeredByItemId) continue;
-            if (spell.trigger && (wand.cooldowns[spell.trigger.payload.itemId] ?? 0) > 0) continue;
+            const linkedItemId = spell.trigger?.payload.itemId ?? spell.condensedItemId;
+            if (linkedItemId && (wand.cooldowns[linkedItemId] ?? 0) > 0) continue;
             const constructCost=spell.effect === "summon"?(spell.construct?.coinCost??0):0;
             if(!Number.isSafeInteger(constructCost) || constructCost < 0 || next.coins < constructCost)continue;
             if ((wand.cooldowns[spell.itemId] ?? 0) > 0 || character.mana < spell.manaCost) continue;
@@ -152,7 +158,7 @@ function advanceBattle(state: GameState, dtMs: number, content: ContentCatalog, 
               character.mana = Math.max(0, character.mana - spell.manaCost);
               next.coins-=constructCost;
               wand.cooldowns[spell.itemId] = Math.max(BATTLE_STEP_MS, spell.cooldownMs);
-              if (spell.trigger) wand.cooldowns[spell.trigger.payload.itemId] = Math.max(BATTLE_STEP_MS, spell.cooldownMs);
+              if (linkedItemId) wand.cooldowns[linkedItemId] = wand.cooldowns[spell.itemId];
             }
           }
         }
@@ -165,6 +171,7 @@ function advanceBattle(state: GameState, dtMs: number, content: ContentCatalog, 
           if (view) character.mana = view.final.maxMana;
         }
         next.phase = "reward";
+        delete next.remains;
         next.entities = next.entities.filter(entity=>entity.faction === "player" && (entity.kind === "summon" || entity.kind === "building")
           && entity.hp > 0 && (entity.remainingMs??0)>0);
         emit("waveCleared", { wave: next.wave, coins });

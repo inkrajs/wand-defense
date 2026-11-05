@@ -3,6 +3,7 @@ import { spawnProjectiles } from "./projectiles";
 import { spawnBeams } from "./beams";
 import { spawnAreaEffects } from "./areaEffects";
 import { spawnChains } from "./chains";
+import { castRemainsSpell } from "./remains";
 import { spawnConstructs } from "./constructs";
 
 export interface CastSpec {
@@ -55,6 +56,9 @@ export function castSpell(
   const amount = Math.max(0, spec.power);
   const onHit = spec.onHit ?? spell.onHit;
   const element = spec.element ?? spell.element;
+  if (spell.remainsAction) {
+    return castRemainsSpell(state, characterId, spell.remainsAction, { ...spec, element, onHit, construct: spec.construct ?? spell.construct, area: spec.area ?? spell.area }, emit);
+  }
   if (spell.effect === "summon" || spell.effect === "building") {
     const construct = spec.construct ?? spell.construct;
     return construct ? spawnConstructs(state, characterId, { ...spec, kind: spell.effect, construct, onHit, element }, emit) : false;

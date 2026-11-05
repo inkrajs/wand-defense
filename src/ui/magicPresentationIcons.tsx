@@ -5,6 +5,7 @@ import { demoContent } from "../content/demo";
 import { fireEarthArtwork } from "./magic-artwork/fire-earth";
 import { otherArtwork } from "./magic-artwork/other-arcana";
 import { contentExpansionArtwork } from "./magic-artwork/content-expansions";
+import { evolvedArtwork } from "./magic-artwork/evolved";
 import { cataclysmArtwork } from "./magic-artwork/cataclysm";
 import type { MagicArtwork } from "./magic-artwork/types";
 import { waterWoodArtwork } from "./magic-artwork/water-wood";
@@ -144,6 +145,7 @@ const originalDefinitions: Readonly<Record<string, MagicPresentationIconDefiniti
 
 const artworkCatalog: Readonly<Record<string, MagicArtwork>> = Object.freeze({
   ...cataclysmArtwork,
+  ...evolvedArtwork,
   ...contentExpansionArtwork,
   ...fireEarthArtwork,
   ...waterWoodArtwork,

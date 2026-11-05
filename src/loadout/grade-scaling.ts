@@ -18,7 +18,11 @@ export function gradedArcanaValue(definition: ArcanaDefinition, instanceGrade: G
   switch (definition.modifier) {
     case 'hitTrigger':
     case 'timerTrigger':
+    case 'rangeTrigger':
+    case 'condense':
       return definition.value;
+    case 'affinity':
+      return ratio;
     case 'amplify':
       return 1 + (definition.value - 1) * ratio * gradeModifierTuning.amplifyBonus;
     case 'focus':

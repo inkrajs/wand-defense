@@ -33,7 +33,7 @@ const failure = (code: string): CatalogCheatResult => ({ ok: false, code });
 const validLevel = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 1;
 const validGrade = (value: unknown): value is Grade => typeof value === "string" && gradeOrder.includes(value as Grade);
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
-const elements: readonly Element[] = ["fire", "wood", "metal", "water", "earth", "light", "dark", "lightning", "wind"];
+const elements: readonly Element[] = ["fire", "wood", "metal", "water", "earth", "light", "dark", "lightning", "wind", "undead"];
 const gearSlots = ["head", "body", "feet", "accessory"] as const;
 const supplyEffects = ["territoryHeal", "territoryShield", "partyMana", "territoryRestore", "partyManaPercent", "cooldownAdvance", "territoryHealPercent", "territoryShieldPercent"] as const;
 const percentageSupplyEffects = new Set(["partyManaPercent", "territoryHealPercent", "territoryShieldPercent"]);

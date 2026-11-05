@@ -47,6 +47,10 @@ const drawings: Record<Category, Drawing> = {
     stroke("M26 20a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"),
     stroke("M20 4v5m0 22v5M4 20h5m22 0h5M8.7 8.7l3.5 3.5m15.6 15.6 3.5 3.5m0-22.6-3.5 3.5M12.2 27.8l-3.5 3.5"),
   ], [wash("M25 20a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z")]),
+  undead: drawing([
+    stroke("M8 19a12 12 0 0 1 24 0c0 5-3 8-7 9v6H15v-6c-4-1-7-4-7-9Z"),
+    stroke("M13 19h4m6 0h4m-8 6h2m-4 5v4m6-4v4"),
+  ]),
   dark: drawing([
     stroke("M26 5a14 14 0 1 0 9 23A13 13 0 0 1 26 5Z"),
     stroke("m29 10 1 2 2 1-2 1-1 2-1-2-2-1 2-1Z"),

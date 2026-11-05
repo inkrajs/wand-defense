@@ -1,4 +1,5 @@
 import type { ContentCatalog } from "../contracts";
+import { evolvedArcana, evolvedSpells } from "./evolvedMagic";
 import { gearDefinitions } from "./gear";
 import { supplyDefinitions } from "./supplies";
 import { areaSpellDefinitions } from "./areaSpells";
@@ -17,6 +18,7 @@ export const demoContent: ContentCatalog = {
   items: supplyDefinitions,
   spells: {
     ...expandedSpellDefinitions,
+    ...evolvedSpells,
     ...cataclysmSpells,
     spark: {
       id: "spark", name: "火花", element: "fire", shape: [cell(0, 0)],
@@ -187,6 +189,7 @@ export const demoContent: ContentCatalog = {
       modifier: "focus", value: 1.25, level: 1, grade: "common",
     },
     ...expandedArcana,
+    ...evolvedArcana,
   },
   recipes: magicRecipeDefinitions,
   sequences: {

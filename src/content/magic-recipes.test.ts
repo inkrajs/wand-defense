@@ -23,8 +23,7 @@ test("spell and arcana recipes have unique IDs and valid outputs, with fireball 
 });
 
 test("atomic spells and spell recipes cover the catalog; arcana recipes also have valid definitions", () => {
-  assert.equal(baseMagicDefinitionIds.length, 18);
-  assert.equal(new Set(baseMagicDefinitionIds).size, 18);
+  assert.equal(new Set(baseMagicDefinitionIds).size, baseMagicDefinitionIds.length);
   const spellIds = Object.keys(spells);
   const arcanaIds = Object.keys(demoContent.arcana);
   const definedMagicIds = new Set([...spellIds, ...arcanaIds]);

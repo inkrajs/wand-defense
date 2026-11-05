@@ -1,7 +1,7 @@
 export type Id = string;
 export const GAME_SPEEDS = [0.25, 0.5, 0.75, 1, 2, 3, 5] as const;
 export type GameSpeed = typeof GAME_SPEEDS[number];
-export type Element = "fire" | "wood" | "metal" | "water" | "earth" | "light" | "dark" | "lightning" | "wind";
+export type Element = "fire" | "wood" | "metal" | "water" | "earth" | "light" | "dark" | "lightning" | "wind" | "undead";
 export type Grade = "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic";
 export interface Growth { level: number; grade: Grade }
 export interface Cell { x: number; y: number }
@@ -64,6 +64,7 @@ export interface ConstructSpec {
   hp:number; durationMs:number; attackIntervalMs:number; maxAlive:number;
   attackMode:"contact"|"projectile"; behavior:"attack"|"heal"|"shield";
   moveSpeed?:number; projectileSpeed?:number; coinCost?:number;
+  baseCount?: number;
   bodySize?:MonsterBodySize; placement?:"caster"|"target";
 }
 export interface SpellDefinition extends Growth {
@@ -76,6 +77,8 @@ export interface SpellDefinition extends Growth {
   fusionElements?: Element[];
   effect: EffectType; power: number; manaCost: number; cooldownMs: number;
   range: number; durationMs?: number; hp?: number; speed?: number;
+  adjacentPower?: { targetId: Id; multiplier: number };
+  remainsAction?: "reanimate" | "rebirth" | "detonate";
   summonBehavior?: "attack" | "heal";
   construct?: ConstructSpec;
   impact?: ProjectileImpact; beam?: BeamSpec; area?: AreaSpec; onHit?: OnHitSpec;
@@ -90,7 +93,7 @@ export interface TriggerPayload {
   impact?: ProjectileImpact; area?: AreaSpec; onHit?: OnHitSpec; attackRoll?: AttackRollStats;
 }
 export interface SpellTrigger {
-  mode: "hit" | "timer";
+  mode: "hit" | "timer" | "range";
   /** Timer starts at actual launch, not while a burst is waiting. */
   delayMs: number;
   modifierItemId: Id;
@@ -100,7 +103,11 @@ export interface ArcanaDefinition extends Growth {
   id: Id; name: string; shape: Cell[]; asset: AssetRef;
   modifier: "amplify" | "double" | "split" | "focus" | "haste" | "efficiency" | "reach" | "velocity" | "area"
     | "pierce" | "slow" | "burn" | "knockback" | "duration" | "capacity" | "precision"
-    | "hitTrigger" | "timerTrigger"; value: number;
+    | "hitTrigger" | "timerTrigger" | "rangeTrigger" | "affinity" | "condense"; value: number;
+  rewardMinWave?: number;
+  affinities?: Partial<Record<Element, number>>;
+  diagonal?: boolean;
+  description?: string;
 }
 export interface RecipeDefinition {
   id: Id; name: string; inputs: Id[]; output: Id; requireAdjacency: boolean;
@@ -168,6 +175,7 @@ export interface CharacterInstance extends Growth {
 export type MonsterBodySize="small"|"normal"|"large"|"huge"|"colossal";
 export interface CombatEntity {
   id: Id; definitionId: Id; kind: "enemy" | "summon" | "building" | "projectile" | "beam" | "chain" | "area";
+  reborn?: boolean;
   /** Optional for legacy saves; current enemies carry their spawned level and grade. */
   level?: number; grade?: Grade;
   bodySize?:MonsterBodySize;
@@ -247,6 +255,7 @@ export interface GameState {
   supplies?:Record<Id,SupplyInstance>;
   characters: CharacterInstance[]; wands: WandInstance[]; items: Record<Id, ItemInstance>;
   backpack: Id[]; entities: CombatEntity[]; rewards: RewardOption[];
+  remains?: { entity: CombatEntity; expiresAt: number }[];
   /** Absent only in older checkpoints. */
   rewardRefresh?: RewardRefreshState;
   /** Durable chosen-reward ledger; absent only in older checkpoints. */

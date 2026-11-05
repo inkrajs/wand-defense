@@ -160,12 +160,13 @@ export function advanceProjectiles(state: GameState, dtMs: number, emit: Emit): 
     const motion=integrateMotion(projectile.moveSpeed??projectile.speed,projectile.speed,projectile.moveRampMs??0,activeDt);
     let distance=motion.distance,hit=false,escaped=false;
     const fieldImpact = projectile.impact?.type === "field" ? projectile.impact : undefined;
-    const fieldRange = fieldImpact ? Math.max(0, Number.isFinite(projectile.range) ? projectile.range : 0) : Infinity;
+    const rangeLimited = fieldImpact !== undefined || projectile.trigger?.mode === "range";
+    const castRange = rangeLimited ? Math.max(0, Number.isFinite(projectile.range) ? projectile.range : 0) : Infinity;
     projectile.remainingMs=life-activeDt;projectile.moveSpeed=motion.speed;
-    for(let leg=0;leg<2&&(distance>0||(fieldImpact&&fieldRange-(Number.isFinite(projectile.travelledDistance)
+    for(let leg=0;leg<2&&(distance>0||(rangeLimited&&castRange-(Number.isFinite(projectile.travelledDistance)
       ? Math.max(0,projectile.travelledDistance!) : 0)<=1e-8));leg++) {
       const travelled = Math.max(0, Number.isFinite(projectile.travelledDistance) ? projectile.travelledDistance! : 0);
-      const rangeRemaining = fieldImpact ? Math.max(0,fieldRange-travelled) : Infinity;
+      const rangeRemaining = rangeLimited ? Math.max(0,castRange-travelled) : Infinity;
       const waypoint=Number.isFinite(projectile.splitWaypointX)&&Number.isFinite(projectile.splitWaypointY);
       const wx=waypoint?projectile.splitWaypointX!-projectile.x:0,wy=waypoint?projectile.splitWaypointY!-projectile.y:0;
       const waypointDistance=waypoint?Math.hypot(wx,wy):Infinity;
@@ -199,14 +200,16 @@ export function advanceProjectiles(state: GameState, dtMs: number, emit: Emit): 
           projectile.hp=0;projectile.remainingMs=0;
         }
         if(!continues){projectile.hp=0;projectile.remainingMs=0;}
-        else if(projectile.impact?.type==="chain")aimProjectile(projectile,projectile.targetX!,projectile.targetY!);
+        else if (rangeLimited) projectile.travelledDistance = travelled + contact.distance;
+        if(continues && projectile.impact?.type==="chain")aimProjectile(projectile,projectile.targetX!,projectile.targetY!);
         hit=true;break;
       }
       projectile.x=next.x;projectile.y=next.y;distance-=travel;
-      if(fieldImpact) projectile.travelledDistance=travelled+travel;
-      const rangeReached=fieldImpact !== undefined && rangeRemaining<=travel+1e-8 && travel>=requested-1e-8;
+      if(rangeLimited) projectile.travelledDistance=travelled+travel;
+      const rangeReached=rangeLimited && rangeRemaining<=travel+1e-8 && travel>=requested-1e-8;
       if(rangeReached) {
-        if(fieldImpact.trigger !== "contact") spawnProjectileField(state,projectile,projectile,fieldImpact,emit);
+        if(fieldImpact && fieldImpact.trigger !== "contact") spawnProjectileField(state,projectile,projectile,fieldImpact,emit);
+        if (projectile.trigger?.mode === "range") release(projectile);
         projectile.hp=0;projectile.remainingMs=0;hit=true;break;
       }
       if(travel<requested-1e-8||travel<=0){escaped=true;break;}

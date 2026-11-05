@@ -15,6 +15,7 @@ export interface CompiledSpell extends SpellDefinition {
   attackRoll: AttackRollStats;
   trigger?: SpellTrigger;
   triggeredByItemId?: string;
+  condensedItemId?: string;
 }
 export interface CompiledWand {
   wandId: string;
@@ -37,6 +38,14 @@ export function compileWand(
     const item = state.items[placement.itemId];
     const definition = item?.kind === 'arcana' ? content.arcana[item.definitionId] : undefined;
     return definition ? [{ itemId: item.id, grade: item.grade, definition, cells: placementCells(definition.shape, placement) }] : [];
+  });
+  const passiveBonuses = wand.placements.flatMap(placement => {
+    const item = state.items[placement.itemId];
+    const definition = item?.kind === 'spell' ? content.spells[item.definitionId] : undefined;
+    return definition?.adjacentPower ? [{
+      ...definition.adjacentPower,
+      cells: placementCells(definition.shape, placement),
+    }] : [];
   });
   const spells = wand.placements.flatMap(placement => {
     const item = state.items[placement.itemId];
@@ -72,12 +81,20 @@ export function compileWand(
         sourceLuck: final.luck,
       },
     };
+    const elements = [...new Set([spell.element, ...(definition.fusionElements ?? [])])];
     const cells = placementCells(definition.shape, placement);
     const appliedModifierItems = new Set<string>();
     for (const modifier of modifiers) {
-      if (!areAdjacent(cells, modifier.cells)) continue;
+      const touches = modifier.definition.diagonal
+        ? cells.some(a => modifier.cells.some(b => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) === 1))
+        : areAdjacent(cells, modifier.cells);
+      if (!touches) continue;
+      const affinity = modifier.definition.modifier === 'affinity'
+        ? elements.reduce((sum, element) => sum + (modifier.definition.affinities?.[element] ?? 0), 0) / elements.length
+        : 0;
+      if (modifier.definition.modifier === 'affinity' && affinity === 0) continue;
       if (appliedModifierItems.has(modifier.itemId)) continue;
-      if (isAdvancedModifier(modifier.definition.modifier) || isTriggerModifier(modifier.definition.modifier)) continue;
+      if (isAdvancedModifier(modifier.definition.modifier) || isTriggerModifier(modifier.definition.modifier) || modifier.definition.modifier === 'condense') continue;
       if (modifier.definition.modifier === 'velocity' && spell.effect !== 'projectile') continue;
       if (modifier.definition.modifier === 'area'
         && !spell.beam
@@ -88,6 +105,7 @@ export function compileWand(
       appliedModifierItems.add(modifier.itemId);
       spell.modifierItemIds.push(modifier.itemId);
       switch (modifier.definition.modifier) {
+        case 'affinity': spell.power *= Math.max(.25, 1 + affinity * value); break;
         case 'amplify': spell.power *= value; break;
         case 'double': spell.burstCount=Math.min(64,spell.burstCount*Math.max(1,Math.floor(value))); break;
         case 'split': spell.splitCount=Math.min(64,spell.splitCount*Math.max(1,Math.floor(value))); break;
@@ -114,9 +132,11 @@ export function compileWand(
       }
     }
     applyAdvancedModifiers(spell, modifiers.filter(modifier => areAdjacent(cells, modifier.cells)));
+    for (const bonus of passiveBonuses) {
+      if (bonus.targetId === spell.id && areAdjacent(cells, bonus.cells)) spell.power *= bonus.multiplier;
+    }
     spell.copies=Math.min(64,spell.burstCount*spell.splitCount);
     // Fused spells share the elemental bonus evenly, without counting an element twice.
-    const elements = [...new Set([spell.element, ...(definition.fusionElements ?? [])])];
     const elementBonus = elements.reduce((sum, element) => {
       const bonus = final.elementBonuses[element] ?? 0;
       return sum + (Number.isFinite(bonus) ? bonus : 0);

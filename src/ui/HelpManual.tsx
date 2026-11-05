@@ -13,7 +13,7 @@ import "./HelpManual.css";
 const recipeIcon: PencilIconPath[] = [{ d: "M4 5h16v14H4zM8 9h8M8 13h5", mode: "stroke" }];
 const gradeIcon: PencilIconPath[] = [{ d: "M12 3 14 9l6 .5-4.5 4 1.5 6L12 16l-5 3.5 1.5-6L4 9.5 10 9l2-6Z", mode: "stroke" }];
 const adjacentIcon: PencilIconPath[] = [{ d: "M3 6h8v12H3zM13 6h8v12h-8zM11 12h2", mode: "stroke" }];
-const elementLabels: Record<string, string> = { fire: "火", water: "水", wood: "木", metal: "金", earth: "土", lightning: "雷", wind: "风", light: "光", dark: "暗", neutral: "其他" };
+const elementLabels: Record<string, string> = { fire: "火", water: "水", wood: "木", metal: "金", earth: "土", lightning: "雷", wind: "风", light: "光", dark: "暗", undead: "亡灵", neutral: "其他" };
 
 function MagicToken({ id, known }: { id: string; known: Set<string> }) {
   const definition = known.has(id) ? demoContent.spells[id] ?? demoContent.arcana[id] : undefined;

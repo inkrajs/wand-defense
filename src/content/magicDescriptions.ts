@@ -1,4 +1,5 @@
 import type { ArcanaDefinition, ContentCatalog, RewardOption, SpellDefinition } from "../contracts";
+import { elementAppearances } from "./elements";
 import { expandedArcanaDescriptions } from "./expandedArcana";
 
 const reservedDefinitionIds = new Set(["__proto__", "constructor", "prototype"]);
@@ -8,6 +9,8 @@ const specificArcanaDescriptions = new Set([
 ]);
 
 const arcanaDescriptions: Readonly<Record<ArcanaDefinition["modifier"], string>> = Object.freeze({
+  condense: "连接两个相同的飞弹法术，合为一发，威力为合计的80%；消耗两份法力，冷却增加25%。",
+  affinity: "改变周围法术的元素威力。",
   amplify: "增强相邻法术的力量。",
   double: "相邻攻击法术分次连发；治疗与护盾效果重复生效。",
   split: "相邻飞弹、光束与雷链同时分支，区域法术可展开多个落点或环。",
@@ -25,6 +28,7 @@ const arcanaDescriptions: Readonly<Record<ArcanaDefinition["modifier"], string>>
   capacity: expandedArcanaDescriptions.capacity,
   precision: expandedArcanaDescriptions.precision,
   hitTrigger: expandedArcanaDescriptions["hit-trigger"],
+  rangeTrigger: "飞弹抵达射程末端时，在终点释放连接的法术。提前被敌人挡下时不释放。",
   timerTrigger: expandedArcanaDescriptions["timer-trigger"],
 });
 
@@ -167,6 +171,15 @@ function describeImpact(spell: SpellDefinition): string | undefined {
 }
 
 function describeArcana(arcana: ArcanaDefinition): string | undefined {
+  if (arcana.description) return arcana.description;
+  if (arcana.modifier === "affinity" && arcana.affinities) {
+    const changes = Object.entries(arcana.affinities).map(([element, value]) => {
+      const label = elementAppearances[element as keyof typeof elementAppearances].name;
+      return `${label}系威力${value > 0 ? "+" : ""}${Math.round(value * 100)}%`;
+    });
+    return `${arcana.diagonal ? "周围一圈（含斜角）" : "四边相邻"}的法术：${changes.join("、")}。`;
+  }
+
   if (specificArcanaDescriptions.has(arcana.id)) return expandedArcanaDescriptions[arcana.id];
   if (arcana.modifier === "double") {
     const count = Number.isFinite(arcana.value) && arcana.value >= 1 ? Math.floor(arcana.value) : undefined;

@@ -1,4 +1,5 @@
 import type { RecipeDefinition } from "../contracts";
+import { evolvedRecipes } from "./evolvedMagic";
 
 /** Spell definitions acquired directly, before following recipe branches. */
 export const baseMagicDefinitionIds: readonly string[] = Object.freeze([
@@ -12,7 +13,7 @@ export const baseMagicDefinitionIds: readonly string[] = Object.freeze([
   "light-arrow",
   "dark-orb",
   "ember-seed", "frost-drop", "thorn-seed", "iron-spark", "static-spark",
-  "gust", "pebble", "glimmer", "night-mote",
+  "gust", "pebble", "glimmer", "night-mote", "bone-chip", "grave-echo",
 ]);
 
 /** Adjacency-based spell and arcana recipes. */
@@ -106,4 +107,5 @@ export const magicRecipeDefinitions: RecipeDefinition[] = [
   { id: "eternal-night-recipe", name: "永夜深渊", inputs: ["gravity-well", "duration"], output: "eternal-night", requireAdjacency: true },
   { id: "flame-elemental-recipe", name: "烈焰元素", inputs: ["ember-familiar", "greater-burn"], output: "flame-elemental", requireAdjacency: true },
   { id: "iron-guardian-recipe", name: "钢铁卫士", inputs: ["thorn-guardian", "iron-spark"], output: "iron-guardian", requireAdjacency: true },
+  ...evolvedRecipes,
 ];
