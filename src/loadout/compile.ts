@@ -61,13 +61,9 @@ export function compileWand(
       asset: { ...definition.asset },
       ...(definition.impact ? { impact: { ...definition.impact } } : {}),
       ...(definition.beam ? { beam: { ...definition.beam } } : {}),
-      ...(definition.area ? { area: { ...definition.area, ...(definition.area.shower ? { shower: { ...definition.area.shower } } : {}) } } : {}),
+      ...(definition.area ? { area: structuredClone(definition.area) } : {}),
       ...(definition.construct ? { construct: { ...definition.construct } } : {}),
-      ...(definition.onHit ? { onHit: {
-        ...definition.onHit,
-        ...(definition.onHit.slow ? { slow: { ...definition.onHit.slow } } : {}),
-        ...(definition.onHit.burn ? { burn: { ...definition.onHit.burn } } : {}),
-      } } : {}),
+      ...(definition.onHit ? { onHit: structuredClone(definition.onHit) } : {}),
       itemId: item.id, copies: 1, burstCount:1, splitCount:1, modifierItemIds: [],
       attackRoll: {
         accuracy: final.accuracy,
@@ -104,11 +100,14 @@ export function compileWand(
           if (spell.beam) spell.beam.width *= value;
           if (spell.impact && (spell.impact.type === 'splash' || spell.impact.type === 'chain' || spell.impact.type === 'field')) {
             spell.impact.radius *= value;
+            if (spell.impact.type === 'chain' && spell.impact.blastRadius !== undefined) spell.impact.blastRadius *= value;
           }
           if (spell.area) {
             spell.area.radius *= value;
             if (spell.area.shower) spell.area.shower.spread *= value;
             if (spell.area.mode === 'vortex' && spell.area.pullRadius !== undefined) spell.area.pullRadius *= value;
+            if (spell.area.consume) spell.area.consume.radius *= value;
+            for (let finish = spell.area.finish, depth = 0; finish && depth < 2; finish = finish.next, depth++) finish.radius *= value;
             if (spell.area.mode === 'ring') spell.range *= value;
           }
           break;

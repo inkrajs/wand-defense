@@ -3,6 +3,7 @@ import type {
   ItemInstance, Placement, WandInstance
 } from "../contracts";
 import { areAdjacent, placementCells, validatePlacement } from "./geometry";
+import { matchesRecipeLayout } from "./recipe-layout";
 
 import { commit, reject, maxItemCooldown } from "./transition";
 import { applyMergeItemsCommand } from "./merge-items";
@@ -169,6 +170,10 @@ export function applyLoadoutCommand(state: GameState, command: Command, content:
         }
         if (reached.size !== cellSets.length) return reject(state, command, "INPUTS_NOT_ADJACENT", "所选材料没有构成四边连通的组合");
       }
+      if (recipe.layout && !matchesRecipeLayout(recipe, placements.map(p => {
+        const item = state.items[p!.itemId];
+        return {definitionId:item.definitionId, cells:placementCells(shapeFor(item, content)!, p!)};
+      }), content)) return reject(state, command, "RECIPE_LAYOUT_MISMATCH", "所选材料的排列不符合配方");
       const outputId = `${command.id}:output`;
       if (state.items[outputId]) return reject(state, command, "OUTPUT_ID_COLLISION", "合成产物实例 ID 已存在");
       const [kind, definition] = content.spells[recipe.output] ? ["spell", content.spells[recipe.output]] as const : content.arcana[recipe.output] ? ["arcana", content.arcana[recipe.output]] as const : [undefined, undefined] as const;

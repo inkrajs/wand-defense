@@ -1,12 +1,16 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { CombatEntity, GameEvent, GameState } from "../contracts";
 import { demoContent } from "../content/demo";
-import { MagicEffectArt } from "./MagicEffectArt";
+import { MagicEffectArt, type MagicEffectArtKind } from "./MagicEffectArt";
 import "./AreaEffects.css";
 import { useGraphicsSettings } from "./graphicsSettings";
 
 const MAX_AREA_EFFECTS = 32;
 const METEOR_SPELLS = new Set(["meteor", "meteor-shower-small", "meteor-shower-large", "worldfall"]);
+const FIELD_MOTES: Record<string, MagicEffectArtKind> = {
+  fire: "flame", water: "water", wood: "thorn", earth: "rock", metal: "needle",
+  wind: "wind", light: "light", dark: "shadow", lightning: "lightning",
+};
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const bounded = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -56,7 +60,8 @@ function areaVisual(entity: CombatEntity, state: GameState, width: number, heigh
       : delayMs > 0 ? bounded(1 - launchRemaining / delayMs, 0, 1) : 0;
   const progress = elapsedActive / durationMs;
 
-  const radius = bounded(area.radius, 0, 100);
+  const expansion = finite(area.expandDuringMs) && area.expandDuringMs > 0 ? bounded(elapsedActive / area.expandDuringMs, .08, 1) : 1;
+  const radius = bounded(area.radius, 0, 100) * expansion;
   const x = entity.x / 100 * width;
   const y = entity.y / 100 * height;
   if (![x, y].every(finite)) return undefined;
@@ -78,6 +83,8 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
   const mode = entity.area?.mode;
   if (mode !== "strike" && mode !== "ring" && mode !== "eruption" && mode !== "field" && mode !== "vortex") return null;
   const meteor = METEOR_SPELLS.has(entity.definitionId);
+  const rod = entity.definitionId === "god-rod";
+  const bomb = entity.definitionId === "hydrogen-bomb" || entity.definitionId === "three-phase-bomb";
   const primaryMeteor = meteor && entity.areaImpactRole === "primary";
   const meteorWidth = primaryMeteor ? bounded(radiusX * 0.55, 58, 96) : entity.areaImpactRole === "fragment" ? 20 : 26;
   const meteorHeight = primaryMeteor ? meteorWidth * 1.15 : entity.areaImpactRole === "fragment" ? 24 : 30;
@@ -121,7 +128,7 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
     {mode === "ring" && <MagicEffectArt resolution={resolution} className="area-effect__ring" kind="ring" width={radiusX * 2} height={radiusY * 2} />}
     {mode === "strike" && <>
       {primaryMeteor && <MagicEffectArt resolution={resolution} className="area-effect__meteor-trail" kind="flame" width={meteorWidth * 1.35} height={meteorHeight * 1.55} color="#e87543" />}
-      <MagicEffectArt resolution={resolution} className={`area-effect__marker${meteor ? " area-effect__meteor" : ""}`} kind={meteor ? "rock" : "lightning"} width={meteor ? meteorWidth : 8} height={meteor ? meteorHeight : Math.max(34, radiusY)} />
+      <MagicEffectArt resolution={resolution} className={`area-effect__marker${meteor ? " area-effect__meteor" : rod || bomb ? " area-effect__marker--centered" : ""}`} kind={meteor ? "rock" : rod ? "needle" : bomb ? "fireball" : "lightning"} width={meteor ? meteorWidth : rod ? 22 : bomb ? 30 : 8} height={meteor ? meteorHeight : rod ? 58 : bomb ? 30 : Math.max(34, radiusY)} />
       <MagicEffectArt resolution={resolution} className="area-effect__impact" kind="impact" variant="impact" width={radiusX * 2} height={radiusY * 2} />
     </>}
     {mode === "eruption" && details && <>
@@ -133,7 +140,7 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
         // Stable points inside the real area ellipse; never choose targets or infer hits.
         const angle = index * 2.399963229728653;
         const distance = index === 0 ? 0 : Math.sqrt(index / (globalField ? 13 : 7)) * 0.78;
-        return <MagicEffectArt resolution={resolution} key={index} kind={element === "fire" ? "flame" : "lightning"} width={globalField ? 16 : 13} height={globalField ? 32 : 22} className={`area-effect__mote ${element === "fire" ? "area-effect__mote--flame" : "area-effect__mote--arc"}`} style={{
+        return <MagicEffectArt resolution={resolution} key={index} kind={FIELD_MOTES[element] ?? "wind"} width={globalField ? 16 : 13} height={globalField ? 32 : 22} className={`area-effect__mote ${element === "fire" ? "area-effect__mote--flame" : "area-effect__mote--arc"}`} style={{
           left: Math.cos(angle) * distance * radiusX,
           top: Math.sin(angle) * distance * radiusY,
           "--area-mote-angle": `${index * 31 % 60 - 30}deg`,
@@ -146,6 +153,8 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
       </span>
       <MagicEffectArt resolution={resolution} className="area-effect__eye" kind="ring" width={7} height={7} />
     </span>}
+    {mode === "vortex" && ["black-hole", "twin-black-holes", "supermassive-black-hole"].includes(entity.definitionId) && <MagicEffectArt resolution={resolution} className="area-effect__core" kind="shadow" width={entity.definitionId === "supermassive-black-hole" ? 36 : 24} height={entity.definitionId === "supermassive-black-hole" ? 36 : 24} />}
+    {mode === "field" && (entity.definitionId === "artificial-sun" || entity.definitionId === "helium-flash") && <MagicEffectArt resolution={resolution} className="area-effect__core" kind="fireball" width={28} height={28} />}
   </span>;
 }
 

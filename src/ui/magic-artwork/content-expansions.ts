@@ -2,6 +2,8 @@ import type { MagicArtworkCatalog } from "./types";
 
 const stroke = (d: string) => ({ d, mode: "stroke" as const });
 const wash = (d: string) => ({ d, mode: "wash" as const });
+// This artwork was originally drawn on a 48×48 plane; its spell occupies 72×72.
+const solarStormPath = (d: string) => d.replace(/-?\d*\.?\d+/g, value => String(Number(value) * 1.5));
 
 /** Original content art authored in the same 24-unit-per-cell grid as each definition. */
 export const contentExpansionArtwork: MagicArtworkCatalog = {
@@ -131,8 +133,8 @@ export const contentExpansionArtwork: MagicArtworkCatalog = {
     filledPaths: [wash("M29 22c7-2 13 4 11 11-2 7-9 10-14 6-6-3-6-11 3-17Z"), wash("M7 7l17 13-4 5Z")],
   },
   "piercing-gale": {
-    paths: [stroke("M4 12c15-2 28-2 39 0-11 2-24 2-39 0Zm25-5 7 5-7 5m-20-9 9 4-9 4")],
-    filledPaths: [wash("M5 12c13-2 27-2 40 0-13 2-27 2-40 0Z"), wash("M29 7l9 5-9 5 3-5Z")],
+    paths: [stroke("M4 12c22-3 43-3 63 0-20 3-41 3-63 0Zm47-5 9 5-9 5M13 8l11 4-11 4")],
+    filledPaths: [wash("M5 12c20-2 42-2 62 0-20 2-42 2-62 0Z"), wash("M51 7l9 5-9 5 3-5Z")],
   },
   "glacial-lance": {
     paths: [stroke("M5 12 39 5 30 12 39 19 5 12Z"), stroke("M14 12 20 8m-6 4 6 4m7-4 5-3m-5 3 5 3m7-3 4-2m-4 2 4 2")],
@@ -143,8 +145,8 @@ export const contentExpansionArtwork: MagicArtworkCatalog = {
     filledPaths: [wash("M24 7c8 5 12 10 13 16 0 8-5 14-14 15-8-1-13-7-12-14 1-6 6-12 13-17Z"), wash("M24 17c-4 4-5 7-3 10s6 3 8 0c2-3 0-6-5-10Z")],
   },
   "solar-storm": {
-    paths: [stroke("M36 7c-8-5-20-4-27 3-7 8-5 20 3 27 8 7 20 5 27-3 6-7 5-18-1-24"), stroke("M24 11v6m0 14v6m-13-13h6m14 0h6M15 15l5 5m8 8 5 5m0-18-5 5m-8 8-5 5M24 16c-5 0-8 4-8 8s3 8 8 8 8-3 8-8-3-8-8-8Z"), stroke("M40 11l5-4m-4 17 5 1M8 38l-4 4")],
-    filledPaths: [wash("M36 9c-7-5-18-3-24 4-6 7-4 17 3 23 7 6 17 4 23-3 5-6 5-16-2-24Z"), wash("M24 17c-4 0-7 3-7 7s3 7 7 7 7-3 7-7-3-7-7-7Z")],
+    paths: [stroke(solarStormPath("M36 7c-8-5-20-4-27 3-7 8-5 20 3 27 8 7 20 5 27-3 6-7 5-18-1-24")), stroke(solarStormPath("M24 11v6m0 14v6m-13-13h6m14 0h6M15 15l5 5m8 8 5 5m0-18-5 5m-8 8-5 5M24 16c-5 0-8 4-8 8s3 8 8 8 8-3 8-8-3-8-8-8Z")), stroke(solarStormPath("M40 11l5-4m-4 17 5 1M8 38l-4 4"))],
+    filledPaths: [wash(solarStormPath("M36 9c-7-5-18-3-24 4-6 7-4 17 3 23 7 6 17 4 23-3 5-6 5-16-2-24Z")), wash(solarStormPath("M24 17c-4 0-7 3-7 7s3 7 7 7 7-3 7-7-3-7-7-7Z"))],
   },
   "tidal-prison": {
     paths: [stroke("M8 7c10-4 22-4 32 0v30c-10 4-22 4-32 0V7Z"), stroke("M14 10v23m10-25v27m10-25v23M8 15c8 5 24 5 32 0M8 29c8-5 24-5 32 0"), stroke("M17 19l7-5 7 5-7 5Z")],
@@ -159,8 +161,8 @@ export const contentExpansionArtwork: MagicArtworkCatalog = {
     filledPaths: [wash("M24 7c10 0 17 7 17 17s-7 17-17 17S7 34 7 24 14 7 24 7Z"), wash("M21 18h6v12h-6Zm-3 3h12v6H18Z")],
   },
   "prism-ray": {
-    paths: [stroke("M4 12h17m14 0h12M21 5l7 7-7 7-7-7 7-7Zm7 7 7-7v14l-7-7Z"), stroke("M4 7h9m-9 10h9m25-9 7-3m-7 14 7 3")],
-    filledPaths: [wash("M4 11h15v2H4Z"), wash("M21 6l6 6-6 6-6-6Z"), wash("M28 6 35 2v20l-7-4Z")],
+    paths: [stroke("M3 12h20m16 0h30M31 4l8 8-8 8-8-8 8-8Zm8 8 8-7v14l-8-7Z"), stroke("M4 7h14M4 17h14m36-9 13-4m-13 12 13 4")],
+    filledPaths: [wash("M4 11h20v2H4Z"), wash("M31 5l7 7-7 7-7-7Z"), wash("M40 12 47 6v12Z"), wash("M48 11h19v2H48Z")],
   },
   "storm-spear": {
     paths: [stroke("M7 12 39 5 30 12 39 19 7 12Z"), stroke("M15 12c4-9 10-9 14 0s10 9 15 0m-5-3 5 3-5 3"), stroke("M9 8l-3-3m2 12-4 3m27-12 2-5")],

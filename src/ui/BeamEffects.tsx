@@ -20,7 +20,9 @@ export function BeamEffects({state}:{state:GameState}) {
       return <span key={`${state.id}:${entity.id}`} className={`beam-effects__ray beam-effects__ray--${entity.definitionId}`} style={{
         left:visual.x,top:visual.y,width:visual.length,height:visual.thickness,
         transform:`translateY(-50%) rotate(${visual.angle}deg)`,"--beam-color":visual.color,
-      } as CSSProperties}><MagicEffectArt resolution={settings.effectResolution} kind="beam" variant="beam" seed="battle-beam" width={96} height={16} color="var(--beam-color)" style={beamArtStyle} /></span>;
+      } as CSSProperties}><MagicEffectArt resolution={settings.effectResolution} kind="beam" variant="beam" seed="battle-beam" width={96} height={16} color="var(--beam-color)" style={beamArtStyle} />
+        {entity.beamTargetAnchor && <MagicEffectArt resolution={settings.effectResolution} className="beam-effects__star" kind="light" variant="impact" seed="pulsar-core" width={28} height={28} color="var(--beam-color)" />}
+      </span>;
     })}
   </div>;
 }

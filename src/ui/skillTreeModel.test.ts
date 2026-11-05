@@ -2,11 +2,88 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ContentCatalog, Element, GameState, RecipeDefinition, SpellDefinition } from '../contracts';
 import { demoContent } from '../content/demo';
-import { buildSkillTree } from './skillTreeModel';
+import { buildSkillTree, getKnownRecipesForDefinition } from './skillTreeModel';
 
 const knowledge = (spellIds: string[] = [], arcanaIds: string[] = [], recipeIds: string[] = []): GameState['knowledge'] => ({spellIds, arcanaIds, recipeIds, sequenceIds: []});
 const spell = (id: string, element: Element): SpellDefinition => ({...demoContent.spells.spark, id, name: id, element});
 const recipe = (id: string, inputs: string[], output: string): RecipeDefinition => ({id, name: `秘密名称:${output}`, inputs, output, requireAdjacency: true});
+
+test('arcana tree shows arcana progression and only spell ingredients as boundaries', () => {
+  const content: ContentCatalog = {
+    spells: {root: spell('root', 'fire'), catalyst: spell('catalyst', 'fire'), unrelated: spell('unrelated', 'water')},
+    arcana: {
+      double: structuredClone(demoContent.arcana.double),
+      quadruple: structuredClone(demoContent.arcana.quadruple),
+      focus: structuredClone(demoContent.arcana.focus),
+      secret: {...demoContent.arcana.focus, id: 'secret', name: '秘密奥术'},
+    }, sequences: {}, recipes: [
+      recipe('quad', ['double', 'double'], 'quadruple'),
+      recipe('secret', ['quadruple', 'catalyst'], 'secret'),
+      recipe('catalyst', ['root'], 'catalyst'),
+      recipe('unrelated', ['double'], 'unrelated'),
+    ],
+  };
+  const known = knowledge(['root', 'catalyst', 'unrelated'], ['double', 'quadruple', 'focus'], content.recipes.map(value => value.id));
+  const tree = buildSkillTree(content, known, 'arcana');
+  assert.equal(tree.nodes.length, 5);
+  assert.equal(tree.edges.length, 3);
+  assert.equal(tree.nodes.find(node => node.definitionId === 'double')!.atomic, true);
+  assert.equal(tree.nodes.find(node => node.definitionId === 'quadruple')!.atomic, false);
+  assert.deepEqual(tree.nodes.find(node => node.definitionId === 'quadruple')!.recipes, [{inputs: ['arcana:double', 'arcana:double']}]);
+  const material = tree.nodes.find(node => node.definitionId === 'catalyst')!;
+  assert.equal(material.boundary, true);
+  assert.equal(material.recipes, undefined);
+  assert.equal(tree.nodes.some(node => node.definitionId === 'root' || node.definitionId === 'unrelated'), false);
+  const unknown = tree.nodes.find(node => !node.known)!;
+  assert.equal(unknown.name, '未知');
+  assert.equal(unknown.definitionId, undefined);
+  assert.deepEqual(unknown.recipes, [{inputs: ['arcana:quadruple', 'spell:catalyst']}]);
+  assert.equal(JSON.stringify(tree).includes('秘密奥术'), false);
+  assert.equal(JSON.stringify(tree).includes('secret'), false);
+});
+
+test('real arcana tree includes its isolated arcana and the double to six-shot line', () => {
+  const known = knowledge(Object.keys(demoContent.spells), Object.keys(demoContent.arcana), demoContent.recipes.map(value => value.id));
+  const tree = buildSkillTree(demoContent, known, 'arcana');
+  for (const id of known.arcanaIds) assert.ok(tree.nodes.some(node => node.definitionId === id), id);
+  assert.ok(tree.nodes.every(node => node.kind === 'arcana'));
+  assert.ok(tree.edges.some(edge => edge.source === 'arcana:double' && edge.target === 'arcana:quadruple'));
+  assert.ok(tree.edges.some(edge => edge.source === 'arcana:quadruple' && edge.target === 'arcana:sextuple'));
+  assert.ok(tree.nodes.every(node => !node.boundary));
+  assert.deepEqual(buildSkillTree(demoContent, knowledge(), 'arcana'), {nodes: [], edges: []});
+});
+
+test('endgame spells retain their actual progression in the relevant elemental trees', () => {
+  const known = knowledge(Object.keys(demoContent.spells), Object.keys(demoContent.arcana), demoContent.recipes.map(value => value.id));
+  const light = buildSkillTree(demoContent, known, 'light');
+  const dark = buildSkillTree(demoContent, known, 'dark');
+  const earth = buildSkillTree(demoContent, known, 'earth');
+  const hasEdge = (tree: typeof light, from: string, to: string) =>
+    tree.edges.some(edge => edge.source === `spell:${from}` && edge.target === `spell:${to}`);
+  for (const [from, to] of [['glimmer', 'solar-ray'], ['solar-ray', 'prism-ray'], ['prism-ray', 'god-rod'], ['prism-ray', 'vacuum-decay']]) {
+    assert.ok(hasEdge(light, from, to), `light: ${from} -> ${to}`);
+  }
+  for (const [from, to] of [['gravity-well', 'black-hole'], ['black-hole', 'twin-black-holes'], ['twin-black-holes', 'supermassive-black-hole'], ['supermassive-black-hole', 'vacuum-decay']]) {
+    assert.ok(hasEdge(dark, from, to), `dark: ${from} -> ${to}`);
+  }
+  for (const [from, to] of [['rock-shot', 'dense-rock'], ['dense-rock', 'gravity-core'], ['gravity-core', 'gravity-well']]) {
+    assert.ok(hasEdge(earth, from, to), `earth: ${from} -> ${to}`);
+  }
+  assert.ok(hasEdge(dark, 'dark-orb', 'void-ray'));
+  assert.ok(hasEdge(dark, 'void-ray', 'gravity-well'));
+  assert.equal(hasEdge(earth, 'rock-shot', 'gravity-well'), false);
+});
+
+test('a boundary spell still exposes its discovered recipe in details without revealing unknown ingredients', () => {
+  const allKnown = knowledge(['depleted-round','iron-spark','railgun','static-spark'], ['pierce'], ['depleted-round-recipe','railgun-recipe']);
+  const tree = buildSkillTree(demoContent, allKnown, 'lightning');
+  const boundary = tree.nodes.find(node => node.definitionId === 'depleted-round')!;
+  assert.equal(boundary.boundary, true);
+  assert.equal(boundary.recipes, undefined);
+  assert.deepEqual(getKnownRecipesForDefinition(demoContent, allKnown, 'depleted-round').map(value => value.id), ['depleted-round-recipe']);
+  assert.deepEqual(getKnownRecipesForDefinition(demoContent, {...allKnown, arcanaIds:[]}, 'depleted-round'), []);
+  assert.deepEqual(getKnownRecipesForDefinition(demoContent, {...allKnown, recipeIds:[]}, 'depleted-round'), []);
+});
 
 test('real discovered recipe seeds its unknown output anonymously without leaking names or unrelated elements', () => {
   const content = structuredClone(demoContent);
@@ -25,7 +102,7 @@ test('real discovered recipe seeds its unknown output anonymously without leakin
   assert.equal(tree.nodes.some(node => node.definitionId === 'water-bolt'), false);
   assert.equal(tree.nodes.some(node => node.definitionId === 'flame-lance-recipe'), false);
   assert.equal(tree.nodes.find(node => node.definitionId === 'spark')!.atomic, true);
-  assert.equal(tree.nodes.find(node => node.definitionId === 'amplify')!.atomic, false);
+  assert.equal(tree.nodes.find(node => node.definitionId === 'amplify')!.atomic, true);
   assert.deepEqual({content, known}, before);
 });
 

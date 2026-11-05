@@ -6,6 +6,7 @@ import { fieldSpellDefinitions } from "./fieldSpells";
 import { expandedArcana } from "./expandedArcana";
 import { magicRecipeDefinitions } from "./magicRecipes";
 import { expandedSpellDefinitions } from "./expandedSpells";
+import { cataclysmSpells } from "./cataclysmSpells";
 
 const asset = (key: string, label: string, color: string) => ({ key, label, color });
 const cell = (x: number, y: number) => ({ x, y });
@@ -16,6 +17,7 @@ export const demoContent: ContentCatalog = {
   items: supplyDefinitions,
   spells: {
     ...expandedSpellDefinitions,
+    ...cataclysmSpells,
     spark: {
       id: "spark", name: "火花", element: "fire", shape: [cell(0, 0)],
       asset: asset("spell.spark", "火花", "#ff9f43"), effect: "projectile",
@@ -28,34 +30,34 @@ export const demoContent: ContentCatalog = {
       onHit: { burn: { powerRatio: 0.2, durationMs: 2400, tickMs: 600 } },
     },
     regrowth: {
-      id: "regrowth", name: "回春", element: "wood", shape: [cell(0, 0), cell(1, 0), cell(0, 1)],
+      id: "regrowth", name: "回春", element: "wood", shape: [cell(0, 0)],
       asset: asset("spell.regrowth", "回春", "#7ed957"), effect: "heal",
       power: 18, manaCost: 12, cooldownMs: 3200, range: 20, level: 1, grade: "common",
     },
     "metal-needle": {
-      id: "metal-needle", name: "金针", element: "metal", shape: [cell(0, 0), cell(1, 0), cell(2, 0)],
+      id: "metal-needle", name: "金针", element: "metal", shape: [cell(0, 0)],
       asset: asset("spell.metal-needle", "金针", "#c0c7d1"), effect: "projectile",
       power: 16, manaCost: 7, cooldownMs: 850, range: 28, speed: 100, level: 1, grade: "common",
     },
     "water-bolt": {
-      id: "water-bolt", name: "水弹", element: "water", shape: [cell(0, 0), cell(0, 1)],
+      id: "water-bolt", name: "水弹", element: "water", shape: [cell(0, 0)],
       asset: asset("spell.water-bolt", "水弹", "#659dbd"), effect: "projectile",
       power: 8, manaCost: 3, cooldownMs: 600, range: 26, speed: 60, level: 1, grade: "common",
       onHit: { slow: { multiplier: 0.75, durationMs: 1200 } },
     },
     "lightning-bolt": {
-      id: "lightning-bolt", name: "雷矢", element: "lightning", shape: [cell(0, 0), cell(1, 0), cell(1, 1)],
+      id: "lightning-bolt", name: "雷矢", element: "lightning", shape: [cell(0, 0)],
       asset: asset("spell.lightning-bolt", "雷矢", "#c5af4b"), effect: "projectile",
       power: 22, manaCost: 9, cooldownMs: 1300, range: 36, speed: 140, level: 1, grade: "common",
     },
     "wind-blade": {
-      id: "wind-blade", name: "风刃", element: "wind", shape: [cell(0, 0), cell(1, 0)],
+      id: "wind-blade", name: "风刃", element: "wind", shape: [cell(0, 0)],
       asset: asset("spell.wind-blade", "风刃", "#70b4a7"), effect: "projectile",
       power: 6, manaCost: 2, cooldownMs: 350, range: 22, speed: 110, level: 1, grade: "common",
       onHit: { knockback: 2 },
     },
     "rock-shot": {
-      id: "rock-shot", name: "岩弹", element: "earth", shape: [cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1)],
+      id: "rock-shot", name: "岩弹", element: "earth", shape: [cell(0, 0)],
       asset: asset("spell.rock-shot", "岩弹", "#b18d65"), effect: "projectile",
       power: 36, manaCost: 12, cooldownMs: 1800, range: 30, speed: 34, level: 1, grade: "common",
     },
@@ -112,12 +114,12 @@ export const demoContent: ContentCatalog = {
       impact: { type: "chain", radius: 16, maxTargets: 3, falloff: 0.7 },
     },
     "light-arrow": {
-      id: "light-arrow", name: "光矢", element: "light", shape: [cell(0, 0), cell(1, 0)],
+      id: "light-arrow", name: "光矢", element: "light", shape: [cell(0, 0)],
       asset: asset("spell.light-arrow", "光矢", "#f4d76d"), effect: "projectile",
       power: 9, manaCost: 3, cooldownMs: 400, range: 38, speed: 150, level: 1, grade: "common",
     },
     "dark-orb": {
-      id: "dark-orb", name: "暗蚀", element: "dark", shape: [cell(0, 0), cell(1, 0), cell(0, 1), cell(1, 1)],
+      id: "dark-orb", name: "暗蚀", element: "dark", shape: [cell(0, 0)],
       asset: asset("spell.dark-orb", "暗蚀", "#72558f"), effect: "projectile",
       power: 32, manaCost: 16, cooldownMs: 2000, range: 30, speed: 38, level: 1, grade: "common",
       impact: { type: "splash", radius: 5, maxTargets: 5 },

@@ -10,26 +10,43 @@ export type EffectType = "projectile" | "heal" | "shield" | "beam" | "chain" | "
 export type ProjectileImpact =
   | { type: "pierce"; maxTargets: number; falloff?: number }
   | { type: "splash"; radius: number; maxTargets: number }
-  | { type: "chain"; radius: number; maxTargets: number; falloff: number }
+  | { type: "chain"; radius: number; maxTargets: number; falloff: number; blastRadius?: number; blastMaxTargets?: number }
   | { type: "field"; radius: number; maxTargets: number; durationMs: number; tickMs: number; trigger: "contact" | "range" | "either" };
-export interface BeamSpec { width: number; durationMs: number; tickMs: number; maxTargets: number }
+export interface BeamSpec { width: number; durationMs: number; tickMs: number; maxTargets: number; rotationPerSecond?: number; bidirectional?: boolean; anchor?: "caster" | "target" }
 export interface AreaSpec {
   mode: "strike" | "ring" | "eruption" | "field" | "vortex";
   radius: number; delayMs: number; durationMs: number; maxTargets: number;
   tickMs?: number; anchor?: "target" | "caster" | "field";
-  moveSpeed?: number; pullRadius?: number; pullStrength?: number;
+  moveSpeed?: number; pullRadius?: number; pullStrength?: number; manaPerSecond?: number; expandDuringMs?: number;
+  /** A paired vortex creates two separate centers this far apart in one cast. */
+  vortexPairSeparation?: number;
   /** A ground strike can release several independently resolved impacts. */
   shower?: {
     count: number; intervalMs: number; spread: number;
     /** Optional stronger first impact; subsequent impacts land around it. */
     primaryRadiusMultiplier?: number; primaryPowerMultiplier?: number;
   };
+  /** Optional automatic final stage of the same cast, resolved at its actual position. */
+  finish?: AreaFinish;
+  /** A vortex can consume weakened enemies at its center and feed its final stage. */
+  consume?: { radius: number; healthRatio: number };
+}
+/** At most two linked follow-ups (three total phases) are accepted by the engine. */
+export interface AreaFinish {
+  mode: "strike" | "ring" | "field" | "rays"; radius: number; durationMs: number; maxTargets: number;
+  rayPairs?: number; rayWidth?: number;
+  powerMultiplier: number; tickMs?: number; perConsumed?: number; maxConsumed?: number; perSecond?: number; onHit?: OnHitSpec;
+  next?: AreaFinish;
 }
 /** Enemy effects resolved only after a real successful contact. Durations use simulation time. */
 export interface OnHitSpec {
   knockback?: number;
   slow?: { multiplier: number; durationMs: number };
   burn?: { powerRatio: number; durationMs: number; tickMs: number };
+  /** Guaranteed finishing hit at or below this fraction of max HP; bosses have a lower threshold. */
+  execute?: { healthRatio: number; bossMultiplier: number; radius?: number };
+  /** Fraction of enemy armor ignored by this hit. */
+  armorPierce?: number;
 }
 /** Periodic damage retains its original cast provenance after the spell entity expires. */
 export interface BurnStatus {
@@ -51,6 +68,10 @@ export interface ConstructSpec {
 }
 export interface SpellDefinition extends Growth {
   id: Id; name: string; element: Element; shape: Cell[]; asset: AssetRef;
+  /** Optional concise behavior description for spells with distinctive mechanics. */
+  description?: string;
+  /** Earliest wave at which this definition can appear directly as a reward. */
+  rewardMinWave?: number;
   /** Fusion elements contribute equally to elemental power bonuses. */
   fusionElements?: Element[];
   effect: EffectType; power: number; manaCost: number; cooldownMs: number;
@@ -83,6 +104,8 @@ export interface ArcanaDefinition extends Growth {
 }
 export interface RecipeDefinition {
   id: Id; name: string; inputs: Id[]; output: Id; requireAdjacency: boolean;
+  /** Relative ingredient positions; absent for unrestricted adjacent recipes. */
+  layout?: { x: number; y: number; rotation: 0 | 1 | 2 | 3 }[];
 }
 export interface AdvancementRequirement {
   id: Id; kind: "characterLevel" | "equippedWandLevel" | "equippedSpellLevel" | "node" | "coins";
@@ -169,6 +192,8 @@ export interface CombatEntity {
   area?: AreaSpec;
   /** Identifies the real main impact and fragments of a composite area strike. */
   areaImpactRole?: "primary" | "fragment";
+  areaConsumed?: number; areaActiveMs?: number;
+  beamRotationPerSecond?: number; beamBidirectional?: boolean; beamTargetAnchor?: boolean;
   attackRoll?: AttackRollStats;
   /** Simulation-time burst scheduling and a real initial split flight segment. */
   launchDelayMs?: number; splitBranchIndex?: number; splitBranchCount?: number;

@@ -1,8 +1,9 @@
-import type { AreaSpec, AttackRollStats, CombatEntity, Element, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
+import type { AreaFinish, AreaSpec, AttackRollStats, CombatEntity, Element, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
 import { getMonsterSize } from "../content/monsters";
 import { getCharacterAnchors } from "../content/characterAnchors";
 import { applyContactDamage, nearbyEnemies, type CombatEmit } from "./targets";
 import { branchAngle, castPattern, type CastPattern } from "./castPattern";
+import { spawnRadialBeams } from "./beams";
 
 export const AREA_LIMITS = Object.freeze({
   perCast: 8,
@@ -33,6 +34,8 @@ export interface AreaCastSpec extends CastPattern {
   /** A paid trigger materializes at this exact point even when there is no nearby target. */
   position?: { x: number; y: number };
   maxCasts?: number;
+  /** Follow-up stage, already paid for by its parent cast. */
+  internal?: boolean;
 }
 
 type Point = { x: number; y: number };
@@ -111,7 +114,7 @@ export function spawnAreaEffects(
     || spec.position.x < 0 || spec.position.x > 100 || spec.position.y < 0 || spec.position.y > 100)) return false;
   const origin = spec.position ?? getCharacterAnchors(state.characters).find(anchor => anchor.characterId === characterId);
   if (!origin) return false;
-  const groundTargets = area.mode === "strike" || area.mode === "eruption"
+  const groundTargets = area.mode === "strike" || area.mode === "eruption" || (area.mode === "vortex" && area.anchor === "target")
     || (area.mode === "field" && area.anchor === "target")
     ? nearbyEnemies(state, origin.x, origin.y, castRange) : [];
   const ringTarget = area.mode === "ring" ? findRingTarget(state, origin, effectRange) : undefined;
@@ -121,9 +124,10 @@ export function spawnAreaEffects(
     initialTarget = groundTargets[0];
     if (initialTarget) center = { x: initialTarget.x, y: initialTarget.y };
   } else if (area.mode === "ring" || area.mode === "vortex") {
-    center = origin;
-    initialTarget = area.mode === "ring" ? ringTarget
+    initialTarget = area.mode === "ring" ? ringTarget : area.anchor === "target" ? groundTargets[0]
       : findAreaTarget(state, origin, Math.max(area.radius, area.pullRadius ?? 12));
+    center = area.mode === "vortex" && area.anchor === "target" && initialTarget
+      ? { x: initialTarget.x, y: initialTarget.y } : origin;
   } else if (area.mode === "field") {
     if (area.anchor === "field") {
       center = { x: 50, y: 50 };
@@ -145,12 +149,14 @@ export function spawnAreaEffects(
   if (available === 0) return false;
   const requestedLimit = Number.isFinite(spec.maxCasts) ? Math.max(0, Math.floor(spec.maxCasts!)) : AREA_LIMITS.perCast;
   const budget = Math.min(AREA_LIMITS.perCast, available, requestedLimit);
-  const casts = castPattern(spec, budget);
+  const pairSize = area.mode === "vortex" && (area.vortexPairSeparation ?? 0) > 0 ? 2 : 1;
+  // A paired cast is all-or-nothing, including when the area budget is nearly full.
+  const casts = castPattern(spec, Math.floor(budget / pairSize));
   const pattern = area.mode === "strike" && area.shower
     ? casts.flatMap(cast => Array.from({ length: area.shower!.count }, (_, impact) => ({
-      ...cast, delay: cast.delay + impact * area.shower!.intervalMs, impact,
+      ...cast, delay: cast.delay + impact * area.shower!.intervalMs, impact, pairIndex: 0,
     }))).slice(0, budget)
-    : casts.map(cast => ({ ...cast, impact: 0 }));
+    : casts.flatMap(cast => Array.from({length:pairSize}, (_, pairIndex) => ({ ...cast, impact: 0, pairIndex })));
   if (pattern.length === 0) return false;
 
   const damage = Math.max(0, finite(spec.power, 0));
@@ -167,6 +173,18 @@ export function spawnAreaEffects(
     let branchCenter = !spec.position && center && (area.mode === "strike" || area.mode === "eruption") && target
       ? groundPoint(target, branch, pattern[index].branches, groundTargets.length, area.radius)
       : center!;
+    if (pairSize === 2) {
+      const dx = branchCenter.x - origin.x, dy = branchCenter.y - origin.y;
+      const length = Math.hypot(dx, dy);
+      const half = area.vortexPairSeparation! / 2;
+      const offsetX = length > 1e-8 ? -dy / length * half : half;
+      const offsetY = length > 1e-8 ? dx / length * half : 0;
+      const sign = pattern[index].pairIndex === 0 ? -1 : 1;
+      // Shift the midpoint inward instead of clipping the two centers together at an edge.
+      const midX = clamp(branchCenter.x, Math.abs(offsetX), 100 - Math.abs(offsetX));
+      const midY = clamp(branchCenter.y, Math.abs(offsetY), 100 - Math.abs(offsetY));
+      branchCenter = {x: midX + sign * offsetX, y: midY + sign * offsetY};
+    }
     if (area.mode === "strike" && area.shower && impact > 0 && (compositeShower || groundTargets.length === 1)) {
       const angle = impact * 2.399963229728653;
       const distance = area.shower.spread * Math.sqrt(impact / area.shower.count);
@@ -223,7 +241,7 @@ export function spawnAreaEffects(
     emitAreaSpawned(effect, emit);
   }
 
-  emit("spellCast", {
+  if (!spec.internal) emit("spellCast", {
     sourceCharacterId: characterId,
     sourceItemId: spec.itemId,
     definitionId: spec.definitionId,
@@ -238,7 +256,7 @@ export function advanceAreaEffects(
   state: GameState,
   dtMs: number,
   emit: CombatEmit,
-  candidates: readonly CombatEntity[] = state.entities,
+  candidates: readonly CombatEntity[] = [...state.entities],
 ): void {
   if (state.phase !== "battle" || state.paused || state.backpackOpen || !Number.isFinite(dtMs) || dtMs <= 0) return;
 
@@ -279,8 +297,20 @@ export function advanceAreaEffects(
     const duration = Math.max(1, finite(area.durationMs, 1));
     const before = Math.min(duration, Math.max(0, entity.remainingMs!));
     const elapsedBefore = duration - before;
-    const activeMs = Math.min(slice, before);
-    const after = before - activeMs;
+    let activeMs = Math.min(slice, before);
+    const upkeep = Math.max(0, finite(area.manaPerSecond, 0));
+    let exhausted = false;
+    if (upkeep > 0 && activeMs > 0) {
+      const owner = state.characters.find(character => character.id === entity.sourceCharacterId);
+      const mana = owner && Number.isFinite(owner.mana) ? Math.max(0, owner.mana) : 0;
+      const affordableMs = mana / upkeep * 1000;
+      exhausted = affordableMs < activeMs;
+      activeMs = Math.min(activeMs, affordableMs);
+      if (owner) owner.mana = Math.max(0, mana - activeMs * upkeep / 1000);
+    }
+    const previouslyActive = finite(entity.areaActiveMs, 0);
+    entity.areaActiveMs = Math.min(AREA_LIMITS.maxTotalLifetimeMs, previouslyActive + activeMs);
+    const after = exhausted ? 0 : before - activeMs;
     entity.remainingMs = after;
 
     if (area.mode === "ring" && activeMs > 0) {
@@ -288,11 +318,12 @@ export function advanceAreaEffects(
       const nextRadius = entity.range * (duration - after) / duration;
       resolveRingSweep(state, entity as AreaEntity, previousRadius, nextRadius, emit);
     }
-    if (area.mode === "field" && activeMs > 0) advancePulsingArea(state, entity as AreaEntity, activeMs, emit, false);
-    if (area.mode === "vortex" && activeMs > 0) advancePulsingArea(state, entity as AreaEntity, activeMs, emit, true);
+    if (area.mode === "field" && activeMs > 0) advancePulsingArea(state, entity as AreaEntity, activeMs, emit, false, previouslyActive);
+    if (area.mode === "vortex" && activeMs > 0) advancePulsingArea(state, entity as AreaEntity, activeMs, emit, true, previouslyActive);
     if (after <= 0) {
       entity.hp = 0;
       entity.remainingMs = 0;
+      if (area.finish) releaseFinalStage(state, entity as AreaEntity, emit);
     }
   }
 }
@@ -302,7 +333,7 @@ function normalizeArea(area: AreaSpec): AreaSpec | undefined {
       && area.mode !== "field" && area.mode !== "vortex") return undefined;
   const anchor = area.mode === "field"
     ? area.anchor === "field" ? "field" : area.anchor === "caster" ? "caster" : "target"
-    : area.mode === "vortex" ? "caster" : area.anchor;
+    : area.mode === "vortex" ? area.anchor === "target" ? "target" : "caster" : area.anchor;
   const maxTargets = Math.floor(clamp(finite(area.maxTargets, 1), 1,
     area.mode === "field" && anchor === "field" ? AREA_LIMITS.maxFieldTargets : AREA_LIMITS.maxTargets));
   const durationLimit = area.mode === "vortex" ? AREA_LIMITS.maxVortexDurationMs
@@ -326,13 +357,83 @@ function normalizeArea(area: AreaSpec): AreaSpec | undefined {
   if (area.mode === "field" || area.mode === "vortex") {
     normalized.tickMs = clamp(finite(area.tickMs, 400), AREA_LIMITS.minTickMs, AREA_LIMITS.maxTickMs);
     normalized.anchor = anchor;
+    if (area.manaPerSecond !== undefined) normalized.manaPerSecond = clamp(finite(area.manaPerSecond, 0), 0, 1_000);
+    if (area.expandDuringMs !== undefined) normalized.expandDuringMs = clamp(finite(area.expandDuringMs, 0), 1, AREA_LIMITS.maxFieldDurationMs);
   }
   if (area.mode === "vortex") {
     normalized.moveSpeed = clamp(finite(area.moveSpeed, 12), 0, 100);
     normalized.pullRadius = clamp(finite(area.pullRadius, 12), 0, AREA_LIMITS.maxRadius);
     normalized.pullStrength = clamp(finite(area.pullStrength, 8), 0, 100);
+    if (area.vortexPairSeparation !== undefined) normalized.vortexPairSeparation = clamp(finite(area.vortexPairSeparation, 0), 0, 50);
+    if (area.consume) normalized.consume = {
+      radius: clamp(finite(area.consume.radius, 0), 0, AREA_LIMITS.maxRadius),
+      healthRatio: clamp(finite(area.consume.healthRatio, 0), 0, 0.5),
+    };
   }
+  if (area.finish) normalized.finish = normalizeFinish(area.finish, 2);
   return normalized;
+}
+
+function normalizeFinish(finish: AreaFinish, remaining: number): AreaFinish | undefined {
+  if (finish && (finish.mode === "strike" || finish.mode === "ring" || finish.mode === "field" || finish.mode === "rays")) {
+    return {
+      mode: finish.mode, radius: clamp(finite(finish.radius, 0), 0, AREA_LIMITS.maxRadius),
+      durationMs: clamp(finite(finish.durationMs, 300), 1, AREA_LIMITS.maxFieldDurationMs),
+      maxTargets: Math.floor(clamp(finite(finish.maxTargets, 1), 1, AREA_LIMITS.maxTargets)),
+      powerMultiplier: clamp(finite(finish.powerMultiplier, 1), 0, 10),
+      ...(finish.rayPairs !== undefined ? { rayPairs: Math.floor(clamp(finite(finish.rayPairs, 1), 1, 4)) } : {}),
+      ...(finish.rayWidth !== undefined ? { rayWidth: clamp(finite(finish.rayWidth, 1), .1, 20) } : {}),
+      ...(finish.tickMs !== undefined ? { tickMs: clamp(finite(finish.tickMs, 400), AREA_LIMITS.minTickMs, AREA_LIMITS.maxTickMs) } : {}),
+      ...(finish.perConsumed !== undefined ? { perConsumed: clamp(finite(finish.perConsumed, 0), 0, 2) } : {}),
+      ...(finish.maxConsumed !== undefined ? { maxConsumed: Math.floor(clamp(finite(finish.maxConsumed, 0), 0, 20)) } : {}),
+      ...(finish.perSecond !== undefined ? { perSecond: clamp(finite(finish.perSecond, 0), 0, 2) } : {}),
+      ...(finish.onHit ? { onHit: structuredClone(finish.onHit) } : {}),
+      ...(remaining > 1 && finish.next ? { next: normalizeFinish(finish.next, remaining - 1) } : {}),
+    };
+  }
+  return undefined;
+}
+
+function releaseFinalStage(state: GameState, source: AreaEntity, emit: CombatEmit): void {
+  const finish = source.area.finish;
+  if (!finish || !source.sourceCharacterId || !source.sourceItemId) return;
+  const consumed = Math.min(finish.maxConsumed ?? 0, Math.max(0, Math.floor(finite(source.areaConsumed, 0))));
+  const power = Math.min(1e12, source.damage * finish.powerMultiplier * (1 + consumed * (finish.perConsumed ?? 0)
+    + Math.min(5, finite(source.areaActiveMs, 0) / 1000) * (finish.perSecond ?? 0)));
+  if (finish.mode === "rays") {
+    const spawned = spawnRadialBeams(state, source, {power, radius:finish.radius, pairs:finish.rayPairs ?? 1,
+      width:finish.rayWidth ?? 1, durationMs:finish.durationMs, tickMs:finish.tickMs ?? 400, maxTargets:finish.maxTargets,
+      onHit:combineOnHit(source.onHit, finish.onHit)}, emit);
+    emit("areaFinalStage", {entityId:source.id, definitionId:source.definitionId, sourceCharacterId:source.sourceCharacterId,
+      sourceItemId:source.sourceItemId, x:source.x, y:source.y, consumed, spawned});
+    return;
+  }
+  const area: AreaSpec = { mode: finish.mode, radius: finish.radius, delayMs: 0,
+    durationMs: finish.durationMs, maxTargets: finish.maxTargets,
+    ...(finish.next ? { finish: finish.next } : {}),
+    ...(finish.mode === "field" ? { anchor: "target", tickMs: finish.tickMs ?? 400 } : {}) };
+  const spawned = spawnAreaEffects(state, source.sourceCharacterId, {
+    itemId: source.sourceItemId, definitionId: source.definitionId, element: source.element,
+    power, range: finish.radius, casts: 1, area, position: { x: source.x, y: source.y },
+    attackRoll: source.attackRoll, onHit: combineOnHit(source.onHit, finish.onHit), maxCasts: 1, internal: true,
+  }, emit);
+  emit("areaFinalStage", { entityId: source.id, definitionId: source.definitionId,
+    sourceCharacterId: source.sourceCharacterId, sourceItemId: source.sourceItemId,
+    x: source.x, y: source.y, consumed, spawned });
+}
+
+function combineOnHit(first?: OnHitSpec, second?: OnHitSpec): OnHitSpec | undefined {
+  if (!first && !second) return undefined;
+  const combined = { ...first, ...second };
+  if (first?.burn && second?.burn) combined.burn = {
+    powerRatio: Math.max(first.burn.powerRatio, second.burn.powerRatio),
+    durationMs: Math.max(first.burn.durationMs, second.burn.durationMs), tickMs: Math.min(first.burn.tickMs, second.burn.tickMs),
+  };
+  if (first?.slow && second?.slow) combined.slow = {
+    multiplier: Math.min(first.slow.multiplier, second.slow.multiplier), durationMs: Math.max(first.slow.durationMs, second.slow.durationMs),
+  };
+  if (first?.knockback && second?.knockback) combined.knockback = Math.max(first.knockback, second.knockback);
+  return combined;
 }
 
 function groundPoint(target: CombatEntity, branch: number, branches: number, targetCount: number, radius: number): Point {
@@ -381,9 +482,10 @@ function advanceVortexWaypoint(area: AreaEntity): void {
   area.targetY = next.y;
 }
 
-function advancePulsingArea(state: GameState, area: AreaEntity, activeMs: number, emit: CombatEmit, vortex: boolean): void {
+function advancePulsingArea(state: GameState, area: AreaEntity, activeMs: number, emit: CombatEmit, vortex: boolean, elapsedBefore: number): void {
   const tickMs = clamp(finite(area.area.tickMs, 400), AREA_LIMITS.minTickMs, AREA_LIMITS.maxTickMs);
   let left = activeMs;
+  let elapsed = elapsedBefore;
   while (left > 0) {
     const untilPulse = Math.max(1, finite(area.attackRemainingMs, tickMs));
     const step = Math.min(50, left, untilPulse);
@@ -393,8 +495,9 @@ function advancePulsingArea(state: GameState, area: AreaEntity, activeMs: number
     }
     area.attackRemainingMs = untilPulse - step;
     left -= step;
+    elapsed += step;
     if (area.attackRemainingMs <= 1e-8) {
-      pulseArea(state, area, emit);
+      pulseArea(state, area, emit, elapsed);
       area.attackRemainingMs += tickMs;
     }
   }
@@ -442,17 +545,27 @@ function pullEnemies(state: GameState, area: AreaEntity, dtMs: number): void {
   }
 }
 
-function pulseArea(state: GameState, area: AreaEntity, emit: CombatEmit): void {
+function pulseArea(state: GameState, area: AreaEntity, emit: CombatEmit, elapsedMs: number): void {
   const strictBounds = area.area.mode === "field" && area.area.anchor === "field";
+  const expansion = area.area.expandDuringMs;
+  const radius = expansion && expansion > 0 ? area.area.radius * clamp(elapsedMs / expansion, 0, 1) : area.area.radius;
   const targets = state.entities.filter(entity => entity.kind === "enemy" && entity.faction === "enemy" && entity.hp > 0
     && Number.isFinite(entity.x) && Number.isFinite(entity.y)
     && (!strictBounds || isInsideField(entity)))
     .map(entity => ({ entity, distance: Math.hypot(entity.x - area.x, entity.y - area.y) }))
-    .filter(entry => entry.distance <= area.area.radius + (area.area.mode === "vortex" || area.area.mode === "field"
+    .filter(entry => entry.distance <= radius + (area.area.mode === "vortex" || area.area.mode === "field"
       ? getMonsterSize(entry.entity).hitRadius : 0))
     .sort((left, right) => left.distance - right.distance || left.entity.id.localeCompare(right.entity.id))
     .slice(0, area.area.maxTargets);
-  for (const { entity: target } of targets) applyContactDamage(state, area, target, emit);
+  for (const { entity: target, distance } of targets) {
+    if (target.hp <= 0) continue;
+    const consume = area.area.consume;
+    const canConsume = consume && distance <= consume.radius;
+    const source = canConsume ? { ...area, onHit: { ...area.onHit,
+      execute: { healthRatio: consume.healthRatio, bossMultiplier: 0.25 } } } : area;
+    applyContactDamage(state, source, target, emit);
+    if (canConsume && target.hp <= 0) area.areaConsumed = Math.min(20, (area.areaConsumed ?? 0) + 1);
+  }
 }
 
 function isInsideField(entity: CombatEntity): boolean {

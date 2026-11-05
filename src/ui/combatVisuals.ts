@@ -10,6 +10,8 @@ const spellVisuals: Record<string, VisualKind> = {
   "arc-chain": "lightning", "light-arrow": "light", "dark-orb": "shadow", ward: "shield",
   "spark-hop": "lightning", "thunder-chain": "lightning", "storm-net": "lightning",
   thunderstorm: "lightning",
+  "twilight-orb": "shadow", "annihilation-orb": "shadow", "antimatter-bomb": "shadow", "depleted-round": "needle", railgun: "needle", "flame-elemental": "fireball",
+  "fission-bomb": "fireball", "thunder-prison": "lightning",
   "solar-ray": "light", "ember-ray": "fireball", "void-ray": "shadow",
 };
 export interface CastVisual {

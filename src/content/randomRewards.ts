@@ -94,7 +94,7 @@ export function dedupeRewardOffers(existing: readonly RewardOption[]): RewardOpt
 }
 
 function buildCandidatePools(
-  { characterCount, wandCount, content, canHeal = true, cooldownCapped = false }: WaveRewardSampling,
+  { wave, characterCount, wandCount, content, canHeal = true, cooldownCapped = false }: WaveRewardSampling,
   excludedKeys: ReadonlySet<string>,
 ): CandidatePool {
   const pools: CandidatePool = {};
@@ -110,6 +110,8 @@ function buildCandidatePools(
 
   const seenItems = new Set<string>();
   for (const [definitionId, definition] of [...Object.entries(content.spells), ...Object.entries(content.arcana)]) {
+    if ('rewardMinWave' in definition && Number.isFinite(definition.rewardMinWave)
+        && wave < definition.rewardMinWave!) continue;
     const key = `item:${definitionId}`;
     if (seenItems.has(key)) continue;
     seenItems.add(key);

@@ -7,7 +7,7 @@ import { MagicEffectArt } from "./MagicEffectArt";
 import type { GameState } from "../contracts";
 import "./ChainEffects.css";
 
-interface ChainArc { seq: number; time: number; x: number; y: number; targetX: number; targetY: number; sourceCharacterId?: string }
+interface ChainArc { seq: number; time: number; x: number; y: number; targetX: number; targetY: number; sourceCharacterId?: string; definitionId?: string }
 const lifetime = 240;
 const valid = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
@@ -36,7 +36,7 @@ export function ChainEffects({ state }: { state: GameState }) {
     const fresh = state.events.flatMap(event => {
       const d = event.data;
       if (event.seq <= cursor.current.seq || event.type !== "chainArc" || !valid(event.gameTimeMs) || !valid(d.x) || !valid(d.y) || !valid(d.targetX) || !valid(d.targetY)) return [];
-      return [{ seq: event.seq, time: event.gameTimeMs, x: d.x, y: d.y, targetX: d.targetX, targetY: d.targetY, sourceCharacterId: chainHudSource(d, anchors, seen.current) }];
+      return [{ seq: event.seq, time: event.gameTimeMs, x: d.x, y: d.y, targetX: d.targetX, targetY: d.targetY, definitionId: typeof d.definitionId === "string" ? d.definitionId : undefined, sourceCharacterId: chainHudSource(d, anchors, seen.current) }];
     });
     cursor.current.seq = state.nextEventSeq - 1;
     setArcs(previous => {
@@ -51,7 +51,7 @@ export function ChainEffects({ state }: { state: GameState }) {
       const dx = arc.targetX / 100 * layout.width - x, dy = arc.targetY / 100 * layout.height - y;
       const length = Math.hypot(dx, dy);
       if (![x, y, length].every(Number.isFinite) || length <= 0) return null;
-      return <MagicEffectArt resolution={settings.effectResolution} key={`${state.id}:${arc.seq}`} kind="lightning" variant="impact" seed={arc.seq} width={length} height={14}
+      return <MagicEffectArt resolution={settings.effectResolution} key={`${state.id}:${arc.seq}`} kind={arc.definitionId === "fission-bomb" ? "flame" : "lightning"} variant="impact" seed={arc.seq} width={length} height={14}
         className="chain-effects__arc" style={{ left: x, top: y, opacity: Math.max(0, 1 - (state.gameTimeMs - arc.time) / lifetime), transform: `translateY(-50%) rotate(${Math.atan2(dy, dx)}rad)` }} />;
     })}
   </div>;

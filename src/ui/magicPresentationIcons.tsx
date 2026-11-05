@@ -5,6 +5,7 @@ import { demoContent } from "../content/demo";
 import { fireEarthArtwork } from "./magic-artwork/fire-earth";
 import { otherArtwork } from "./magic-artwork/other-arcana";
 import { contentExpansionArtwork } from "./magic-artwork/content-expansions";
+import { cataclysmArtwork } from "./magic-artwork/cataclysm";
 import type { MagicArtwork } from "./magic-artwork/types";
 import { waterWoodArtwork } from "./magic-artwork/water-wood";
 
@@ -61,24 +62,21 @@ const spellDrawings = {
     filledPaths: [wash("M11 14c-1-2-.4-5 1-7 1 2 2 3 4 5 1.5 2 1 4-1 5-2 .6-4-.6-4-3Z"), wash("M20 13c4-2 7-2 11-.8v2c-4-1-7-1-11 .8Z")],
   },
   "water-bolt": {
-    label: "水滴与涟漪",
-    color: "#659dbd",
+    label: "水球", color: "#659dbd",
     paths: [
-      stroke("M12 2C9 8 4 13 4 18a8 8 0 0 0 16 0c0-5-5-10-8-16Z"),
-      stroke("M9 17c.4 2 1.4 3 3 3"),
-      stroke("M3 31c3-3 6-3 9 0s6 3 9 0m-18 7c3-3 6-3 9 0s6 3 9 0m-16 4h14"),
+      stroke("M12 2C17 2 21 5 21 11C22 16 19 21 13 22C8 23 3 20 3 15C2 10 4 5 8 3C9 2 11 2 12 2Z"),
+      stroke("M6 9C7 6 9 5 12 5M6 13C6 17 9 19 12 19M15 19C17 18 19 16 19 13"),
     ],
-    filledPaths: [wash("M12 5c-2.5 5-6 9-6 13a6 6 0 0 0 12 0c0-4-3.5-8-6-13Z"), wash("M5 32c2-1.5 4-1.5 7 0s5 1.5 7 0v2c-2 1.5-4 1.5-7 0s-5-1.5-7 0Z")],
+    filledPaths: [wash("M12 4C16 4 19 7 19 11C20 15 17 19 13 20C9 21 5 18 5 14C5 10 7 6 10 5Z")],
   },
   "lightning-bolt": {
     label: "雷矢折闪",
     color: "#c5af4b",
     paths: [
-      stroke("M16 3 7 21h12l-4 9 19-20H22l5-7H16Z"),
-      stroke("M31 24 27 34h10l-6 11"),
-      stroke("M4 9l-2 2m39-4 3 2m-8 13 3 1"),
+      stroke("M12 2 5 12h6l-2 9L20 9h-6l3-7Z"),
+      stroke("M4 5 2 7m17 8 2 2m-4 3 1 2"),
     ],
-    filledPaths: [wash("M17 7 11 19h11l-3 7 13-14H21l4-5H17Z"), wash("M31 28 29 34h6l-3 7 8-9h-7l3-4Z")],
+    filledPaths: [wash("M12 4 7 11h6l-2 7 7-8h-6l3-6Z")],
   },
 } as const;
 
@@ -145,6 +143,7 @@ const originalDefinitions: Readonly<Record<string, MagicPresentationIconDefiniti
 });
 
 const artworkCatalog: Readonly<Record<string, MagicArtwork>> = Object.freeze({
+  ...cataclysmArtwork,
   ...contentExpansionArtwork,
   ...fireEarthArtwork,
   ...waterWoodArtwork,

@@ -115,8 +115,8 @@ export function Battlefield({ state, flashes, activeCharacterId, hideActiveMini 
         </div>
 
         <div className="territory-vitals">
-          <Progress className="territory-vitals__bar territory-vitals__shield" aria-label="领地护盾" value={state.territory.shield ?? 0} max={Math.max(1, state.territory.maxShield ?? 0)} seed="territory-shield" size="sm" {...strokeOptions("var(--inkra-info-foreground)")} />
-          <Progress className="territory-vitals__bar territory-vitals__hp" aria-label="领地生命" value={state.territory.hp} max={state.territory.maxHp} seed="territory-hp" size="sm" {...strokeOptions("var(--inkra-danger-foreground)")} />
+          <Progress className="territory-vitals__bar territory-vitals__shield" aria-label="领地护盾" value={state.territory.shield ?? 0} max={Math.max(1, state.territory.maxShield ?? 0)} seed="territory-shield" size="sm" {...strokeOptions("var(--game-territory-ink)")} />
+          <Progress className="territory-vitals__bar territory-vitals__hp" aria-label="领地生命" value={state.territory.hp} max={state.territory.maxHp} seed="territory-hp" size="sm" {...strokeOptions("var(--game-territory-ink)")} />
         </div>
         {state.entities.length === 0 && state.phase === "battle" && <PencilText as="p" className="battlefield__empty" seed="battlefield-empty">敌人正在接近…</PencilText>}
         {state.phase === "battle" && state.paused && <div className="battlefield__pause" aria-live="polite"><PencilText seed="paused">已暂停</PencilText></div>}

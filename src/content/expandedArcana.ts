@@ -4,6 +4,16 @@ const cell = (x: number, y: number) => ({ x, y });
 
 /** Additional configurable modifiers; effects are interpreted by loadout compilation. */
 export const expandedArcana: Record<string, ArcanaDefinition> = {
+  "greater-amplify": {
+    id: "greater-amplify", name: "强效增幅", shape: [cell(0, 0)],
+    asset: { key: "arcana.greater-amplify", label: "强效增幅", color: "#f4b05b" },
+    modifier: "amplify", value: 2, level: 1, grade: "common",
+  },
+  "supreme-amplify": {
+    id: "supreme-amplify", name: "超限增幅", shape: [cell(0, 0)],
+    asset: { key: "arcana.supreme-amplify", label: "超限增幅", color: "#e98a5d" },
+    modifier: "amplify", value: 3, level: 1, grade: "common",
+  },
   haste: {
     id: "haste",
     name: "迅捷",
@@ -167,6 +177,8 @@ export const expandedArcana: Record<string, ArcanaDefinition> = {
 };
 
 export const expandedArcanaDescriptions: Record<string, string> = {
+  "greater-amplify": "相邻法术的基础威力提升100%。",
+  "supreme-amplify": "相邻法术的基础威力提升200%。",
   "hit-trigger": "与两个法术相邻：前一个飞弹命中时释放后一个飞弹或区域法术，施放时预付两者法力。",
   "timer-trigger": "与两个法术相邻：前一个飞弹飞行0.5秒后释放后一个飞弹或区域法术；提前碰撞则失效，预付两者法力。",
   "short-reach": "相邻法术射程增加12%。",

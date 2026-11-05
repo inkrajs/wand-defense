@@ -71,6 +71,9 @@ export function applyAdvancedModifiers(spell: CompiledSpell, modifiers: Adjacent
         if (spell.beam) extend(spell.beam);
         if (spell.impact?.type === 'field') extend(spell.impact);
         if (spell.area && ['field', 'vortex'].includes(spell.area.mode)) extend(spell.area);
+        for (let stage = spell.area?.finish, depth = 0; stage && depth < 2; stage = stage.next, depth++) {
+          if (stage.mode === 'field') extend(stage);
+        }
         if (['summon', 'building'].includes(spell.effect) && spell.construct) extend(spell.construct, 30000);
         break;
       }
@@ -82,6 +85,7 @@ export function applyAdvancedModifiers(spell: CompiledSpell, modifiers: Adjacent
         if (spell.impact) expand(spell.impact);
         if (spell.beam) expand(spell.beam);
         if (spell.area) expand(spell.area, spell.area.mode === 'field' && spell.area.anchor === 'field' ? 64 : 8);
+        for (let stage = spell.area?.finish, depth = 0; stage && depth < 2; stage = stage.next, depth++) expand(stage);
         if (['summon', 'building'].includes(spell.effect) && spell.construct) {
           const next = Math.min(8, spell.construct.maxAlive + Math.max(1, Math.floor(value)));
           if (next > spell.construct.maxAlive) { spell.construct.maxAlive = next; applied = true; }

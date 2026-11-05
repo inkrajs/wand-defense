@@ -5,6 +5,7 @@ import { demoContent } from '../content/demo';
 import { createFixtureState } from '../runtime/mock';
 import { applyLoadoutCommand } from './transactions';
 import { getWandRecipeOptions } from './recipe-options';
+import { compileWand } from './compile';
 import { canMergeItems } from './merge-items';
 
 const content: ContentCatalog = {...demoContent, recipes: [
@@ -91,4 +92,36 @@ test('recipe options hide unknown, missing, disconnected and invalid-location ma
   assert.equal(getWandRecipeOptions(state, state.wands[0].id, content).length, 1);
   state.phase = 'defeat';
   assert.deepEqual(getWandRecipeOptions(state, state.wands[0].id, content), []);
+});
+
+test('identical glimmers synthesize different magic only in their actual horizontal or vertical arrangement', () => {
+  for (const [dx, dy, expected, forbidden] of [[1, 0, 'glimmer-shield-recipe', 'glimmer-ray-recipe'], [0, 1, 'glimmer-ray-recipe', 'glimmer-shield-recipe']] as const) {
+    let state = fixture(); state.knowledge.recipeIds = [expected, forbidden];
+    state = place(state, 'a', 'glimmer', 3, 2);
+    state = place(state, 'b', 'glimmer', 3 + dx, 2 + dy);
+    const options = getWandRecipeOptions(state, state.wands[0].id, content);
+    assert.deepEqual(options.map(option => option.recipeId), [expected]);
+    const denied = applyLoadoutCommand(state, {id:'wrong-layout', type:'mergeRecipe', wandId:state.wands[0].id, recipeId:forbidden, itemIds:['b','a']}, content);
+    assert.equal(denied.result.code, 'RECIPE_LAYOUT_MISMATCH');
+    assert.equal(denied.state, state);
+    const merged = applyLoadoutCommand(state, {id:'right-layout', type:'mergeRecipe', wandId:state.wands[0].id, recipeId:expected, itemIds:['b','a']}, content);
+    assert.equal(merged.result.status, 'executed');
+    assert.equal(merged.state.items['right-layout:output'].definitionId, expected === 'glimmer-ray-recipe' ? 'solar-ray' : 'ward');
+  }
+});
+
+test('two amplification tiers really synthesize and strengthen adjacent magic', () => {
+  const recipeIds = ['greater-amplify-recipe','supreme-amplify-recipe'];
+  let state = fixture(); state.knowledge.recipeIds = recipeIds;
+  state = place(state,'amp-a','amplify',0,0); state = place(state,'amp-b','amplify',1,0);
+  const first = getWandRecipeOptions(state,state.wands[0].id,content).find(option => option.recipeId === recipeIds[0])!;
+  const result = applyLoadoutCommand(state, {id:'upgrade',type:'mergeRecipe',wandId:state.wands[0].id,recipeId:first.recipeId,itemIds:first.itemIds},content);
+  assert.equal(result.result.status,'executed');
+  assert.equal(result.state.items['upgrade:output'].definitionId,'greater-amplify');
+  state = place(result.state, 'test-spell', 'spark', 0, 1);
+  const baseline = compileWand(state, state.wands[0].id, content)!.spells[0].power;
+  const placed = applyLoadoutCommand(state, {id:'equip-upgrade',type:'placeItem',wandId:state.wands[0].id,itemId:'upgrade:output',x:0,y:0,rotation:0},content);
+  assert.equal(placed.result.status,'executed');
+  assert.equal(compileWand(placed.state,state.wands[0].id,content)!.spells[0].power, baseline * 2);
+  assert.equal(content.arcana['supreme-amplify'].value, 3);
 });

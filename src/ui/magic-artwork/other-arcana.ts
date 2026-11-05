@@ -44,10 +44,10 @@ export const otherArtwork: MagicArtworkCatalog = {
   },
   'light-arrow': {
     paths: [
-      stroke('M4 12 C17 11 28 12 43 12 M35 5 C39 8 43 10 46 12 C42 14 39 17 35 20 M9 7 C15 9 20 10 26 11 M9 17 C15 15 20 14 26 13'),
-      stroke('M14 9 L18 12 L14 15 M24 9 L28 12 L24 15'),
+      stroke('M3 12h17M15 6l6 6-6 6M5 8l5 3M5 16l5-3'),
+      stroke('m10 9 3 3-3 3M3 4v3M2 5.5h3'),
     ],
-    filledPaths: [wash('M5 12 C18 10 31 11 42 11 L45 12 L42 14 C29 14 17 14 5 13Z'), wash('M35 6 C39 9 42 11 46 12 C42 14 39 17 35 19 L38 13 L31 12 L38 11Z')],
+    filledPaths: [wash('M4 11h14l-3-4 6 5-6 5 3-4H4Z')],
   },
   ward: {
     paths: [
@@ -67,11 +67,11 @@ export const otherArtwork: MagicArtworkCatalog = {
   },
   'dark-orb': {
     paths: [
-      stroke('M24 4 C35 4 43 12 43 23 C43 34 35 43 24 43 C13 43 5 35 5 24 C5 13 13 4 24 4Z'),
-      stroke('M33 7 C26 8 21 13 21 20 C21 27 26 31 34 31 C31 38 25 41 18 38 C10 35 7 29 8 21 C9 12 17 6 25 6 C28 6 31 6 33 7Z'),
-      stroke('M15 15 C17 12 20 11 23 12 M12 27 C14 31 17 33 21 33 M36 17 L39 15 M31 37 L34 40'),
+      stroke('M12 2C18 2 22 6 22 12s-4 10-10 10S2 18 2 12 6 2 12 2Z'),
+      stroke('M16 4c-4 1-6 4-6 7s3 5 7 5c-2 4-5 5-9 3-4-2-5-6-3-10s6-6 11-5Z'),
+      stroke('m17 8 2-1M14 19l2 1M6 13c0 2 1 3 2 4'),
     ],
-    filledPaths: [wash('M24 5 C35 5 42 13 42 23 C42 33 35 42 24 42 C13 42 6 34 6 24 C6 14 14 5 24 5Z'), wash('M34 8 C27 11 24 16 25 22 C26 28 31 30 37 29 C34 37 28 40 21 38 C13 35 9 29 10 21 C11 13 18 7 26 7Z')],
+    filledPaths: [wash('M12 3c5 0 9 4 9 9s-4 9-9 9-9-4-9-9 4-9 9-9Z')],
   },
   'void-ray': {
     paths: [

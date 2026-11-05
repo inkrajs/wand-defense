@@ -1,22 +1,33 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Button, DependencyGraph, PencilIcon, PencilSurface, PencilText, Tabs, type DependencyGraphRef, type DependencyGraphNode, type PencilIconPath } from "@inkra/react";
-import type { Element, GameState } from "../contracts";
+import { Button, DependencyGraph, PencilIcon, PencilLine, PencilSurface, PencilText, Tabs, Tooltip, type DependencyGraphRef, type DependencyGraphNode, type PencilIconPath } from "@inkra/react";
+import type { Element, GameState, RecipeDefinition } from "../contracts";
+import { findRecipeExample } from "../loadout/recipe-layout";
+import { rotateShape } from "../loadout/geometry";
 import { demoContent } from "../content/demo";
+import { baseMagicDefinitionIds } from "../content/magicRecipes";
 import { elementAppearances } from "../content/elements";
 import { enrichMagicReward } from "../content/magicDescriptions";
 import { GameTabsList } from "./GameTabsList";
+import { GamePencilShape } from "./GamePencilShape";
 import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
 import { SkillTreeElementIcon } from "./SkillTreeElementIcon";
-import { buildSkillTree, type SkillTreeNode } from "./skillTreeModel";
+import { buildSkillTree, getKnownRecipesForDefinition, type SkillTreeNode } from "./skillTreeModel";
 import "./SkillTree.css";
 
 const elements: readonly Element[] = ["fire", "water", "wood", "metal", "earth", "lightning", "wind", "light", "dark"];
 const unknownPaths: PencilIconPath[] = [{ d: "M8 8a4 4 0 1 1 6 3.5c-1.5.9-2 1.5-2 3M12 18v1", mode: "stroke" }];
 const closePaths: PencilIconPath[] = [{ d: "M6 6l12 12M18 6 6 18", mode: "stroke" }];
+const backPaths: PencilIconPath[] = [{ d: "M19 12H5m0 0 6-6m-6 6 6 6", mode: "stroke" }];
 const elementFallback: PencilIconPath[] = [{ d: "M12 3c-2 4-6 7-6 11a6 6 0 0 0 12 0c0-4-4-7-6-11Z", mode: "stroke" }];
+const prismGlyph: PencilIconPath[] = [
+  {d:"M3 12h5m8 0h5M12 4l5 8-5 8-5-8 5-8Z",mode:"stroke"},
+  {d:"m17 10 4-3m-4 7 4 3M4 8h2m-2 8h2",mode:"stroke"},
+];
 
 type GraphNode = DependencyGraphNode<SkillTreeNode>;
 function MagicIcon({ definitionId, size = 32 }: { definitionId: string; size?: number }) {
+  if (definitionId === "prism-ray") return <PencilIcon paths={prismGlyph} sourceSize={24} size={size}
+    seed="skill-tree-prism-ray" style={{color:demoContent.spells[definitionId].asset.color}} decorative />;
   return getMagicPresentationIcon(definitionId)
     ? <MagicPresentationIcon definitionId={definitionId} size={size} seed={`skill-tree-${definitionId}`} />
     : <PencilIcon paths={elementFallback} sourceSize={24} size={size} seed={`skill-tree-fallback-${definitionId}`} decorative />;
@@ -26,9 +37,57 @@ function nodeIcon(node: SkillTreeNode) {
     : <PencilIcon paths={unknownPaths} sourceSize={24} size={30} seed="skill-tree-unknown" decorative />;
 }
 
+function RecipePreview({ recipe, onSelect }: { recipe: RecipeDefinition; onSelect: (definitionId: string) => void }) {
+  const placements = useMemo(() => findRecipeExample(recipe, demoContent), [recipe]);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [boardSize, setBoardSize] = useState(180);
+  useLayoutEffect(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    const measure = () => {
+      const width = board.getBoundingClientRect().width;
+      if (width > 0) setBoardSize(previous => Math.abs(previous - width) < 0.5 ? previous : width);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(board);
+    return () => observer.disconnect();
+  }, [recipe]);
+  if (!placements) return null;
+  const cellSize = boardSize / 5;
+  return <Tooltip.Provider delayDuration={250}><div ref={boardRef} className="skill-tree__recipe-board" role="group" aria-label={`法杖配方：${placements.map(item => (demoContent.spells[item.definitionId] ?? demoContent.arcana[item.definitionId]).name).join("、")}`}>
+    {Array.from({length:6}, (_, index) => <span key={index} aria-hidden="true">
+      <PencilLine className="skill-tree__recipe-line skill-tree__recipe-line--horizontal" orientation="horizontal" seed={`recipe-row-${recipe.id}-${index}`} style={{top:`${index * 20}%`}} />
+      <PencilLine className="skill-tree__recipe-line skill-tree__recipe-line--vertical" orientation="vertical" seed={`recipe-column-${recipe.id}-${index}`} style={{left:`${index * 20}%`}} />
+    </span>)}
+    {placements.map(({definitionId, placement}, index) => {
+      const definition = demoContent.spells[definitionId] ?? demoContent.arcana[definitionId];
+      const cells = rotateShape(definition.shape, placement.rotation);
+      const width = (Math.max(...cells.map(cell => cell.x)) + 1) * cellSize;
+      const height = (Math.max(...cells.map(cell => cell.y)) + 1) * cellSize;
+      const description = enrichMagicReward({id:`recipe-material-${index}`,kind:"item",definitionId,label:definition.name},demoContent).description;
+      return <span className="skill-tree__recipe-item" key={index} style={{left:placement.x * cellSize, top:placement.y * cellSize, width, height}}>
+        <GamePencilShape geometry={{type:"cells",cells,cellSize:1}} width={width} height={height} fit="stretch"
+          color={definition.asset.color} opacity={0.25} outlineColor={definition.asset.color} outlineWidth={0.7} seed={`recipe-${recipe.id}-${index}`} decorative />
+        <span className="skill-tree__recipe-icon"><MagicPresentationIcon definitionId={definitionId} size={Math.max(1, Math.max(width,height) - 8)} rotation={(placement.rotation * 90) as 0|90|180|270} seed={`recipe-icon-${recipe.id}-${index}`} /></span>
+        {cells.map((cell, cellIndex) => <Tooltip.Root key={`${cell.x},${cell.y}`}>
+          <Tooltip.Trigger asChild><button type="button" className="skill-tree__recipe-hit"
+            style={{left:cell.x * cellSize,top:cell.y * cellSize,width:cellSize,height:cellSize}}
+            aria-label={`${definition.name}${description ? `：${description}` : ""}`} tabIndex={cellIndex === 0 ? 0 : -1} aria-hidden={cellIndex === 0 ? undefined : true}
+            onClick={() => onSelect(definitionId)} /></Tooltip.Trigger>
+          <Tooltip.Portal><Tooltip.Content className="skill-tree__recipe-tooltip" side="left" collisionPadding={12}>
+            <strong>{definition.name}</strong>{description && <span>{description}</span>}
+          </Tooltip.Content></Tooltip.Portal>
+        </Tooltip.Root>)}
+      </span>;
+    })}
+  </div></Tooltip.Provider>;
+}
+
 export function SkillTree({ state }: { state: GameState }) {
-  const [element, setElement] = useState<Element>("fire");
+  const [element, setElement] = useState<Element | "arcana">("fire");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailPath, setDetailPath] = useState<string[]>([]);
   const root = useRef<HTMLDivElement>(null);
   const graphRef = useRef<DependencyGraphRef>(null);
   const [workspace, setWorkspace] = useState({width:0,height:0});
@@ -49,15 +108,20 @@ export function SkillTree({ state }: { state: GameState }) {
   const nodes = useMemo<GraphNode[]>(() => model.nodes.map(node => ({
     id: node.id, label: node.known ? node.name : "未知", icon: nodeIcon(node), data: node,
   })), [model]);
-  // Focus a readable root on phones; the controls can still fit the whole element tree.
-  const focusInitial = narrow;
+  // Keep large trees readable on phones and the arcana progression readable on desktop.
+  // The fit control still shows every node, including standalone arcana.
+  const focusInitial = narrow || element === "arcana";
   useEffect(() => {
     if (!focusInitial || !workspace.width || !model.nodes.length) return;
-    const origin = model.nodes.find(node => node.atomic && node.known && node.definitionId && demoContent.spells[node.definitionId]?.element === element) ?? model.nodes[0];
-    const ids = [origin.id];
+    const origin = model.nodes.find(node => node.atomic && node.known && node.definitionId
+      && (element === "arcana" ? node.kind === "arcana" : demoContent.spells[node.definitionId]?.element === element)) ?? model.nodes[0];
+    const progression = element === "arcana" && !narrow
+      ? ["arcana:double", "arcana:quadruple", "arcana:sextuple"].filter(id => model.nodes.some(node => node.id === id && node.known))
+      : [];
+    const ids = progression.length ? progression : [origin.id];
     let cancelled = false, frame = 0, attempts = 0;
     const fit = () => {
-      void graphRef.current?.fitView({nodes: ids.map(id=>({id})), minZoom: .85, maxZoom: 1, padding: .15}).then(success => {
+      void graphRef.current?.fitView({nodes: ids.map(id=>({id})), minZoom: narrow ? .85 : .65, maxZoom: 1, padding: .2}).then(success => {
         if (!cancelled && !success && ++attempts < 12) frame = requestAnimationFrame(fit);
       });
     };
@@ -65,47 +129,40 @@ export function SkillTree({ state }: { state: GameState }) {
     return () => {cancelled=true;cancelAnimationFrame(frame);};
   }, [model, focusInitial, element, workspace.width, workspace.height]);
   const selected = useMemo(() => model.nodes.find(node => node.id === selectedId), [model, selectedId]);
-  const nodesById = useMemo(() => new Map(model.nodes.map(node => [node.id, node])), [model]);
-  const recipes = useMemo(() => selected?.known ? (selected.recipes ?? []).map(recipe => {
-    const counts = new Map<string, number>();
-    for (const id of recipe.inputs) counts.set(id, (counts.get(id) ?? 0) + 1);
-    return [...counts].map(([id, count]) => ({ id, count, node: nodesById.get(id) }));
-  }) : [], [selected, nodesById]);
-  const spell = selected?.known && selected.kind === "spell" && selected.definitionId && Object.hasOwn(demoContent.spells, selected.definitionId) ? demoContent.spells[selected.definitionId] : undefined;
+  const definitionId = selected?.known ? detailPath.at(-1) ?? selected.definitionId : undefined;
+  const definition = definitionId && (demoContent.spells[definitionId] ?? demoContent.arcana[definitionId]);
+  const recipes = useMemo(() => definitionId
+    ? getKnownRecipesForDefinition(demoContent, knowledge, definitionId) : [], [definitionId, knowledge]);
+  const spell = definitionId && Object.hasOwn(demoContent.spells, definitionId) ? demoContent.spells[definitionId] : undefined;
   const description = useMemo(() => {
-    if (!selected?.known || !selected.definitionId) return undefined;
-    return enrichMagicReward({ id: selected.id, kind: "item", definitionId: selected.definitionId, label: selected.name }, demoContent).description;
-  }, [selected]);
+    if (!definitionId || !definition) return undefined;
+    return enrichMagicReward({ id: definitionId, kind: "item", definitionId, label: definition.name }, demoContent).description;
+  }, [definitionId, definition]);
 
   return <Tabs.Root ref={root} className="skill-tree" value={element} onValueChange={value => {
-    if (elements.includes(value as Element)) { setElement(value as Element); setSelectedId(null); }
+    if (value === "arcana" || elements.includes(value as Element)) { setElement(value as Element | "arcana"); setSelectedId(null); setDetailPath([]); }
   }}>
-    <GameTabsList className="skill-tree__tabs" aria-label="元素分类" overflow="scroll" labelVisibility="hidden">
+    <GameTabsList className="skill-tree__tabs" aria-label="技能树分类" overflow="scroll" labelVisibility="hidden">
+      <Tabs.Trigger value="arcana" aria-label="奥术" startIcon={<span style={{color:"var(--inkra-selection-pigment)"}}><SkillTreeElementIcon element="arcana" /></span>} />
       {elements.map(entry => <Tabs.Trigger key={entry} value={entry} aria-label={`${elementAppearances[entry].name}系`} startIcon={<span style={{ color: elementAppearances[entry].pigment }}><SkillTreeElementIcon element={entry} /></span>} />)}
     </GameTabsList>
     <Tabs.Content value={element} className="skill-tree__content">
-      <DependencyGraph.Root ref={graphRef} className="skill-tree__graph" aria-label={`${elementAppearances[element].name}系技能树`}
+      <DependencyGraph.Root ref={graphRef} className="skill-tree__graph" aria-label={element === "arcana" ? "奥术技能树" : `${elementAppearances[element].name}系技能树`}
         nodes={nodes} edges={model.edges} direction="LR" nodeWidth={80} nodeHeight={80} rankGap={52} nodeGap={12} nodeVariant="icon"
-        selectedId={selectedId} onSelectedIdChange={setSelectedId} highlight="both"
-        onClick={event => { if (event.target instanceof Element && event.target.classList.contains("react-flow__pane")) setSelectedId(null); }}
+        selectedId={selectedId} onSelectedIdChange={id => {setSelectedId(id); setDetailPath([]);}} highlight="both"
+        onClick={event => { if (event.target instanceof Element && event.target.classList.contains("react-flow__pane")) {setSelectedId(null); setDetailPath([]);} }}
         style={{ minHeight: 0 }}
         fitView={!focusInitial} hideAttribution minZoom={0.18} maxZoom={1.5} panOnDrag zoomOnPinch onlyRenderVisibleElements emptyState={<PencilText as="p">尚未发现</PencilText>}
-        controls={{ zoomIn: true, zoomOut: true, fitView: true, position: "bottom-right" }} />
-      {selected?.known && selected.definitionId && <PencilSurface as="aside" className="skill-tree__detail" variant="outline" seed={`skill-tree-detail-${selected.id}`} aria-label={`${selected.name}详情`}>
-        <Button className="skill-tree__detail-close" type="button" size="icon" variant="ghost" aria-label="关闭详情" onClick={() => setSelectedId(null)}><PencilIcon paths={closePaths} sourceSize={24} size={24} decorative /></Button>
-        <div className="skill-tree__detail-heading"><MagicIcon definitionId={selected.definitionId} size={40} /><PencilText as="h3">{selected.name}</PencilText></div>
-        {selected.kind === "spell" && selected.atomic && <PencilText as="p">原子法术</PencilText>}
+        controls={{ zoomIn: true, zoomOut: true, fitView: true, position: "bottom-left" }} />
+      {definitionId && definition && <PencilSurface as="aside" className="skill-tree__detail" variant="outline" seed={`skill-tree-detail-${definitionId}`} aria-label={`${definition.name}详情`}>
+        <Button className="skill-tree__detail-close" type="button" size="icon" variant="ghost" aria-label="关闭详情" onClick={() => {setSelectedId(null); setDetailPath([]);}}><PencilIcon paths={closePaths} sourceSize={24} size={24} decorative /></Button>
+        {detailPath.length > 0 && <Button className="skill-tree__detail-back" type="button" size="icon" variant="ghost" aria-label="返回上一层法术详情" onClick={() => setDetailPath(path => path.slice(0,-1))}><PencilIcon paths={backPaths} sourceSize={24} size={24} decorative /></Button>}
+        <div className={`skill-tree__detail-heading${detailPath.length ? " skill-tree__detail-heading--nested" : ""}`}><span className="skill-tree__detail-icon"><MagicIcon definitionId={definitionId} size={40} /></span><PencilText as="h3">{definition.name}</PencilText></div>
+        {spell && baseMagicDefinitionIds.includes(definitionId) && <PencilText as="p">原子法术</PencilText>}
         {description && <PencilText as="p">{description}</PencilText>}
-        {recipes.length > 0 && <div className="skill-tree__recipes" aria-label="已知配方">{recipes.map((ingredients, recipeIndex) => <div className="skill-tree__recipe" key={recipeIndex} role="group" aria-label={`配方 ${recipeIndex + 1}`}>
-          {ingredients.map(({ id, count, node }, index) => {
-            const name = node?.known ? node.name : "未知";
-            return <span className="skill-tree__ingredient" key={id} aria-label={`${name}，${count} 份`}>
-              {index > 0 && <span className="skill-tree__ingredient-plus" aria-hidden="true">+</span>}
-              {node?.known && node.definitionId ? <MagicIcon definitionId={node.definitionId} size={24} /> : <PencilIcon paths={unknownPaths} sourceSize={24} size={24} seed="skill-tree-ingredient-unknown" decorative />}
-              <PencilText as="span">{`${name}${count > 1 ? ` ×${count}` : ""}`}</PencilText>
-            </span>;
-          })}
-        </div>)}</div>}
+        {recipes.length > 0 && <div className="skill-tree__recipes" aria-label="已知法杖配方">
+          {recipes.map(recipe => <RecipePreview key={recipe.id} recipe={recipe} onSelect={id => setDetailPath(path => [...path,id])} />)}
+        </div>}
         {spell && <dl className="skill-tree__detail-stats">
           {[["法力", spell.manaCost], ["冷却", `${spell.cooldownMs / 1000} 秒`], ["射程", spell.range], ["威力", spell.power]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
         </dl>}

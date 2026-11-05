@@ -1,7 +1,7 @@
 import { PencilIcon, type PencilIconPath } from "@inkra/react";
 import type { Element } from "../contracts";
 
-type Category = Element | "all";
+type Category = Element | "arcana" | "all";
 type Drawing = { outline: readonly PencilIconPath[]; filled: readonly PencilIconPath[] };
 const stroke = (d: string): PencilIconPath => ({ d, mode: "stroke" });
 const wash = (d: string): PencilIconPath => ({ d, mode: "wash" });
@@ -9,6 +9,10 @@ const drawing = (outline: readonly PencilIconPath[], fill: readonly PencilIconPa
 
 /** Consistent 40-unit symbols; their enclosing tabs own the accessible names. */
 const drawings: Record<Category, Drawing> = {
+  arcana: drawing([
+    stroke("M20 4 32 20 20 36 8 20 20 4Z"),
+    stroke("M20 13v14M13 20h14"),
+  ]),
   all: drawing([
     stroke("M6 6h12v12H6zM22 6h12v12H22zM6 22h12v12H6zM22 22h12v12H22z"),
   ], [wash("M7 7h10v10H7zM23 7h10v10H23zM7 23h10v10H7zM23 23h10v10H23z")]),

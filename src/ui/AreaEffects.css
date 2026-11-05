@@ -5,6 +5,8 @@
 .area-effect__ring { opacity: var(--area-fade); transform: translate(-50%, -50%) scale(var(--area-ring-scale)); }
 .area-effect--ring[data-area-phase="windup"] .area-effect__ring { opacity: .24; transform: translate(-50%, -50%) scale(.08); }
 .area-effect__marker { position: absolute; left: -4px; top: var(--area-marker-y); opacity: var(--area-marker-opacity); }
+.area-effect__marker--centered { left: 0; transform: translateX(-50%); }
+.area-effect__core { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); opacity: var(--area-sustain); }
 .area-effect__impact { opacity: var(--area-fade); transform: translate(-50%, -50%) scale(var(--area-impact-scale)); }
 .area-effect--strike[data-area-phase="windup"] .area-effect__impact { opacity: 0; }
 .area-effect__spike { position: absolute; left: 0; top: 0; opacity: var(--area-spike-opacity); transform: translate(-50%, -50%) rotate(var(--area-spike-angle)) translateY(var(--area-spike-offset)) scaleY(var(--area-spike-scale)); transform-origin: center bottom; }

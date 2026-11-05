@@ -13,12 +13,18 @@ const groups: readonly { label: string; grant: BulkAction; max: BulkAction }[] =
 ];
 const add: PencilIconPath[] = [{ d: "M12 4v16M4 12h16", mode: "stroke" }];
 const level: PencilIconPath[] = [{ d: "M12 20V5m-6 6 6-6 6 6M5 20h14", mode: "stroke" }];
+const skillTree: PencilIconPath[] = [{ d: "M12 4v6M5 10h14M5 10v6m14-6v6M12 10v6", mode: "stroke" }, { d: "M10 2h4v4h-4ZM3 16h4v4H3Zm7 0h4v4h-4Zm7 0h4v4h-4Z", mode: "stroke" }];
 const commandId = () => globalThis.crypto?.randomUUID?.() ?? `cheat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-export function CheatActions({ state, dispatch }: { state: GameState; dispatch: (command: Command) => CommandResult }) {
+export function CheatActions({ state, dispatch, heal }: { state: GameState; dispatch: (command: Command) => CommandResult; heal: () => void }) {
   const [selectedId, setSelectedId] = useState(state.characters[0]?.id ?? "");
   const characterId = state.characters.some(character => character.id === selectedId) ? selectedId : state.characters[0]?.id ?? "";
   return <div className="cheat-actions" aria-label="作弊操作">
+    <div className="cheat-actions__utilities" role="group" aria-label="快捷操作">
+      <Button size="sm" variant="ghost" onClick={heal}><PencilIcon paths={add} sourceSize={24} size={24} decorative />恢复领地</Button>
+      <Button size="sm" variant="ghost" aria-label="解锁全部技能树" onClick={() => dispatch({ id: commandId(), type: "cheat", action: "revealMagic" })}><PencilIcon paths={skillTree} sourceSize={24} size={24} decorative />解锁技能树</Button>
+    </div>
+    <PencilLine className="cheat-actions__divider" seed="cheat-divider-utilities" aria-hidden="true" />
     {groups.map(({ label, grant, max }, index) => <div key={label} className="cheat-actions__group">
       {index > 0 && <PencilLine className="cheat-actions__divider" seed={`cheat-divider-${label}`} aria-hidden="true" />}
       <PencilText as="span" className="cheat-actions__label">{label}</PencilText>
@@ -27,7 +33,6 @@ export function CheatActions({ state, dispatch }: { state: GameState; dispatch: 
         <Button size="sm" variant="ghost" aria-label={`${label}提升至至少${CHEAT_TARGET_LEVEL}级，保留更高等级`} title={`提升至至少 Lv.${CHEAT_TARGET_LEVEL}，保留更高等级`} onClick={() => dispatch({ id: commandId(), type: "cheat", action: max })}><PencilIcon paths={level} sourceSize={24} size={24} decorative />满级</Button>
       </div>
     </div>)}
-    <Button size="sm" variant="ghost" aria-label="解锁全部技能树" onClick={() => dispatch({ id: commandId(), type: "cheat", action: "revealMagic" })}><PencilIcon paths={add} sourceSize={24} size={24} decorative />解锁技能树</Button>
     <PencilLine className="cheat-actions__divider" seed="cheat-divider-character" aria-hidden="true" />
     <div className="cheat-actions__character">
       <PencilText as="label" htmlFor="cheat-character">角色升级</PencilText>

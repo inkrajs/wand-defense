@@ -47,8 +47,7 @@ function enemy(id: string, x: number, y: number): CombatEntity {
     hp: 500, maxHp: 500, damage: 0, speed: 0, range: 1, cooldownMs: 1000, attackRemainingMs: 1000 };
 }
 
-test("the expanded spell catalog has 65 spells and every footprint fits a 3x3 wand", () => {
-  assert.equal(Object.keys(content.spells).length, 65);
+test("every previously expanded spell footprint fits a 3x3 wand", () => {
   for (const id of expandedSpellIds) {
     const spell = content.spells[id];
     assert.ok(spell, `missing ${id}`);

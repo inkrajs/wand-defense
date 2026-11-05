@@ -1,6 +1,6 @@
 import type { ContentCatalog, Element, GameState, RecipeDefinition } from '../contracts';
 
-export type SkillTreeFilter = Element | 'all';
+export type SkillTreeFilter = Element | 'arcana' | 'all';
 
 export interface SkillTreeNode {
   id: string;
@@ -16,6 +16,16 @@ export interface SkillTreeNode {
 }
 export interface SkillTreeEdge { id: string; source: string; target: string }
 
+/** Details use global discoveries, even when an ingredient is a boundary of this element view. */
+export function getKnownRecipesForDefinition(content: ContentCatalog, knowledge: GameState['knowledge'], definitionId: string): RecipeDefinition[] {
+  const knownSpells = new Set(knowledge.spellIds);
+  const knownArcana = new Set(knowledge.arcanaIds);
+  const knownRecipes = new Set(knowledge.recipeIds);
+  return content.recipes.filter(recipe => recipe.output === definitionId && knownRecipes.has(recipe.id)
+    && recipe.inputs.every(id => Object.hasOwn(content.spells,id) ? knownSpells.has(id)
+      : Object.hasOwn(content.arcana,id) && knownArcana.has(id)));
+}
+
 /** Only discovered recipes expose ancestry. Unknown magic receives an opaque graph identity. */
 export function buildSkillTree(content: ContentCatalog, knowledge: GameState['knowledge'], element: SkillTreeFilter): {nodes: SkillTreeNode[]; edges: SkillTreeEdge[]} {
   const spellKnowledge = new Set(knowledge.spellIds), arcanaKnowledge = new Set(knowledge.arcanaIds);
@@ -27,11 +37,11 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
     && definition(recipe.output) && recipe.inputs.every(id => definition(id)));
   const generated = new Set(recipes.map(recipe => recipe.output));
   const discovered = recipes.filter(recipe => recipeKnowledge.has(recipe.id));
-  const matchesElement = (id: string) => element !== 'all' && Object.hasOwn(content.spells, id)
+  const matchesElement = (id: string) => element !== 'all' && element !== 'arcana' && Object.hasOwn(content.spells, id)
     && (content.spells[id].element === element || content.spells[id].fusionElements?.includes(element));
   // Propagate participation forward through discovered ancestry, including cycles.
   // Unseen recipes may determine atomicity, but must never change this view's expansion.
-  const participating = new Set(Object.keys(content.spells).filter(matchesElement));
+  const participating = new Set(element === 'arcana' ? Object.keys(content.arcana) : Object.keys(content.spells).filter(matchesElement));
   const consumers = new Map<string, string[]>();
   for (const recipe of discovered) {
     for (const input of recipe.inputs) {
@@ -39,7 +49,8 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
       list.push(recipe.output); consumers.set(input, list);
     }
   }
-  const participationQueue = [...participating];
+  // Arcana is its own branch: consuming an arcana does not make every spell part of it.
+  const participationQueue = element === 'arcana' ? [] : [...participating];
   for (let index = 0; index < participationQueue.length; index++) {
     for (const output of consumers.get(participationQueue[index]) ?? []) {
       if (participating.has(output)) continue;
@@ -51,11 +62,12 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
   for (const id of knowledge.spellIds) {
     if (Object.hasOwn(content.spells, id) && (element === 'all' || matchesElement(id))) seeds.add(id);
   }
-  if (element === 'all') {
+  if (element === 'all' || element === 'arcana') {
     for (const id of knowledge.arcanaIds) if (Object.hasOwn(content.arcana, id)) seeds.add(id);
   }
   for (const recipe of discovered) {
-    if (element !== 'all' && !matchesElement(recipe.output) && !recipe.inputs.some(input => participating.has(input))) continue;
+    if (element === 'arcana' && !Object.hasOwn(content.arcana, recipe.output)) continue;
+    if (element !== 'all' && element !== 'arcana' && !matchesElement(recipe.output) && !recipe.inputs.some(input => participating.has(input))) continue;
     const list = producers.get(recipe.output) ?? [];
     list.push(recipe); producers.set(recipe.output, list);
     seeds.add(recipe.output);
@@ -74,7 +86,7 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
       id: known ? `${entry.kind}:${id}` : `unknown:${unknownIndex++}`,
       ...(known ? {definitionId: id} : {}),
       name: known ? entry.value.name : '未知', kind: entry.kind, known,
-      atomic: entry.kind === 'spell' && !generated.has(id),
+      atomic: !generated.has(id),
       boundary: element !== 'all' && !participating.has(id),
     };
     magicNodes.set(id, node); nodes.set(node.id, node);
@@ -100,6 +112,18 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
     }
   }
   // Stable boundary ordering is a layout hint; edge direction remains ingredient → output.
-  const orderedNodes = [...nodes.values()];
+  let orderedNodes = [...nodes.values()];
+  if (element === 'arcana') {
+    // The graph centers each rank independently. Place connected roots near the
+    // middle of the first rank so progressions stay beside their ingredients.
+    const connected = new Set([...edges.values()].flatMap(edge => [edge.source, edge.target]));
+    const targets = new Set([...edges.values()].map(edge => edge.target));
+    const roots = orderedNodes.filter(node => !targets.has(node.id));
+    const isolated = roots.filter(node => !connected.has(node.id));
+    const connectedRoots = roots.filter(node => connected.has(node.id));
+    const middle = Math.floor(isolated.length / 2);
+    orderedNodes = [...isolated.slice(0, middle), ...connectedRoots, ...isolated.slice(middle),
+      ...orderedNodes.filter(node => targets.has(node.id))];
+  }
   return {nodes: [...orderedNodes.filter(node => !node.boundary), ...orderedNodes.filter(node => node.boundary)], edges: [...edges.values()]};
 }

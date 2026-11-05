@@ -78,6 +78,15 @@ function hitTarget(state: GameState, chain: CombatEntity, target: CombatEntity, 
     targetId: target.id,
   });
   applyContactDamage(state, chain, target, emit);
+  if (chain.impact?.type === "chain" && (chain.impact.blastRadius ?? 0) > 0) {
+    const radius = clamp(finite(chain.impact.blastRadius!, 0), 0, CHAIN_LIMITS.maxRadius);
+    const limit = clamp(Math.floor(finite(chain.impact.blastMaxTargets ?? 1, 1)), 1, 4);
+    emit("chainBlast", { chainId: chain.id, definitionId: chain.definitionId,
+      sourceCharacterId: chain.sourceCharacterId, sourceItemId: chain.sourceItemId, x: target.x, y: target.y, radius });
+    for (const neighbor of nearbyEnemies(state, target.x, target.y, radius, new Set([target.id])).slice(0, limit)) {
+      applyContactDamage(state, chain, neighbor, emit);
+    }
+  }
 
   const falloff = chain.impact?.type === "chain" ? chain.impact.falloff : 1;
   chain.damage = Math.max(0, finite(chain.damage, 0) * clamp(finite(falloff, 1), 0, 1));
@@ -145,7 +154,9 @@ export function spawnChains(
       damage: Math.max(0, finite(spec.power, 0)),
       speed: 0,
       range,
-      impact: { type: "chain", radius, maxTargets, falloff },
+      impact: { type: "chain", radius, maxTargets, falloff,
+        ...(spec.impact.blastRadius !== undefined ? { blastRadius: clamp(finite(spec.impact.blastRadius, 0), 0, CHAIN_LIMITS.maxRadius) } : {}),
+        ...(spec.impact.blastMaxTargets !== undefined ? { blastMaxTargets: clamp(Math.floor(finite(spec.impact.blastMaxTargets, 1)), 1, 4) } : {}) },
       hitIds: [],
       remainingImpacts: maxTargets,
       cooldownMs: CHAIN_LIMITS.hopIntervalMs,

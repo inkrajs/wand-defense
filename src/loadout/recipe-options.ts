@@ -1,5 +1,6 @@
 import type { ContentCatalog, GameState } from '../contracts';
 import { areAdjacent, placementCells } from './geometry';
+import { matchesRecipeLayout } from './recipe-layout';
 
 export interface WandRecipeOption { recipeId: string; output: string; itemIds: string[] }
 
@@ -35,7 +36,8 @@ export function getWandRecipeOptions(state: GameState, wandId: string, content: 
     seen.add(recipe.id);
     const selected: number[] = [];
     function find(inputIndex: number): boolean {
-      if (inputIndex === recipe.inputs.length) return !recipe.requireAdjacency || connected(selected);
+      if (inputIndex === recipe.inputs.length) return (!recipe.requireAdjacency || connected(selected))
+        && matchesRecipeLayout(recipe, selected.map(index => materials[index]), content);
       const definitionId = recipe.inputs[inputIndex];
       // Identical materials are combinations, rather than permutations of the same instances.
       const previous = recipe.inputs.lastIndexOf(definitionId, inputIndex - 1);

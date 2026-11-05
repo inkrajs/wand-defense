@@ -25,6 +25,7 @@ import { grantCoinIncome } from "../content/economy";
 import { compileWand } from "../loadout";
 import { castSpell } from "../engine/effects";
 import { applyCatalogCheat, isCatalogCheatAction } from "./cheatCatalog";
+import { migrateAtomicSpellPlacements } from "./atomicSpellMigration";
 
 export interface RuntimeCheckpoint {
   checkpointVersion: 1;
@@ -46,11 +47,13 @@ function nextRewardDraw(state: GameState): number {
 export function createGameRuntime(content: ContentCatalog = demoContent, checkpoint?: RuntimeCheckpoint, options: RuntimeOptions = {}): GameRuntime {
   const freshState = () => {
     const next = createInitialState();
+    next.knowledge.recipeIds = discoverAvailableRecipes(next.knowledge, content);
     const seed = options.seedSource?.();
     if (typeof seed === "number" && Number.isFinite(seed)) next.rngState = seed >>> 0;
     return next;
   };
   let state = checkpoint ? structuredClone(checkpoint.state) : freshState();
+  if (checkpoint) migrateAtomicSpellPlacements(state, content);
   // Older tab checkpoints predate speed controls.
   if (!GAME_SPEEDS.includes(state.speed)) state.speed = 1;
   normalizeCharacterProgression(state);

@@ -91,6 +91,23 @@ test('duration and capacity reuse beam, impact-field and field/vortex specs with
   assert.equal(strike.area!.durationMs, 400); assert.deepEqual(strike.modifierItemIds, []);
 });
 
+test('adjacent duration and capacity modifiers also affect a multi-stage spell without changing its catalog', () => {
+  const spec: SpellDefinition = {...base, effect: 'area', area: {
+    mode: 'strike', radius: 4, durationMs: 300, maxTargets: 2, delayMs: 100,
+    finish: {mode: 'strike', radius: 8, durationMs: 300, maxTargets: 3, powerMultiplier: 2,
+      next: {mode: 'field', radius: 8, durationMs: 1000, maxTargets: 2, powerMultiplier: .2}},
+  }};
+  const {content, compile} = setup(['duration', 'capacity'], spec);
+  const before = structuredClone(content.spells.test.area);
+  const area = compile().area!;
+  assert.equal(area.durationMs, 300);
+  assert.equal(area.maxTargets, 4);
+  assert.equal(area.finish!.maxTargets, 5);
+  assert.equal(area.finish!.next!.maxTargets, 4);
+  near(area.finish!.next!.durationMs, 1300);
+  assert.deepEqual(content.spells.test.area, before);
+});
+
 test('compiled on-hit arcana reach real contacts and periodic burn; precision changes the emitted attack roll', () => {
   let {state, content} = setup(['slow', 'burn', 'knockback', 'precision']);
   state.characters[0].baseStats!.accuracy = 0.9;

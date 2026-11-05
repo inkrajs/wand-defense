@@ -8,10 +8,12 @@ export function boundedCombatValue(value: number | undefined, fallback: number, 
 }
 
 /** Shared HP mutation and provenance for resolved contacts and periodic damage. */
-export function applyResolvedDamage(target: CombatEntity, amount: number, source: Record<string, unknown>, emit: CombatEmit): number {
+export function applyResolvedDamage(target: CombatEntity, amount: number, source: Record<string, unknown>, emit: CombatEmit,
+  options?: { armorPierce?: number; execute?: boolean }): number {
   if (target.hp <= 0) return 0;
-  const boundedAmount = boundedCombatValue(amount, 0, 0, COMBAT_ROLL_LIMITS.maxDamage);
-  const armor = boundedCombatValue(target.armor, 0, 0, COMBAT_ROLL_LIMITS.maxDamage);
+  const boundedAmount = options?.execute ? target.hp : boundedCombatValue(amount, 0, 0, COMBAT_ROLL_LIMITS.maxDamage);
+  const armor = options?.execute ? 0 : boundedCombatValue(target.armor, 0, 0, COMBAT_ROLL_LIMITS.maxDamage)
+    * (1 - boundedCombatValue(options?.armorPierce, 0, 0, 1));
   const resolved = Math.max(0, boundedAmount - armor);
   target.hp = Math.max(0, target.hp - resolved);
   emit("damage", { ...source, targetId: target.id, amount: resolved, x: target.x, y: target.y,

@@ -24,10 +24,14 @@ export function spawnBeams(state:GameState, characterId:string, spec:BeamCastSpe
   for(let i=0;i<casts;i++) {
     const base=`beam-${state.wave}-${state.nextEventSeq}-${i}`;let id=base,suffix=1;
     while(ids.has(id)) id=`${base}-${suffix++}`;ids.add(id);
-    const beam:CombatEntity={id,definitionId:spec.definitionId,...(spec.element?{element:spec.element}:{}),kind:"beam",faction:"player",x:origin.x,y:origin.y,
-      originX:origin.x,originY:origin.y,hp:1,maxHp:1,damage:Math.max(0,finite(spec.power,0)),
+    const anchor=spec.beam.anchor === "target" ? target : origin;
+    const beam:CombatEntity={id,definitionId:spec.definitionId,...(spec.element?{element:spec.element}:{}),kind:"beam",faction:"player",x:anchor.x,y:anchor.y,
+      originX:anchor.x,originY:anchor.y,hp:1,maxHp:1,damage:Math.max(0,finite(spec.power,0)),
       speed:0,range,cooldownMs:tickMs,attackRemainingMs:tickMs,remainingMs:duration,
       beamWidth:width,maxTargets,attackRoll:spec.attackRoll?{...spec.attackRoll}:undefined,sourceCharacterId:characterId,sourceItemId:spec.itemId,
+      ...(Number.isFinite(spec.beam.rotationPerSecond) ? { beamRotationPerSecond: Math.max(-360, Math.min(360, spec.beam.rotationPerSecond!)) } : {}),
+      ...(spec.beam.bidirectional ? { beamBidirectional: true } : {}),
+      ...(spec.beam.anchor === "target" ? { beamTargetAnchor: true } : {}),
       ...(spec.onHit ? { onHit: structuredClone(spec.onHit) } : {}),
       launchDelayMs:pattern[i].delay,splitBranchIndex:pattern[i].branch,splitBranchCount:pattern[i].branches};
     state.entities.push(beam);
@@ -35,6 +39,30 @@ export function spawnBeams(state:GameState, characterId:string, spec:BeamCastSpe
   }
   emit("spellCast",{sourceCharacterId:characterId,sourceItemId:spec.itemId,definitionId:spec.definitionId,casts,targetId:target.id});
   return true;
+}
+
+/** A resolved area can release a bounded set of actual bidirectional beams. */
+export function spawnRadialBeams(state: GameState, source: CombatEntity, options: {power:number; radius:number; pairs:number; width:number; durationMs:number; tickMs:number; maxTargets:number; onHit?:OnHitSpec}, emit:CombatEmit): boolean {
+  const available = BEAM_LIMITS.alive - state.entities.filter(entity => entity.kind === "beam" && entity.hp > 0 && (entity.remainingMs ?? 0) > 0).length;
+  const count = Math.min(available, Math.max(1, Math.min(4, Math.floor(options.pairs))));
+  const ids = new Set(state.entities.map(entity => entity.id));
+  for (let i = 0; i < count; i++) {
+    const angle = Math.PI * i / count, headingX = Math.cos(angle), headingY = Math.sin(angle);
+    let id = `radial-beam-${state.wave}-${state.nextEventSeq}-${i}`, suffix = 1;
+    while (ids.has(id)) id = `radial-beam-${state.wave}-${state.nextEventSeq}-${i}-${suffix++}`;
+    ids.add(id);
+    const beam:CombatEntity = { id, kind:"beam", faction:"player", definitionId:source.definitionId, element:source.element,
+      x:source.x, y:source.y, originX:source.x, originY:source.y, targetX:source.x + headingX * options.radius, targetY:source.y + headingY * options.radius,
+      headingX, headingY, hp:1, maxHp:1, damage:options.power, speed:0, range:options.radius,
+      cooldownMs:options.tickMs, attackRemainingMs:options.tickMs, remainingMs:options.durationMs,
+      beamWidth:options.width, maxTargets:options.maxTargets, beamBidirectional:true, beamTargetAnchor:true,
+      sourceCharacterId:source.sourceCharacterId, sourceItemId:source.sourceItemId,
+      ...(source.attackRoll ? {attackRoll:{...source.attackRoll}} : {}), ...(options.onHit ? {onHit:structuredClone(options.onHit)} : {}) };
+    state.entities.push(beam);
+    emit("beamSpawned", {entityId:id, definitionId:beam.definitionId, sourceCharacterId:beam.sourceCharacterId, sourceItemId:beam.sourceItemId,
+      x:beam.x, y:beam.y, targetX:beam.targetX, targetY:beam.targetY, beamWidth:beam.beamWidth, remainingMs:beam.remainingMs});
+  }
+  return count > 0;
 }
 
 /** Pulses are driven by simulation time, never by display frames. */
@@ -58,6 +86,12 @@ export function advanceBeams(state:GameState,dtMs:number,emit:CombatEmit):void {
     while(elapsed>0&&beam.remainingMs!>0) {
       const advance=Math.min(elapsed,Math.max(0,beam.attackRemainingMs));
       beam.remainingMs!-=advance;beam.attackRemainingMs-=advance;elapsed-=advance;
+      const rotation=finite(beam.beamRotationPerSecond ?? 0,0)*Math.PI/180*advance/1000;
+      if(rotation && Number.isFinite(beam.headingX) && Number.isFinite(beam.headingY)) {
+        const x=beam.headingX!,y=beam.headingY!;
+        beam.headingX=x*Math.cos(rotation)-y*Math.sin(rotation);beam.headingY=x*Math.sin(rotation)+y*Math.cos(rotation);
+        beam.targetX=beam.x+beam.headingX*beam.range;beam.targetY=beam.y+beam.headingY*beam.range;
+      }
       if(beam.attackRemainingMs<=0) {
         const maxTargets=Math.max(1,Math.min(BEAM_LIMITS.maxTargets,Math.floor(finite(beam.maxTargets??1,1))));
         const width=Math.max(.1,Math.min(20,finite(beam.beamWidth??1,1)));
@@ -73,7 +107,7 @@ export function advanceBeams(state:GameState,dtMs:number,emit:CombatEmit):void {
 
 function launchBeam(state:GameState,beam:CombatEntity,emit:CombatEmit):boolean {
   const origin=getCharacterAnchors(state.characters).find(anchor=>anchor.characterId===beam.sourceCharacterId);
-  if(origin){beam.x=origin.x;beam.y=origin.y;beam.originX=origin.x;beam.originY=origin.y;}
+  if(origin && !beam.beamTargetAnchor){beam.x=origin.x;beam.y=origin.y;beam.originX=origin.x;beam.originY=origin.y;}
   const targets=nearbyEnemies(state,beam.x,beam.y,beam.range);
   const target=targets[(beam.splitBranchIndex??0)%Math.max(1,targets.length)];
   if(!target){beam.hp=0;beam.remainingMs=0;return false;}
@@ -96,6 +130,6 @@ function launchBeam(state:GameState,beam:CombatEntity,emit:CombatEmit):boolean {
 function distanceToSegment(target:CombatEntity,beam:CombatEntity):number {
   const dx=beam.targetX!-beam.x,dy=beam.targetY!-beam.y;
   const lengthSquared=dx*dx+dy*dy;
-  const t=lengthSquared>0?Math.max(0,Math.min(1,((target.x-beam.x)*dx+(target.y-beam.y)*dy)/lengthSquared)):0;
+  const t=lengthSquared>0?Math.max(beam.beamBidirectional ? -1 : 0,Math.min(1,((target.x-beam.x)*dx+(target.y-beam.y)*dy)/lengthSquared)):0;
   return Math.hypot(target.x-(beam.x+t*dx),target.y-(beam.y+t*dy));
 }

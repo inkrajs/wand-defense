@@ -8,7 +8,7 @@ import { applyLoadoutCommand, compileWand } from './index';
 
 const catalog={...demoContent,spells:{...demoContent.spells,...fieldSpellDefinitions},recipes:magicRecipeDefinitions};
 for(const [recipeId,secondY,mode] of [
-  ['thunder-strike-recipe',2,'strike'],
+  ['thunder-strike-recipe',1,'strike'],
   ['earth-spikes-recipe',1,'eruption'],
   ['meteor-recipe',1,'strike'],
 ] as const) test(`real recipe ${recipeId} consumes different definitions atomically and creates a usable area spell`,()=>{

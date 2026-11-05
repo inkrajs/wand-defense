@@ -1,4 +1,5 @@
 import type { CombatEntity, GameState } from "../contracts";
+import { getMonsterSize } from "../content/monsters";
 import { nextCombatRandom } from "./random";
 import { applyResolvedDamage, boundedCombatValue, COMBAT_ROLL_LIMITS } from "./damage";
 import { applyElementalReaction, applyOnHitEffects } from "./statusEffects";
@@ -35,13 +36,23 @@ export function applyContactDamage(state:GameState, source: CombatEntity, target
   }
   const baseDamage = Number.isFinite(source.damage) ? Math.max(0, source.damage) : 0;
   const amount = Math.min(COMBAT_ROLL_LIMITS.maxDamage,baseDamage * (critical ? critMultiplier : 1));
-  const resolved = applyResolvedDamage(target, amount, { ...(source.kind === "beam" ? {beamId: source.id} : source.kind === "area" ? {areaId: source.id}
+  const provenance = { ...(source.kind === "beam" ? {beamId: source.id} : source.kind === "area" ? {areaId: source.id}
     : source.kind === "chain" ? {chainId: source.id} : source.kind === "summon" || source.kind === "building"
       ? { sourceEntityId: source.id, sourceKind: source.kind } : {projectileId: source.id}),
     targetId: target.id, sourceCharacterId: source.sourceCharacterId, sourceItemId: source.sourceItemId,
     ...(source.sourceEntityId ? { sourceEntityId: source.sourceEntityId } : {}),
     amount, critical, sourceLuck:bounded(source.attackRoll?.sourceLuck,0,0,COMBAT_ROLL_LIMITS.maxLuck),
-    effect: source.definitionId }, emit);
+    effect: source.definitionId };
+  const resolved = applyResolvedDamage(target, amount, provenance, emit, { armorPierce: source.onHit?.armorPierce });
   if (resolved > 0) applyElementalReaction(state, source, target, resolved, wasWet, emit);
+  const execute = source.onHit?.execute;
+  const threshold = bounded(execute?.healthRatio, 0, 0, 0.5)
+    * (target.definitionId.startsWith("boss-") ? bounded(execute?.bossMultiplier, 0.25, 0, 1) : 1);
+  if (resolved > 0 && target.hp > 0 && Number.isFinite(target.maxHp) && target.maxHp > 0
+      && threshold > 0 && target.hp / target.maxHp <= threshold
+      && (execute?.radius === undefined || Math.hypot(target.x-source.x, target.y-source.y)
+        <= bounded(execute.radius, 0, 0, 100) + getMonsterSize(target).hitRadius)) {
+    applyResolvedDamage(target, target.hp, { ...provenance, critical: false, execution: true }, emit, { execute: true });
+  }
   if (resolved > 0 && target.hp > 0 && source.onHit) applyOnHitEffects(state, source, target, emit);
 }

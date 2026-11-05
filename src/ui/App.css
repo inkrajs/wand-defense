@@ -27,8 +27,8 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .territory-vitals { position: absolute; z-index: 5; left: 0; bottom: var(--game-defense-bottom); width: 100%; display: grid; gap: var(--inkra-space-1); }
 .territory-vitals__bar .inkra-progress__body { position: relative; display: block; }
 .battlefield[data-progress-mode="fallback"] .territory-vitals__bar .inkra-progress__fill-clip { clip-path: inset(0 calc((100% - var(--inkra-progress-value)) / 2) 0 calc((100% - var(--inkra-progress-value)) / 2)); }
-.territory-vitals__hp { --inkra-selection-pigment: var(--inkra-danger-foreground); --inkra-selection-foreground: var(--inkra-danger-foreground); }
-.territory-vitals__shield { --inkra-selection-pigment: var(--inkra-info-foreground); --inkra-selection-foreground: var(--inkra-info-foreground); }
+.territory-vitals__hp { --game-territory-ink: var(--inkra-danger-foreground); --game-territory-ink: light-dark(var(--inkra-danger-foreground), var(--inkra-danger-pigment)); --inkra-selection-pigment: var(--game-territory-ink); --inkra-selection-foreground: var(--game-territory-ink); }
+.territory-vitals__shield { --game-territory-ink: var(--inkra-info-foreground); --game-territory-ink: light-dark(var(--inkra-info-foreground), var(--inkra-info-pigment)); --inkra-selection-pigment: var(--game-territory-ink); --inkra-selection-foreground: var(--game-territory-ink); }
 .battlefield[data-progress-mode="fallback"] .territory-vitals__bar .inkra-progress__outline { visibility: hidden; }
 .game-overlay { position: absolute; z-index: 10; inset: 0; background: var(--inkra-overlay); }
 .game-overlay--loadout { display: flex; justify-content: center; background: var(--inkra-paper); }

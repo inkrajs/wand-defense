@@ -7,10 +7,8 @@ import { baseMagicDefinitionIds, magicRecipeDefinitions } from "./magicRecipes";
 
 const spells = { ...demoContent.spells, ...fieldSpellDefinitions, ...expandedSpellDefinitions };
 
-test("spell and arcana recipes have unique IDs and outputs, with fireball preserved first", () => {
-  assert.equal(magicRecipeDefinitions.length, 54);
-  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.id)).size, 54);
-  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.output)).size, 54);
+test("spell and arcana recipes have unique IDs and valid outputs, with fireball preserved first", () => {
+  assert.equal(new Set(magicRecipeDefinitions.map(recipe => recipe.id)).size, magicRecipeDefinitions.length);
   assert.deepEqual(magicRecipeDefinitions[0], {
     id: "fireball-recipe", name: "火球", inputs: ["spark", "amplify"], output: "fireball", requireAdjacency: true,
   });
@@ -18,9 +16,8 @@ test("spell and arcana recipes have unique IDs and outputs, with fireball preser
 
   for (const recipe of magicRecipeDefinitions) {
     assert.equal(recipe.requireAdjacency, true, `${recipe.id} requires adjacency`);
-    assert.ok(recipe.inputs.length === 2 || ["thunderstorm", "worldfall"].includes(recipe.output) && recipe.inputs.length === 3,
+    assert.ok(recipe.inputs.length === 2 || recipe.inputs.length === 3,
       `${recipe.id} has its planned materials`);
-    assert.equal(recipe.id, recipe.output === "fireball" ? "fireball-recipe" : `${recipe.output}-recipe`);
     assert.equal(recipe.name, (spells[recipe.output] ?? demoContent.arcana[recipe.output])?.name);
   }
 });
@@ -32,12 +29,14 @@ test("atomic spells and spell recipes cover the catalog; arcana recipes also hav
   const arcanaIds = Object.keys(demoContent.arcana);
   const definedMagicIds = new Set([...spellIds, ...arcanaIds]);
   const outputIds = magicRecipeDefinitions.map(recipe => recipe.output).filter(id => Object.hasOwn(spells, id));
-  const allAcquisitionIds = [...baseMagicDefinitionIds, ...outputIds];
+  const allAcquisitionIds = [...baseMagicDefinitionIds, ...new Set(outputIds)];
 
-  assert.equal(spellIds.length, 65);
-  assert.equal(new Set(allAcquisitionIds).size, 65);
+  assert.equal(new Set(allAcquisitionIds).size, spellIds.length);
   assert.deepEqual(new Set(allAcquisitionIds), new Set(spellIds));
-  for (const id of baseMagicDefinitionIds) assert.ok(Object.hasOwn(spells, id), `base spell ${id} exists`);
+  for (const id of baseMagicDefinitionIds) {
+    assert.ok(Object.hasOwn(spells, id), `base spell ${id} exists`);
+    assert.deepEqual(spells[id].shape, [{x: 0, y: 0}], `base spell ${id} occupies one cell`);
+  }
   for (const recipe of magicRecipeDefinitions) {
     assert.ok(definedMagicIds.has(recipe.output), `output ${recipe.output} exists`);
     for (const input of recipe.inputs) {
@@ -48,7 +47,8 @@ test("atomic spells and spell recipes cover the catalog; arcana recipes also hav
 });
 
 test("recipe ingredient dependencies form a directed acyclic graph", () => {
-  const recipeByOutput = new Map(magicRecipeDefinitions.map(recipe => [recipe.output, recipe]));
+  const recipeByOutput = new Map<string, typeof magicRecipeDefinitions>();
+  for (const recipe of magicRecipeDefinitions) recipeByOutput.set(recipe.output, [...(recipeByOutput.get(recipe.output) ?? []), recipe]);
   const visiting = new Set<string>();
   const visited = new Set<string>();
 
@@ -56,9 +56,9 @@ test("recipe ingredient dependencies form a directed acyclic graph", () => {
     if (visited.has(output)) return;
     assert.ok(!visiting.has(output), `recipe dependency cycle reaches ${output}`);
     visiting.add(output);
-    const recipe = recipeByOutput.get(output);
-    assert.ok(recipe, `recipe exists for ${output}`);
-    for (const input of recipe.inputs) {
+    const recipes = recipeByOutput.get(output);
+    assert.ok(recipes, `recipe exists for ${output}`);
+    for (const recipe of recipes) for (const input of recipe.inputs) {
       if (recipeByOutput.has(input)) visit(input);
     }
     visiting.delete(output);
@@ -66,5 +66,5 @@ test("recipe ingredient dependencies form a directed acyclic graph", () => {
   }
 
   for (const output of recipeByOutput.keys()) visit(output);
-  assert.equal(visited.size, 54);
+  assert.equal(visited.size, recipeByOutput.size);
 });

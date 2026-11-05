@@ -29,7 +29,6 @@ const agentPaths: PencilIconPath[] = [{ d: "M12 3v4m0 10v4M3 12h4m10 0h4M5.6 5.6
 const settingsPaths: PencilIconPath[] = [{ d: "M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4", mode: "stroke" }, { d: "M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z", mode: "stroke" }];
 const restartPaths: PencilIconPath[] = [{ d: "M20 7v5h-5M19 12a7 7 0 1 1-2-5", mode: "stroke" }];
 const backPaths: PencilIconPath[] = [{ d: "M19 12H5m7 7-7-7 7-7", mode: "stroke" }];
-const healPaths: PencilIconPath[] = [{ d: "M12 4v16M4 12h16", mode: "stroke" }];
 
 function MenuItem({ icon, children, onClick, className = "" }: { icon: readonly PencilIconPath[]; children: string; onClick: () => void; className?: string }) {
   return <Button variant="ghost" fullWidth align="start" className={`menu-page__item ${className}`} onClick={onClick}>
@@ -197,7 +196,7 @@ export function MenuPages({ page, navigate, close, restart, agentPanel, state, d
           {visiblePage === "pwa" && <PwaActions />}
           {visiblePage === "debug" && <div className="menu-settings__fields">
             <Switch label="启用作弊" checked={state.cheats.enabled} onCheckedChange={enabled => { if (enabled !== state.cheats.enabled) toggleCheats(); }} seed="debug-cheats" />
-            {state.cheats.enabled && <><MenuItem icon={healPaths} onClick={heal}>恢复领地</MenuItem><CheatActions state={state} dispatch={dispatch} /></>}
+            {state.cheats.enabled && <CheatActions state={state} dispatch={dispatch} heal={heal} />}
           </div>}
         </div>}
         {visiblePage === "help" && page !== null && <div className="menu-page__detail menu-page__help"><Suspense fallback={<span role="status">正在加载手册…</span>}><HelpManual state={state} /></Suspense></div>}

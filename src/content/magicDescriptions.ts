@@ -4,7 +4,7 @@ import { expandedArcanaDescriptions } from "./expandedArcana";
 const reservedDefinitionIds = new Set(["__proto__", "constructor", "prototype"]);
 const specificArcanaDescriptions = new Set([
   "hit-trigger", "timer-trigger", "short-reach", "light-flight", "tiny-area", "ember-core",
-  "triple", "octuple", "greater-area", "greater-burn", "greater-reach",
+  "triple", "octuple", "greater-area", "greater-burn", "greater-reach", "greater-amplify", "supreme-amplify",
 ]);
 
 const arcanaDescriptions: Readonly<Record<ArcanaDefinition["modifier"], string>> = Object.freeze({
@@ -46,6 +46,7 @@ export function enrichMagicReward(reward: RewardOption, content: ContentCatalog)
 }
 
 function describeSpell(spell: SpellDefinition, content: ContentCatalog): string | undefined {
+  if (spell.description) return spell.description;
   const behavior = describeSpellBehavior(spell, content);
   if (!behavior) return undefined;
   return appendOnHitDescription(behavior, spell.onHit);

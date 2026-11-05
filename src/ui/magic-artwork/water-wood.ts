@@ -7,10 +7,10 @@ const wash = (d: string) => ({ d, mode: 'wash' as const });
 export const waterWoodArtwork: MagicArtworkCatalog = {
   regrowth: {
     paths: [
-      stroke('M11 44 C8 36 10 29 18 22 C25 15 33 12 44 10 M18 22 C9 22 4 15 5 7 C14 8 21 13 18 22 M21 19 C25 9 34 4 44 5 C43 14 35 21 21 19'),
-      stroke('M11 32 C7 29 4 30 4 33 C6 37 9 38 12 37 M12 39 C17 32 21 30 22 31 C22 38 19 42 12 44 M18 21 C14 16 10 12 6 9 M23 18 C30 14 37 10 43 6'),
+      stroke('M11 22C10 17 11 13 14 10M14 11C7 12 4 9 4 4c5 0 9 2 10 7Zm0-1c1-5 4-7 8-7 0 5-3 8-8 7Z'),
+      stroke('M11 17C8 16 6 15 5 13m7 3c2-2 4-3 6-3M7 20h8m-4-3v5'),
     ],
-    filledPaths: [wash('M7 9 C14 10 18 14 17 20 C10 20 6 15 7 9Z M24 17 C28 10 34 6 42 7 C40 14 34 18 24 17Z M13 41 C17 35 20 33 20 34 C20 39 17 42 13 43Z')],
+    filledPaths: [wash('M5 5c4 0 7 2 8 5-5 1-8-1-8-5Zm10 4c1-3 3-4 6-5 0 3-2 5-6 5Z')],
   },
   renewal: {
     paths: [
@@ -42,10 +42,10 @@ export const waterWoodArtwork: MagicArtworkCatalog = {
   },
   'metal-needle': {
     paths: [
-      stroke('M3 13 C14 12 24 10 36 8 C47 6 59 4 70 3 C68 7 65 10 61 12 C65 14 68 17 70 21 C58 18 47 16 36 16 C24 16 14 18 3 20 C6 18 6 16 3 13Z'),
-      stroke('M13 12 L18 8 M25 10 L30 6 M39 8 L43 5 M53 6 L57 4 M15 17 L19 20 M31 16 L35 19 M48 17 L52 20 M61 14 L64 17'),
+      stroke('M3 13 20 4 16 11l5 2-18 4 3-3Z'),
+      stroke('M5 14 18 7M8 18 6 20m3-10L7 8m8 6 2 3'),
     ],
-    filledPaths: [wash('M7 16 C25 12 49 8 67 4 C64 9 63 11 67 19 C48 16 25 16 7 18Z')],
+    filledPaths: [wash('M5 14 19 5l-4 7 4 1-14 3Z')],
   },
   'iron-disc': {
     paths: [
@@ -56,10 +56,10 @@ export const waterWoodArtwork: MagicArtworkCatalog = {
   },
   'wind-blade': {
     paths: [
-      stroke('M3 17 C12 15 20 11 27 8 C34 5 41 4 46 5 C42 9 39 11 35 13 C40 12 43 13 46 16 C42 19 37 21 31 21 C21 21 12 18 3 19 C6 18 6 17 3 17Z'),
-      stroke('M8 17 C17 15 25 11 32 8 C37 6 41 6 44 7 C39 9 34 12 29 15 C22 18 15 19 8 17Z M13 13 C19 10 23 7 26 3 M24 21 C30 22 36 22 41 21'),
+      stroke('M3 16C9 14 13 8 21 6c-2 4-4 6-7 7 3-1 5 0 7 2-5 4-10 5-18 2Z'),
+      stroke('M5 16c5-1 10-5 14-8M5 11c3-1 5-3 6-5m1 14c3 1 6 0 8-1'),
     ],
-    filledPaths: [wash('M7 17 C19 14 32 6 42 6 C39 10 36 12 31 15 C37 14 42 15 44 17 C36 22 25 21 17 19Z')],
+    filledPaths: [wash('M5 16c5-2 9-6 14-8-2 3-4 5-7 6 3-1 5 0 7 1-4 3-9 4-14 1Z')],
   },
   'gale-burst': {
     paths: [
