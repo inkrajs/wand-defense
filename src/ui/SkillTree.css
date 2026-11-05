@@ -30,3 +30,30 @@
 .skill-tree__recipe-hit { position: absolute; z-index: 1; padding: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; }
 .skill-tree__recipe-hit:focus-visible { outline: 2px solid var(--inkra-ink); outline-offset: -3px; }
 .skill-tree__recipe-tooltip { display: grid; gap: 4px; max-width: min(260px, 80vw); }
+
+/* Keep the hand-drawn icon, with a lightweight frame for each graph node. */
+.skill-tree__graph .inkra-dependency-graph__card--custom { padding: 0; }
+.skill-tree__node-button {
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 0;
+  border: 1px solid var(--inkra-ink-muted);
+  border-radius: 9% 12% 10% 11%;
+  background: var(--inkra-paper);
+  color: var(--inkra-ink);
+  cursor: pointer;
+}
+.skill-tree__graph [data-highlighted="true"] > .inkra-dependency-graph__card > .skill-tree__node-button,
+.skill-tree__node-button[aria-pressed="true"] {
+  border-color: var(--inkra-selection-pigment);
+  box-shadow: inset 0 0 0 1px var(--inkra-selection-pigment);
+}
+.skill-tree__node-button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--inkra-selection-pigment) 16%, var(--inkra-paper));
+}
+.skill-tree__graph .inkra-dependency-graph__card:focus-visible > .skill-tree__node-button {
+  outline: 2px solid var(--inkra-selection-pigment);
+  outline-offset: 2px;
+}

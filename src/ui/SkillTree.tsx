@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Button, DependencyGraph, PencilIcon, PencilLine, PencilSurface, PencilText, Tabs, Tooltip, type DependencyGraphRef, type DependencyGraphNode, type PencilIconPath } from "@inkra/react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Button, DependencyGraph, PencilIcon, PencilLine, PencilSurface, PencilText, Tabs, Tooltip, type DependencyGraphRef, type DependencyGraphNode, type DependencyGraphNodeRenderState, type PencilIconPath } from "@inkra/react";
 import type { Element, GameState, RecipeDefinition } from "../contracts";
 import { findRecipeExample } from "../loadout/recipe-layout";
 import { rotateShape } from "../loadout/geometry";
@@ -35,6 +35,14 @@ function MagicIcon({ definitionId, size = 32 }: { definitionId: string; size?: n
 function nodeIcon(node: SkillTreeNode) {
   return node.known && node.definitionId ? <MagicIcon definitionId={node.definitionId} size={34} />
     : <PencilIcon paths={unknownPaths} sourceSize={24} size={30} seed="skill-tree-unknown" decorative />;
+}
+
+function renderSkillNode(node: GraphNode, { selected, activate }: DependencyGraphNodeRenderState) {
+  const label = node.data?.known ? node.data.name : "未知";
+  return <button type="button" className="skill-tree__node-button" tabIndex={-1}
+    aria-label={label} aria-pressed={selected} title={label} onClick={activate}>
+    {node.icon}
+  </button>;
 }
 
 function RecipePreview({ recipe, onSelect }: { recipe: RecipeDefinition; onSelect: (definitionId: string) => void }) {
@@ -84,27 +92,47 @@ function RecipePreview({ recipe, onSelect }: { recipe: RecipeDefinition; onSelec
   </div></Tooltip.Provider>;
 }
 
-export function SkillTree({ state }: { state: GameState }) {
+type SkillTreeProps = { knowledge: GameState["knowledge"] };
+const knowledgeLists = ["spellIds", "arcanaIds", "recipeIds"] as const;
+const graphControls = { zoomIn: true, zoomOut: true, fitView: true, position: "bottom-left" } as const;
+const graphStyle = { minHeight: 0 };
+
+function sameKnowledge(previous: SkillTreeProps, next: SkillTreeProps) {
+  return knowledgeLists.every(key => {
+    const a = previous.knowledge[key], b = next.knowledge[key];
+    return a === b || (a.length === b.length && a.every((id, index) => id === b[index]));
+  });
+}
+
+export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) {
   const [element, setElement] = useState<Element | "arcana">("fire");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailPath, setDetailPath] = useState<string[]>([]);
   const root = useRef<HTMLDivElement>(null);
   const graphRef = useRef<DependencyGraphRef>(null);
-  const [workspace, setWorkspace] = useState({width:0,height:0});
-  const narrow = workspace.width < 600;
+  const [viewport, setViewport] = useState<"pending" | "narrow" | "wide">("pending");
+  const narrow = viewport !== "wide";
   useLayoutEffect(() => {
     const node = root.current;
     if (!node) return;
-    const measure = () => setWorkspace(previous => previous.width === node.clientWidth && previous.height === node.clientHeight ? previous : {width:node.clientWidth,height:node.clientHeight});
+    const measure = () => {
+      if (node.clientWidth > 0) setViewport(node.clientWidth < 600 ? "narrow" : "wide");
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
-  // A runtime tick can replace state objects without changing discovered knowledge.
-  const knowledgeKey = JSON.stringify([state.knowledge.spellIds, state.knowledge.arcanaIds, state.knowledge.recipeIds]);
-  const knowledge = useMemo(() => state.knowledge, [knowledgeKey]);
-  const model = useMemo(() => buildSkillTree(demoContent, knowledge, element), [knowledge, element]);
+  const models = useMemo(() => new Map<Element | "arcana", ReturnType<typeof buildSkillTree>>(), [
+    knowledge.spellIds, knowledge.arcanaIds, knowledge.recipeIds,
+  ]);
+  const model = useMemo(() => {
+    const existing = models.get(element);
+    if (existing) return existing;
+    const next = buildSkillTree(demoContent, knowledge, element);
+    models.set(element, next);
+    return next;
+  }, [knowledge, element, models]);
   const nodes = useMemo<GraphNode[]>(() => model.nodes.map(node => ({
     id: node.id, label: node.known ? node.name : "未知", icon: nodeIcon(node), data: node,
   })), [model]);
@@ -112,7 +140,7 @@ export function SkillTree({ state }: { state: GameState }) {
   // The fit control still shows every node, including standalone arcana.
   const focusInitial = narrow || element === "arcana";
   useEffect(() => {
-    if (!focusInitial || !workspace.width || !model.nodes.length) return;
+    if (!focusInitial || viewport === "pending" || !model.nodes.length) return;
     const origin = model.nodes.find(node => node.atomic && node.known && node.definitionId
       && (element === "arcana" ? node.kind === "arcana" : demoContent.spells[node.definitionId]?.element === element)) ?? model.nodes[0];
     const progression = element === "arcana" && !narrow
@@ -127,7 +155,11 @@ export function SkillTree({ state }: { state: GameState }) {
     };
     frame = requestAnimationFrame(fit);
     return () => {cancelled=true;cancelAnimationFrame(frame);};
-  }, [model, focusInitial, element, workspace.width, workspace.height]);
+  }, [model, focusInitial, element, viewport]);
+  const selectNode = useCallback((id: string | null) => {
+    setSelectedId(id);
+    setDetailPath(path => path.length ? [] : path);
+  }, []);
   const selected = useMemo(() => model.nodes.find(node => node.id === selectedId), [model, selectedId]);
   const definitionId = selected?.known ? detailPath.at(-1) ?? selected.definitionId : undefined;
   const definition = definitionId && (demoContent.spells[definitionId] ?? demoContent.arcana[definitionId]);
@@ -149,11 +181,11 @@ export function SkillTree({ state }: { state: GameState }) {
     <Tabs.Content value={element} className="skill-tree__content">
       <DependencyGraph.Root ref={graphRef} className="skill-tree__graph" aria-label={element === "arcana" ? "奥术技能树" : `${elementAppearances[element].name}系技能树`}
         nodes={nodes} edges={model.edges} direction="LR" nodeWidth={80} nodeHeight={80} rankGap={52} nodeGap={12} nodeVariant="icon"
-        selectedId={selectedId} onSelectedIdChange={id => {setSelectedId(id); setDetailPath([]);}} highlight="both"
+        selectedId={selectedId} onSelectedIdChange={selectNode} highlight="both" renderNode={renderSkillNode}
         onClick={event => { if (event.target instanceof Element && event.target.classList.contains("react-flow__pane")) {setSelectedId(null); setDetailPath([]);} }}
-        style={{ minHeight: 0 }}
+        style={graphStyle}
         fitView={!focusInitial} hideAttribution minZoom={0.18} maxZoom={1.5} panOnDrag zoomOnPinch onlyRenderVisibleElements emptyState={<PencilText as="p">尚未发现</PencilText>}
-        controls={{ zoomIn: true, zoomOut: true, fitView: true, position: "bottom-left" }} />
+        controls={graphControls} />
       {definitionId && definition && <PencilSurface as="aside" className="skill-tree__detail" variant="outline" seed={`skill-tree-detail-${definitionId}`} aria-label={`${definition.name}详情`}>
         <Button className="skill-tree__detail-close" type="button" size="icon" variant="ghost" aria-label="关闭详情" onClick={() => {setSelectedId(null); setDetailPath([]);}}><PencilIcon paths={closePaths} sourceSize={24} size={24} decorative /></Button>
         {detailPath.length > 0 && <Button className="skill-tree__detail-back" type="button" size="icon" variant="ghost" aria-label="返回上一层法术详情" onClick={() => setDetailPath(path => path.slice(0,-1))}><PencilIcon paths={backPaths} sourceSize={24} size={24} decorative /></Button>}
@@ -169,4 +201,4 @@ export function SkillTree({ state }: { state: GameState }) {
       </PencilSurface>}
     </Tabs.Content>
   </Tabs.Root>;
-}
+}, sameKnowledge);
