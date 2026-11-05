@@ -85,7 +85,7 @@ export function SkillTree({ state }: { state: GameState }) {
     </GameTabsList>
     <Tabs.Content value={element} className="skill-tree__content">
       <DependencyGraph.Root ref={graphRef} className="skill-tree__graph" aria-label={`${elementAppearances[element].name}系技能树`}
-        nodes={nodes} edges={model.edges} direction="RL" nodeWidth={80} nodeHeight={80} rankGap={52} nodeGap={12} nodeVariant="icon"
+        nodes={nodes} edges={model.edges} direction="LR" nodeWidth={80} nodeHeight={80} rankGap={52} nodeGap={12} nodeVariant="icon"
         selectedId={selectedId} onSelectedIdChange={setSelectedId} highlight="both"
         onClick={event => { if (event.target instanceof Element && event.target.classList.contains("react-flow__pane")) setSelectedId(null); }}
         style={{ minHeight: 0 }}
