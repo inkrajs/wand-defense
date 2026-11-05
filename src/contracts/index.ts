@@ -1,3 +1,5 @@
+import type { TacticalConstructState, TacticalFlightState, TacticalHit, TacticalModifier, TacticalStatus } from "./tactical-arcana";
+
 export type Id = string;
 export const GAME_SPEEDS = [0.25, 0.5, 0.75, 1, 2, 3, 5] as const;
 export type GameSpeed = typeof GAME_SPEEDS[number];
@@ -40,6 +42,7 @@ export interface AreaFinish {
 }
 /** Enemy effects resolved only after a real successful contact. Durations use simulation time. */
 export interface OnHitSpec {
+  tactical?: TacticalHit;
   knockback?: number;
   slow?: { multiplier: number; durationMs: number };
   burn?: { powerRatio: number; durationMs: number; tickMs: number };
@@ -90,20 +93,25 @@ export interface TriggerPayload {
   element?: Element;
   power: number; manaCost: number; cooldownMs: number; range: number; speed?: number;
   casts: number; burstCount: number; splitCount: number;
-  impact?: ProjectileImpact; area?: AreaSpec; onHit?: OnHitSpec; attackRoll?: AttackRollStats;
+  impact?: ProjectileImpact; area?: AreaSpec; onHit?: OnHitSpec; attackRoll?: AttackRollStats; steering?: ProjectileSteering;
 }
+export interface ProjectileSteering { turnRate: number; reacquire?: boolean }
 export interface SpellTrigger {
   mode: "hit" | "timer" | "range";
   /** Timer starts at actual launch, not while a burst is waiting. */
   delayMs: number;
   modifierItemId: Id;
   payload: TriggerPayload;
+  additionalPayload?: TriggerPayload;
+  releaseAtRange?: boolean;
 }
 export interface ArcanaDefinition extends Growth {
   id: Id; name: string; shape: Cell[]; asset: AssetRef;
   modifier: "amplify" | "double" | "split" | "focus" | "haste" | "efficiency" | "reach" | "velocity" | "area"
     | "pierce" | "slow" | "burn" | "knockback" | "duration" | "capacity" | "precision"
-    | "hitTrigger" | "timerTrigger" | "rangeTrigger" | "affinity" | "condense"; value: number;
+    | "hitTrigger" | "timerTrigger" | "rangeTrigger" | "affinity" | "condense"
+    | "homing" | "pursuit" | "ricochet" | "reclaim" | "resonance" | "elementalResonance"
+    | "aftershock" | "martyrdom" | "domain" | "linkedCast" | TacticalModifier; value: number;
   rewardMinWave?: number;
   affinities?: Partial<Record<Element, number>>;
   diagonal?: boolean;
@@ -212,6 +220,13 @@ export interface CombatEntity {
   trigger?: SpellTrigger; triggerRemainingMs?: number;
   /** Triggered payload projectiles preserve their actual point through delayed launches. */
   fixedOrigin?: boolean;
+  steering?: ProjectileSteering;
+  manaRefund?: { amount: number; maxMana: number };
+  deathBurst?: number;
+  tacticalFlight?: TacticalFlightState;
+  tacticalConstruct?: TacticalConstructState;
+  tacticalStatus?: TacticalStatus;
+  excludedTargetId?: Id;
 }
 export type RewardKind = "item" | "character" | "wand" | "heal" | "coins" | "buff";
 export type RewardBuffType = "attackPercent" | "maxMana" | "manaRegen" | "rangePercent" | "cooldownPercent" | "luck" | "gatheringPercent";

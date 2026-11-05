@@ -1,4 +1,10 @@
 import { PencilIcon as InkraPencilIcon, type PencilIconPath, type PencilIconProps } from "@inkra/react";
+import { approvedArtwork as approvedArtwork6 } from "./magic-artwork/approved-6";
+import { approvedArtwork as approvedArtwork5 } from "./magic-artwork/approved-5";
+import { approvedArtwork as approvedArtwork4 } from "./magic-artwork/approved-4";
+import { approvedArtwork as approvedArtwork1 } from "./magic-artwork/approved-1";
+import { approvedArtwork as approvedArtwork2 } from "./magic-artwork/approved-2";
+import { approvedArtwork as approvedArtwork3 } from "./magic-artwork/approved-3";
 import { memo } from "react";
 import type { Cell } from "../contracts";
 import { demoContent } from "../content/demo";
@@ -146,6 +152,12 @@ const originalDefinitions: Readonly<Record<string, MagicPresentationIconDefiniti
 const artworkCatalog: Readonly<Record<string, MagicArtwork>> = Object.freeze({
   ...cataclysmArtwork,
   ...evolvedArtwork,
+  ...approvedArtwork1,
+  ...approvedArtwork2,
+  ...approvedArtwork3,
+  ...approvedArtwork4,
+  ...approvedArtwork5,
+  ...approvedArtwork6,
   ...contentExpansionArtwork,
   ...fireEarthArtwork,
   ...waterWoodArtwork,
@@ -164,7 +176,7 @@ function catalogPresentation(id: string, artwork: MagicArtwork): MagicPresentati
     color: definition.asset.color ?? "#e5c76b",
     shape: definition.shape,
     paths: artwork.paths,
-    filledPaths: artwork.filledPaths,
+    filledPaths: artwork.filledPaths.length ? artwork.filledPaths : artwork.paths,
     viewBox: viewBox(definition.shape),
     clipGeometry: { type: "cells", cells: definition.shape, cellSize: 24 },
   };

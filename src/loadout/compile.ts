@@ -1,4 +1,6 @@
-import type { AttackRollStats, ContentCatalog, GameState, SpellDefinition, SpellTrigger } from '../contracts';
+import type { TacticalConstructState, TacticalFlightState } from "../contracts/tactical-arcana";
+import { applyTacticalModifiers, bindTacticalMounts, isTacticalModifier } from "./tactical-arcana";
+import type { AttackRollStats, ContentCatalog, GameState, ProjectileSteering, SpellDefinition, SpellTrigger } from '../contracts';
 import { getCharacterStats } from '../content/characters';
 import { areAdjacent, placementCells } from './geometry';
 import { gradedArcanaValue, gradeStrengthRatio } from './grade-scaling';
@@ -16,6 +18,11 @@ export interface CompiledSpell extends SpellDefinition {
   trigger?: SpellTrigger;
   triggeredByItemId?: string;
   condensedItemId?: string;
+  steering?: ProjectileSteering;
+  manaRefundRatio?: number;
+  deathBurst?: number;
+  tacticalFlight?: TacticalFlightState;
+  tacticalConstruct?: TacticalConstructState;
 }
 export interface CompiledWand {
   wandId: string;
@@ -94,7 +101,7 @@ export function compileWand(
         : 0;
       if (modifier.definition.modifier === 'affinity' && affinity === 0) continue;
       if (appliedModifierItems.has(modifier.itemId)) continue;
-      if (isAdvancedModifier(modifier.definition.modifier) || isTriggerModifier(modifier.definition.modifier) || modifier.definition.modifier === 'condense') continue;
+      if (isTacticalModifier(modifier.definition.modifier) || isAdvancedModifier(modifier.definition.modifier) || isTriggerModifier(modifier.definition.modifier) || modifier.definition.modifier === 'condense') continue;
       if (modifier.definition.modifier === 'velocity' && spell.effect !== 'projectile') continue;
       if (modifier.definition.modifier === 'area'
         && !spell.beam
@@ -131,7 +138,9 @@ export function compileWand(
           break;
       }
     }
-    applyAdvancedModifiers(spell, modifiers.filter(modifier => areAdjacent(cells, modifier.cells)));
+    const neighbors = modifiers.filter(modifier => areAdjacent(cells, modifier.cells));
+    applyAdvancedModifiers(spell, neighbors);
+    applyTacticalModifiers(spell, neighbors);
     for (const bonus of passiveBonuses) {
       if (bonus.targetId === spell.id && areAdjacent(cells, bonus.cells)) spell.power *= bonus.multiplier;
     }
@@ -149,6 +158,35 @@ export function compileWand(
     if (isConstruct && spell.construct) spell.construct.hp *= multiplier * gradeStrengthRatio(item.grade, definition.grade);
     return [spell];
   });
+  for (const modifier of modifiers) {
+    const fused = modifier.definition.modifier === 'elementalResonance';
+    if (!fused && modifier.definition.modifier !== 'resonance') continue;
+    const adjacent = spells.filter(spell => ['projectile', 'beam', 'area', 'chain'].includes(spell.effect)
+      && areAdjacent(modifier.cells, placementCells(spell.shape, wand.placements.find(entry => entry.itemId === spell.itemId)!)));
+    const elements = (spell: CompiledSpell) => [spell.element, ...(fused ? spell.fusionElements ?? [] : [])];
+    const value = Math.min(.45, gradedArcanaValue(modifier.definition, modifier.grade));
+    if (!Number.isFinite(value) || value <= 0) continue;
+    for (const spell of adjacent) {
+      if (!adjacent.some(peer => peer !== spell && elements(peer).some(element => elements(spell).includes(element)))) continue;
+      spell.power *= 1 + value;
+      spell.modifierItemIds.push(modifier.itemId);
+    }
+  }
   composeSpellTriggers(spells, wand, modifiers, content);
+  if (spells.some(spell => spell.tacticalConstruct?.constructPayload)) {
+    const placedCells = new Map(wand.placements.map(entry => {
+      const definition = spells.find(spell => spell.itemId === entry.itemId);
+      return [entry.itemId, definition ? placementCells(definition.shape, entry) : []] as const;
+    }));
+    const positions = new Map(wand.placements.map(entry => [entry.itemId, entry]));
+    const inBoardOrder = [...spells].sort((a, b) => {
+      const first = positions.get(a.itemId)!;
+      const second = positions.get(b.itemId)!;
+      return first.y - second.y || first.x - second.x || a.itemId.localeCompare(b.itemId);
+    });
+    bindTacticalMounts(inBoardOrder, (summon, projectile) => modifiers.some(modifier =>
+      modifier.definition.modifier === 'constructPayload' && summon.modifierItemIds.includes(modifier.itemId)
+      && areAdjacent(modifier.cells, placedCells.get(projectile.itemId) ?? [])));
+  }
   return { wandId: wand.id, characterId: character.id, spells };
 }

@@ -75,21 +75,25 @@ export const cataclysmSpells: Record<string, SpellDefinition> = {
         onHit: { burn: { powerRatio: 0.18, durationMs: 1800, tickMs: 600 } } } },
   }),
   pulsar: spell("pulsar", "脉冲星", "lightning", "#8bc4db", 2, {
+    rewardMinWave: 25,
     description: "在目标处形成脉冲星，两道射线围绕它旋转，持续扫射经过的敌人。",
     effect: "beam", power: 10, manaCost: 55, cooldownMs: 8500, range: 38,
     beam: { width: 2.5, durationMs: 3600, tickMs: 300, maxTargets: 8, rotationPerSecond: 100, bidirectional: true, anchor: "target" },
   }),
   "gamma-burst": spell("gamma-burst", "伽马射线暴", "light", "#f1d279", 3, {
+    rewardMinWave: 35,
     description: "向目标方向释放细长而强力的射线，持续穿透路径上的敌人。",
     effect: "beam", power: 24, manaCost: 65, cooldownMs: 10000, range: 100,
     beam: { width: 2, durationMs: 1500, tickMs: 300, maxTargets: 8 },
   }),
   "fission-bomb": spell("fission-bomb", "核弹", "metal", "#e9a454", 2, {
+    rewardMinWave: 25,
     fusionElements: ["fire", "metal"], description: "引发有限的连锁裂变，在邻近敌人间传递；每次裂变还会波及周围敌人。",
     effect: "chain", power: 22, manaCost: 32, cooldownMs: 6000, range: 36,
     impact: { type: "chain", radius: 11, maxTargets: 4, falloff: 0.8, blastRadius: 4, blastMaxTargets: 3 },
   }),
   "hydrogen-bomb": spell("hydrogen-bomb", "氢弹", "fire", "#e57950", 2, {
+    rewardMinWave: 35,
     fusionElements: ["fire", "metal"], description: "锁定敌人引发强烈爆炸，随后留下短暂的高温灼烧区域。",
     effect: "area", power: 75, manaCost: 65, cooldownMs: 10000, range: 42,
     area: { mode: "strike", radius: 14, delayMs: 800, durationMs: 300, maxTargets: 8,
@@ -97,6 +101,7 @@ export const cataclysmSpells: Record<string, SpellDefinition> = {
         onHit: { burn: { powerRatio: 0.2, durationMs: 1200, tickMs: 600 } } } },
   }),
   "three-phase-bomb": spell("three-phase-bomb", "三相弹", "fire", "#df7652", 3, {
+    rewardMinWave: 45,
     fusionElements: ["fire", "metal"], description: "先引发小范围裂变，随后爆发大范围冲击，最后留下持续伤害敌人的辐射区域。",
     effect: "area", power: 45, manaCost: 95, cooldownMs: 14000, range: 46,
     area: { mode: "strike", radius: 7, delayMs: 1000, durationMs: 300, maxTargets: 8,
@@ -122,11 +127,13 @@ export const cataclysmSpells: Record<string, SpellDefinition> = {
     onHit: { execute: { healthRatio: 0.25, bossMultiplier: 0.25, radius: 3 } },
   }),
   "depleted-round": spell("depleted-round", "贫铀弹", "metal", "#adb9a7", 2, {
+    rewardMinWave: 15,
     description: "高速弹体连续穿透敌人，忽略75%护甲，每穿透一次伤害降低。",
     effect: "projectile", power: 42, manaCost: 24, cooldownMs: 3600, range: 55, speed: 150,
     impact: { type: "pierce", maxTargets: 5, falloff: 0.85 }, onHit: { armorPierce: 0.75 },
   }),
   railgun: spell("railgun", "电磁轨道炮", "metal", "#9cb8cf", 2, {
+    rewardMinWave: 25,
     fusionElements: ["metal", "lightning"], description: "沿直线射出高速穿透弹，忽略一半护甲，最多命中8个敌人。",
     effect: "projectile", power: 65, manaCost: 40, cooldownMs: 6500, range: 80, speed: 200,
     impact: { type: "pierce", maxTargets: 8, falloff: 0.9 }, onHit: { armorPierce: 0.5 },
@@ -143,6 +150,7 @@ export const cataclysmSpells: Record<string, SpellDefinition> = {
     onHit: { execute: { healthRatio: 0.2, bossMultiplier: 0.25 } },
   }),
   "fire-sea": spell("fire-sea", "焚世火海", "fire", "#e76b42", 3, {
+    rewardMinWave: 20,
     description: "在敌人附近形成大片火海，持续灼烧其中的敌人。",
     effect: "area", power: 14, manaCost: 60, cooldownMs: 8500, range: 42,
     area: { mode: "field", anchor: "target", radius: 22, delayMs: 250, durationMs: 4000, tickMs: 500, maxTargets: 8 },
@@ -155,6 +163,7 @@ export const cataclysmSpells: Record<string, SpellDefinition> = {
     onHit: { slow: { multiplier: 0.3, durationMs: 800 } },
   }),
   "forest-prison": spell("forest-prison", "万木森狱", "wood", "#75af66", 3, {
+    rewardMinWave: 20,
     description: "在目标周围生长荆棘区域，持续伤害并大幅减缓敌人。",
     effect: "area", power: 12, manaCost: 48, cooldownMs: 8000, range: 38,
     area: { mode: "field", anchor: "target", radius: 16, delayMs: 200, durationMs: 3500, tickMs: 500, maxTargets: 8 },

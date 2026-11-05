@@ -1,4 +1,10 @@
 import type { ContentCatalog } from "../contracts";
+import { approvedArcana as approvedArcana6 } from "./approved-6";
+import { approvedSpells as approvedSpells5 } from "./approved-5";
+import { approvedArcana as approvedArcana4 } from "./approved-4";
+import { approvedSpells as approvedSpells1 } from "./approved-1";
+import { approvedSpells as approvedSpells2 } from "./approved-2";
+import { approvedSpells as approvedSpells3 } from "./approved-3";
 import { evolvedArcana, evolvedSpells } from "./evolvedMagic";
 import { gearDefinitions } from "./gear";
 import { supplyDefinitions } from "./supplies";
@@ -19,6 +25,10 @@ export const demoContent: ContentCatalog = {
   spells: {
     ...expandedSpellDefinitions,
     ...evolvedSpells,
+    ...approvedSpells1,
+    ...approvedSpells2,
+    ...approvedSpells3,
+    ...approvedSpells5,
     ...cataclysmSpells,
     spark: {
       id: "spark", name: "火花", element: "fire", shape: [cell(0, 0)],
@@ -190,6 +200,8 @@ export const demoContent: ContentCatalog = {
     },
     ...expandedArcana,
     ...evolvedArcana,
+    ...approvedArcana4,
+    ...approvedArcana6,
   },
   recipes: magicRecipeDefinitions,
   sequences: {

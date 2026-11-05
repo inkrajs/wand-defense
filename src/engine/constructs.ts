@@ -1,7 +1,10 @@
+import type { TacticalConstructState } from "../contracts/tactical-arcana";
+import { castMountedSpell, useExistingConstruct } from "./tactical-construct";
 import type { AttackRollStats, CombatEntity, ConstructSpec, Element, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
 import { getCharacterAnchor } from "../content/characterAnchors";
 import { applyContactDamage, nearbyEnemies, type CombatEmit } from "./targets";
 import { spawnProjectiles } from "./projectiles";
+import { spawnAreaEffects } from "./areaEffects";
 import { castPattern } from "./castPattern";
 
 export const CONSTRUCT_LIMITS = Object.freeze({
@@ -27,6 +30,8 @@ export interface ConstructCastSpec {
   onHit?: OnHitSpec;
   construct: ConstructSpec;
   position?: { x: number; y: number };
+  deathBurst?: number;
+  tacticalConstruct?: TacticalConstructState;
 }
 
 /** Returns a detached construct description safe to store on every created entity. */
@@ -74,6 +79,10 @@ export function spawnConstructs(state: GameState, characterId: string, spec: Con
   if (!manual && state.phase !== "battle") return false;
   if (construct.coinCost !== undefined && (!Number.isFinite(state.coins) || state.coins < construct.coinCost)) return false;
 
+  if (spec.kind === "summon" && useExistingConstruct(state, characterId, spec, emit, spawnAreaEffects)) {
+    emit("spellCast", { sourceCharacterId: characterId, sourceItemId: spec.itemId, definitionId: spec.definitionId, casts: 1 });
+    return true;
+  }
   const live = state.entities.filter(isLiveConstruct);
   const fromSource = live.filter(entity => sameConstructSource(entity, characterId, spec.itemId, spec.definitionId)).length;
   const availableGlobal = Math.max(0, CONSTRUCT_LIMITS.alive - live.length);
@@ -105,13 +114,18 @@ export function spawnConstructs(state: GameState, characterId: string, spec: Con
       maxHp: construct.hp,
       damage: finiteNonnegative(spec.power),
       speed: spec.kind === "summon" ? construct.moveSpeed ?? 0 : 0,
-      range: finiteNonnegative(spec.range),
+      range: spec.tacticalConstruct?.constructPayload === 1
+        ? Math.max(finiteNonnegative(spec.range), spec.tacticalConstruct.mounted?.range ?? 0)
+        : finiteNonnegative(spec.range),
       cooldownMs: construct.attackIntervalMs,
       attackRemainingMs: 0,
       remainingMs: construct.durationMs,
       sourceCharacterId: characterId,
       sourceItemId: spec.itemId,
       construct: structuredClone(construct),
+      ...(spec.tacticalConstruct ? { tacticalConstruct: structuredClone(spec.tacticalConstruct) } : {}),
+      ...(spec.kind === "summon" && Number.isFinite(spec.deathBurst) && spec.deathBurst! > 0
+        ? { deathBurst: Math.min(1.1, spec.deathBurst!) } : {}),
       ...(spec.attackRoll ? { attackRoll: { ...spec.attackRoll } } : {}),
       ...(spec.onHit ? { onHit: structuredClone(spec.onHit) } : {}),
       ...(construct.bodySize ? { bodySize: construct.bodySize } : {}),
@@ -174,7 +188,9 @@ export function advanceConstructs(state: GameState, dtMs: number, emit: CombatEm
       const canAct = currentTarget !== undefined && distance(entity, currentTarget.position) <= entity.range
         && entity.attackRemainingMs <= 0;
       if (canAct && construct.behavior === "attack" && currentTarget.entity?.kind === "enemy") {
-        if (construct.attackMode === "contact") {
+        if (entity.tacticalConstruct?.mounted && castMountedSpell(state, entity, emit, spawnProjectiles)) {
+          entity.attackRemainingMs = construct.attackIntervalMs;
+        } else if (construct.attackMode === "contact") {
           applyContactDamage(state, entity, currentTarget.entity, emit);
           entity.attackRemainingMs = construct.attackIntervalMs;
         } else {
@@ -362,3 +378,24 @@ function finiteNonnegative(value: number | undefined): number {
 }
 
 function clamp(value: number, min: number, max: number): number { return Math.min(max, Math.max(min, value)); }
+
+
+/** Materialize once per destroyed summon before the shared death pass removes it. */
+export function releaseConstructDeathBurst(state: GameState, entity: CombatEntity, emit: CombatEmit): void {
+  const strength = entity.deathBurst;
+  if (entity.kind !== "summon" || entity.faction !== "player" || entity.hp > 0
+    || !strength || !Number.isFinite(strength) || !entity.sourceCharacterId || !entity.sourceItemId) return;
+  delete entity.deathBurst;
+  const chained = strength > 1;
+  spawnAreaEffects(state, entity.sourceCharacterId, {
+    itemId: entity.sourceItemId, definitionId: entity.definitionId, element: entity.element,
+    power: entity.damage * (chained ? .78 : Math.min(.65, strength)),
+    range: 5, casts: 1, maxCasts: 1, attackRoll: entity.attackRoll,
+    area: {
+      mode: "ring", radius: 5, delayMs: 0, durationMs: 220, maxTargets: 6,
+      ...(chained ? { finish: { mode: "ring", radius: 8, durationMs: 250, maxTargets: 8, powerMultiplier: .75 } } : {}),
+    },
+    position: { x: entity.x, y: entity.y },
+    internal: true,
+  }, emit);
+}

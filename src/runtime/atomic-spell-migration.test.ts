@@ -39,3 +39,31 @@ test("already valid single-cell wand positions are left untouched", () => {
   assert.deepEqual(restored.getState().wands[0].placements, checkpoint.state.wands[0].placements);
   restored.dispose();
 });
+
+test("raised recipe requirements preserve existing magic and discoveries when loading a checkpoint", () => {
+  const runtime = createGameRuntime();
+  const checkpoint = runtime.checkpoint();
+  runtime.dispose();
+
+  const { state } = checkpoint;
+  state.wave = 7;
+  state.knowledge.spellIds.push("iron-spark", "depleted-round");
+  state.knowledge.arcanaIds.push("pierce");
+  state.knowledge.recipeIds.push("depleted-round-recipe");
+  state.items.round = { id: "round", definitionId: "depleted-round", kind: "spell", grade: "rare", level: 7 };
+  state.backpack.push("round");
+
+  const restored = createGameRuntime(demoContent, checkpoint);
+  try {
+    const after = restored.getState();
+    assert.equal(after.wave, state.wave);
+    assert.deepEqual(after.items, state.items);
+    assert.deepEqual(after.backpack, state.backpack);
+    assert.deepEqual(after.wands, state.wands);
+    assert.ok(after.knowledge.recipeIds.includes("depleted-round-recipe"));
+    assert.ok(after.knowledge.spellIds.includes("depleted-round"));
+    assert.ok(!after.knowledge.spellIds.includes("tungsten-core"));
+  } finally {
+    restored.dispose();
+  }
+});

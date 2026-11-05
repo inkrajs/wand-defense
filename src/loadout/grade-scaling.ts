@@ -20,6 +20,15 @@ export function gradedArcanaValue(definition: ArcanaDefinition, instanceGrade: G
     case 'timerTrigger':
     case 'rangeTrigger':
     case 'condense':
+    case 'linkedCast':
+    case 'aftershock':
+    case 'domain':
+    case 'martyrdom':
+    case 'charge': case 'compression': case 'spread': case 'branding':
+    case 'freezing': case 'conductivity': case 'armorBreak': case 'returnFlight':
+    case 'fanShot': case 'resplit': case 'constructPayload': case 'reinforcement':
+    case 'symbiosis': case 'sacrifice':
+    case 'ricochet':
       return definition.value;
     case 'affinity':
       return ratio;
@@ -41,6 +50,11 @@ export function gradedArcanaValue(definition: ArcanaDefinition, instanceGrade: G
     case 'burn':
     case 'knockback':
     case 'precision':
+    case 'homing':
+    case 'pursuit':
+    case 'reclaim':
+    case 'resonance':
+    case 'elementalResonance':
       return definition.value * ratio;
     case 'double':
     case 'split': {

@@ -1,4 +1,6 @@
 import { PencilIcon, type PencilIconPath } from "@inkra/react";
+import { demoContent } from "../content/demo";
+import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
 
 const stroke = (d: string): PencilIconPath => ({ d, mode: "stroke" });
 const skull = stroke("M5 11a7 7 0 0 1 14 0c0 3-2 4-4 5v4H9v-4c-2-1-4-2-4-5ZM8 11h2m4 0h2m-4 3v1m-2 3v2m4-2v2");
@@ -20,7 +22,12 @@ const definitions: Record<string, { label: string; color: string; paths: PencilI
 
 export function ConstructPresentationIcon({ definitionId, entityId, size = 36 }: { definitionId: string; entityId: string; size?: number }) {
   const icon = definitions[definitionId];
-  if (!icon) return null;
+  if (!icon) return <MagicPresentationIcon definitionId={definitionId} size={size} seed={`construct-${entityId}`} variant="filled" />;
   return <PencilIcon paths={icon.paths} filledPaths={icon.paths} variant="filled" fillColor={icon.color} sourceSize={24} size={size} strokeWidth={0.9} seed={`construct-${entityId}`} style={{ color: icon.color }} role="img" aria-label={icon.label} />;
 }
-export function hasConstructPresentationIcon(definitionId: string) { return Object.hasOwn(definitions, definitionId); }
+export function hasConstructPresentationIcon(definitionId: string) {
+  if (Object.hasOwn(definitions, definitionId)) return true;
+  const spell = demoContent.spells[definitionId];
+  return (spell?.effect === "summon" || spell?.effect === "building")
+    && getMagicPresentationIcon(definitionId) !== undefined;
+}

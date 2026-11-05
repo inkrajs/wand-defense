@@ -4,7 +4,7 @@ import { areAdjacent, placementCells } from './geometry';
 
 import { TRIGGER_LIMITS } from '../contracts/trigger-limits';
 export function isTriggerModifier(modifier: ArcanaDefinition['modifier']): boolean {
-  return modifier === 'hitTrigger' || modifier === 'timerTrigger' || modifier === 'rangeTrigger';
+  return modifier === 'hitTrigger' || modifier === 'timerTrigger' || modifier === 'rangeTrigger' || modifier === 'linkedCast';
 }
 type Modifier = { itemId: string; definition: ArcanaDefinition; cells: Cell[] };
 
@@ -23,9 +23,10 @@ export function composeSpellTriggers(spells: CompiledSpell[], wand: WandInstance
     const adjacent = spells.filter(spell => areAdjacent(
       placementCells(content.spells[spell.id].shape, placements.get(spell.itemId)!), modifier.cells,
     )).sort(order);
-    if (adjacent.length !== 2) continue;
+    const linked = modifier.definition.modifier === 'linkedCast';
+    if (adjacent.length !== (linked && modifier.definition.value === 2 ? 3 : 2)) continue;
     const [carrier, payload] = adjacent;
-    if (reserved.has(carrier.itemId) || reserved.has(payload.itemId) || carrier.effect !== 'projectile') continue;
+    if (adjacent.some(spell => reserved.has(spell.itemId)) || carrier.effect !== 'projectile') continue;
     if (modifier.definition.modifier === 'condense') {
       if (carrier.id !== payload.id || payload.effect !== 'projectile') continue;
       carrier.power = (carrier.power + payload.power) * modifier.definition.value;
@@ -39,31 +40,49 @@ export function composeSpellTriggers(spells: CompiledSpell[], wand: WandInstance
       reserved.add(carrier.itemId); reserved.add(payload.itemId);
       continue;
     }
-    if ((payload.effect !== 'area' && payload.effect !== 'projectile')
-      || payload.remainsAction || (payload.effect === 'area' && !payload.area)
-      || ![carrier.manaCost, payload.manaCost, carrier.cooldownMs, payload.cooldownMs].every(value => Number.isFinite(value) && value >= 0)) continue;
-    const copies = Math.min(TRIGGER_LIMITS.payloadCopies, payload.copies);
-    const snapshot: TriggerPayload = {
-      itemId: payload.itemId, definitionId: payload.id, effect: payload.effect, element: payload.element,
-      power: payload.power, manaCost: payload.manaCost, cooldownMs: payload.cooldownMs,
-      range: payload.range, ...(payload.speed !== undefined ? { speed: payload.speed } : {}),
-      casts: copies, burstCount: Math.min(copies, payload.burstCount), splitCount: Math.min(copies, payload.splitCount),
-      ...(payload.impact ? { impact: structuredClone(payload.impact) } : {}),
-      ...(payload.area ? { area: structuredClone(payload.area) } : {}),
-      ...(payload.onHit ? { onHit: structuredClone(payload.onHit) } : {}),
-      attackRoll: { ...payload.attackRoll },
-    };
+    if (![carrier.manaCost, carrier.cooldownMs].every(value => Number.isFinite(value) && value >= 0)) continue;
+    const payloads = adjacent.slice(1).map(snapshotPayload);
+    const [first, additional] = payloads;
+    if (!first || (payloads.length > 1 && !additional)) continue;
     const trigger: SpellTrigger = {
-      mode: modifier.definition.modifier === 'hitTrigger' ? 'hit' : modifier.definition.modifier === 'rangeTrigger' ? 'range' : 'timer',
+      mode: linked || modifier.definition.modifier === 'hitTrigger' ? 'hit'
+        : modifier.definition.modifier === 'rangeTrigger' ? 'range' : 'timer',
       delayMs: Math.max(TRIGGER_LIMITS.minDelayMs, Math.min(TRIGGER_LIMITS.maxDelayMs, modifier.definition.value)),
-      modifierItemId: modifier.itemId, payload: snapshot,
+      modifierItemId: modifier.itemId, payload: first,
+      ...(additional ? { additionalPayload: additional } : {}),
+      ...(linked ? { releaseAtRange: true } : {}),
     };
     carrier.trigger = trigger;
-    carrier.manaCost += payload.manaCost;
-    carrier.cooldownMs = Math.max(carrier.cooldownMs, payload.cooldownMs);
+    if (linked) {
+      // Linked casts pay their full load even on a missed carrier and release only once per cast.
+      carrier.copies = carrier.burstCount = carrier.splitCount = 1;
+    }
+    for (const linkedSpell of adjacent.slice(1)) {
+      carrier.manaCost += linkedSpell.manaCost;
+      carrier.cooldownMs = Math.max(carrier.cooldownMs, linkedSpell.cooldownMs);
+      linkedSpell.modifierItemIds.push(modifier.itemId);
+      linkedSpell.triggeredByItemId = carrier.itemId;
+    }
     carrier.modifierItemIds.push(modifier.itemId);
-    payload.modifierItemIds.push(modifier.itemId);
-    payload.triggeredByItemId = carrier.itemId;
-    reserved.add(carrier.itemId); reserved.add(payload.itemId);
+    for (const spell of adjacent) reserved.add(spell.itemId);
   }
+}
+
+
+function snapshotPayload(payload: CompiledSpell): TriggerPayload | undefined {
+  if ((payload.effect !== 'area' && payload.effect !== 'projectile')
+    || payload.remainsAction || (payload.effect === 'area' && !payload.area)
+    || ![payload.manaCost, payload.cooldownMs].every(value => Number.isFinite(value) && value >= 0)) return undefined;
+  const copies = Math.min(TRIGGER_LIMITS.payloadCopies, payload.copies);
+  return {
+    itemId: payload.itemId, definitionId: payload.id, effect: payload.effect, element: payload.element,
+    power: payload.power, manaCost: payload.manaCost, cooldownMs: payload.cooldownMs,
+    range: payload.range, ...(payload.speed !== undefined ? { speed: payload.speed } : {}),
+    casts: copies, burstCount: Math.min(copies, payload.burstCount), splitCount: Math.min(copies, payload.splitCount),
+    ...(payload.impact ? { impact: structuredClone(payload.impact) } : {}),
+    ...(payload.area ? { area: structuredClone(payload.area) } : {}),
+    ...(payload.onHit ? { onHit: structuredClone(payload.onHit) } : {}),
+    ...(payload.steering ? { steering: { ...payload.steering } } : {}),
+    attackRoll: { ...payload.attackRoll },
+  };
 }

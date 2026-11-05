@@ -1,4 +1,10 @@
 import type { RecipeDefinition } from "../contracts";
+import { approvedRecipes as approvedRecipes6 } from "./approved-6";
+import { approvedRecipes as approvedRecipes5 } from "./approved-5";
+import { approvedRecipes as approvedRecipes4 } from "./approved-4";
+import { approvedRecipes as approvedRecipes1 } from "./approved-1";
+import { approvedRecipes as approvedRecipes2 } from "./approved-2";
+import { approvedRecipes as approvedRecipes3 } from "./approved-3";
 import { evolvedRecipes } from "./evolvedMagic";
 
 /** Spell definitions acquired directly, before following recipe branches. */
@@ -46,10 +52,10 @@ export const magicRecipeDefinitions: RecipeDefinition[] = [
   { id: "thunderstorm-recipe", name: "雷暴", inputs: ["thunder-field-bolt", "area", "double"], output: "thunderstorm", requireAdjacency: true },
   { id: "moving-storm-recipe", name: "风暴", inputs: ["gale-burst", "area"], output: "moving-storm", requireAdjacency: true },
   { id: "piercing-gale-recipe", name: "穿风刃", inputs: ["iron-disc", "reach"], output: "piercing-gale", requireAdjacency: true },
-  { id: "glacial-lance-recipe", name: "冰棱贯刺", inputs: ["water-bolt", "amplify"], output: "glacial-lance", requireAdjacency: true },
+  { id: "glacial-lance-recipe", name: "冰棱贯刺", inputs: ["icicle", "amplify"], output: "glacial-lance", requireAdjacency: true },
   { id: "ember-comet-recipe", name: "烬星", inputs: ["cinder-burst", "amplify"], output: "ember-comet", requireAdjacency: true },
   { id: "solar-storm-recipe", name: "日耀风暴", inputs: ["thunderstorm", "ember-comet"], output: "solar-storm", requireAdjacency: true },
-  { id: "tidal-prison-recipe", name: "潮汐囚笼", inputs: ["thunder-field-bolt", "water-bolt"], output: "tidal-prison", requireAdjacency: true },
+  { id: "tidal-prison-recipe", name: "潮汐囚笼", inputs: ["thunder-field-bolt", "riptide"], output: "tidal-prison", requireAdjacency: true },
   { id: "cinder-ring-recipe", name: "余烬之环", inputs: ["ember-comet", "area"], output: "cinder-ring", requireAdjacency: true },
   { id: "repulse-wave-recipe", name: "震退波", inputs: ["frost-ring", "piercing-gale"], output: "repulse-wave", requireAdjacency: true },
   { id: "prism-ray-recipe", name: "棱镜光束", inputs: ["solar-ray", "precision"], output: "prism-ray", requireAdjacency: true },
@@ -85,21 +91,21 @@ export const magicRecipeDefinitions: RecipeDefinition[] = [
   { id: "helium-flash-recipe", name: "氦闪", inputs: ["magma-lance", "thunderstorm", "greater-amplify"], output: "helium-flash", requireAdjacency: true },
   { id: "artificial-sun-recipe", name: "人造太阳", inputs: ["helium-flash", "water-bolt", "supreme-amplify"], output: "artificial-sun", requireAdjacency: true },
   { id: "supernova-recipe", name: "超新星爆发", inputs: ["artificial-sun", "supreme-amplify"], output: "supernova", requireAdjacency: true },
-  { id: "pulsar-recipe", name: "脉冲星", inputs: ["static-spark", "light-arrow"], output: "pulsar", requireAdjacency: true },
-  { id: "gamma-burst-recipe", name: "伽马射线暴", inputs: ["solar-ray", "greater-reach"], output: "gamma-burst", requireAdjacency: true },
-  { id: "fission-bomb-recipe", name: "核弹", inputs: ["cinder-burst", "iron-spark"], output: "fission-bomb", requireAdjacency: true },
+  { id: "pulsar-recipe", name: "脉冲星", inputs: ["lightning-storm", "storm-spear"], output: "pulsar", requireAdjacency: true },
+  { id: "gamma-burst-recipe", name: "伽马射线暴", inputs: ["high-energy-laser", "greater-reach"], output: "gamma-burst", requireAdjacency: true },
+  { id: "fission-bomb-recipe", name: "核弹", inputs: ["depleted-round", "grenade-cannon"], output: "fission-bomb", requireAdjacency: true },
   { id: "hydrogen-bomb-recipe", name: "氢弹", inputs: ["fission-bomb", "ember-seed"], output: "hydrogen-bomb", requireAdjacency: true },
   { id: "three-phase-bomb-recipe", name: "三相弹", inputs: ["hydrogen-bomb", "greater-burn"], output: "three-phase-bomb", requireAdjacency: true },
   { id: "twilight-orb-recipe", name: "辉蚀", inputs: ["dark-orb", "glimmer"], output: "twilight-orb", requireAdjacency: true },
   { id: "annihilation-orb-recipe", name: "湮灭弹", inputs: ["twilight-orb", "focus"], output: "annihilation-orb", requireAdjacency: true },
   { id: "antimatter-bomb-recipe", name: "反物质炸弹", inputs: ["annihilation-orb", "solar-ray", "supreme-amplify"], output: "antimatter-bomb", requireAdjacency: true },
-  { id: "depleted-round-recipe", name: "贫铀弹", inputs: ["iron-spark", "pierce"], output: "depleted-round", requireAdjacency: true },
+  { id: "depleted-round-recipe", name: "贫铀弹", inputs: ["tungsten-core", "deep-pierce"], output: "depleted-round", requireAdjacency: true },
   { id: "railgun-recipe", name: "电磁轨道炮", inputs: ["depleted-round", "static-spark"], output: "railgun", requireAdjacency: true },
   { id: "god-rod-recipe", name: "上帝之杖", inputs: ["railgun", "prism-ray", "greater-amplify"], output: "god-rod", requireAdjacency: true },
   { id: "vacuum-decay-recipe", name: "真空衰变", inputs: ["supermassive-black-hole", "prism-ray", "supreme-amplify"], output: "vacuum-decay", requireAdjacency: true },
-  { id: "fire-sea-recipe", name: "焚世火海", inputs: ["cinder-burst", "greater-area"], output: "fire-sea", requireAdjacency: true },
+  { id: "fire-sea-recipe", name: "焚世火海", inputs: ["flame-wall", "greater-area"], output: "fire-sea", requireAdjacency: true },
   { id: "ice-seal-recipe", name: "寒潮封境", inputs: ["frost-ring", "greater-area"], output: "ice-seal", requireAdjacency: true },
-  { id: "forest-prison-recipe", name: "万木森狱", inputs: ["thorn-guardian", "greater-area"], output: "forest-prison", requireAdjacency: true },
+  { id: "forest-prison-recipe", name: "万木森狱", inputs: ["thorn-forest", "thorn-guardian"], output: "forest-prison", requireAdjacency: true },
   { id: "blade-prison-recipe", name: "千锋剑狱", inputs: ["iron-disc", "greater-area"], output: "blade-prison", requireAdjacency: true },
   { id: "earthquake-recipe", name: "地震", inputs: ["earth-spikes", "greater-area"], output: "earthquake", requireAdjacency: true },
   { id: "thunder-prison-recipe", name: "九霄雷狱", inputs: ["storm-net", "greater-area"], output: "thunder-prison", requireAdjacency: true },
@@ -108,4 +114,10 @@ export const magicRecipeDefinitions: RecipeDefinition[] = [
   { id: "flame-elemental-recipe", name: "烈焰元素", inputs: ["ember-familiar", "greater-burn"], output: "flame-elemental", requireAdjacency: true },
   { id: "iron-guardian-recipe", name: "钢铁卫士", inputs: ["thorn-guardian", "iron-spark"], output: "iron-guardian", requireAdjacency: true },
   ...evolvedRecipes,
+  ...approvedRecipes1,
+  ...approvedRecipes2,
+  ...approvedRecipes3,
+  ...approvedRecipes4,
+  ...approvedRecipes5,
+  ...approvedRecipes6,
 ];

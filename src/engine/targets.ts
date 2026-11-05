@@ -1,3 +1,5 @@
+import { healSymbioticConstruct } from "./tactical-construct";
+import { applyTacticalHit, tacticalArmorPierce } from "./tactical-hit";
 import type { CombatEntity, GameState } from "../contracts";
 import { getMonsterSize } from "../content/monsters";
 import { nextCombatRandom } from "./random";
@@ -43,8 +45,20 @@ export function applyContactDamage(state:GameState, source: CombatEntity, target
     ...(source.sourceEntityId ? { sourceEntityId: source.sourceEntityId } : {}),
     amount, critical, sourceLuck:bounded(source.attackRoll?.sourceLuck,0,0,COMBAT_ROLL_LIMITS.maxLuck),
     effect: source.definitionId };
-  const resolved = applyResolvedDamage(target, amount, provenance, emit, { armorPierce: source.onHit?.armorPierce });
-  if (resolved > 0) applyElementalReaction(state, source, target, resolved, wasWet, emit);
+  const resolved = applyResolvedDamage(target, amount, provenance, emit, { armorPierce: tacticalArmorPierce(target, state.gameTimeMs, source.onHit?.armorPierce) });
+  if (resolved > 0) {
+    if (source.kind === "projectile" && source.manaRefund) {
+      const { amount, maxMana } = source.manaRefund;
+      delete source.manaRefund;
+      const owner = state.characters.find(character => character.id === source.sourceCharacterId);
+      if (owner && Number.isFinite(amount) && amount > 0 && Number.isFinite(maxMana) && owner.mana < maxMana) {
+        owner.mana = Math.min(maxMana, owner.mana + amount);
+      }
+    }
+    applyTacticalHit(state, source, target, resolved, provenance, emit);
+    healSymbioticConstruct(state, source, resolved, emit);
+    applyElementalReaction(state, source, target, resolved, wasWet, emit);
+  }
   const execute = source.onHit?.execute;
   const threshold = bounded(execute?.healthRatio, 0, 0, 0.5)
     * (target.definitionId.startsWith("boss-") ? bounded(execute?.bossMultiplier, 0.25, 0, 1) : 1);

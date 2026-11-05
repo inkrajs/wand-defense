@@ -1,9 +1,11 @@
-import type { AreaSpec, AttackRollStats, BeamSpec, ConstructSpec, ContentCatalog, Element, GameState, OnHitSpec, ProjectileImpact, SpellTrigger } from "../contracts";
+import type { TacticalConstructState, TacticalFlightState } from "../contracts/tactical-arcana";
+import type { AreaSpec, AttackRollStats, BeamSpec, ConstructSpec, ContentCatalog, Element, GameState, OnHitSpec, ProjectileImpact, ProjectileSteering, SpellTrigger } from "../contracts";
 import { spawnProjectiles } from "./projectiles";
 import { spawnBeams } from "./beams";
 import { spawnAreaEffects } from "./areaEffects";
 import { spawnChains } from "./chains";
 import { castRemainsSpell } from "./remains";
+import { getCharacterStats } from "../content/characters";
 import { spawnConstructs } from "./constructs";
 
 export interface CastSpec {
@@ -26,6 +28,11 @@ export interface CastSpec {
   construct?: ConstructSpec;
   position?: { x: number; y: number };
   trigger?: SpellTrigger;
+  steering?: ProjectileSteering;
+  manaRefundRatio?: number;
+  deathBurst?: number;
+  tacticalFlight?: TacticalFlightState;
+  tacticalConstruct?: TacticalConstructState;
 }
 
 type Emit = (type: string, data: Record<string, unknown>) => void;
@@ -68,11 +75,17 @@ export function castSpell(
     return impact?.type === "chain" ? spawnChains(state, characterId, { ...spec, impact, onHit, element }, emit) : false;
   }
   if (spell.effect === "projectile") {
+    const ratio = Number.isFinite(spec.manaRefundRatio) ? Math.min(.45, Math.max(0, spec.manaRefundRatio!)) : 0;
+    const ownCost = Math.max(0, spec.manaCost - (spec.trigger?.payload.manaCost ?? 0)
+      - (spec.trigger?.additionalPayload?.manaCost ?? 0));
+    const manaRefund = ratio > 0 && ownCost > 0 ? {
+      amount: ownCost * ratio, maxMana: getCharacterStats(state, characterId, content)?.final.maxMana ?? character.maxMana,
+    } : undefined;
     return spawnProjectiles(state, characterId, {
       ...spec,
       speed: spec.speed ?? spell.speed ?? 72,
       impact: spec.impact ?? spell.impact,
-      onHit, element,
+      onHit, element, manaRefund,
     }, emit);
   }
 

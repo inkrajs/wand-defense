@@ -8,7 +8,7 @@ const specificArcanaDescriptions = new Set([
   "triple", "octuple", "greater-area", "greater-burn", "greater-reach", "greater-amplify", "supreme-amplify",
 ]);
 
-const arcanaDescriptions: Readonly<Record<ArcanaDefinition["modifier"], string>> = Object.freeze({
+const arcanaDescriptions: Readonly<Partial<Record<ArcanaDefinition["modifier"], string>>> = Object.freeze({
   condense: "连接两个相同的飞弹法术，合为一发，威力为合计的80%；消耗两份法力，冷却增加25%。",
   affinity: "改变周围法术的元素威力。",
   amplify: "增强相邻法术的力量。",

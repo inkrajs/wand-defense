@@ -76,7 +76,7 @@ test('endgame spells retain their actual progression in the relevant elemental t
 });
 
 test('a boundary spell still exposes its discovered recipe in details without revealing unknown ingredients', () => {
-  const allKnown = knowledge(['depleted-round','iron-spark','railgun','static-spark'], ['pierce'], ['depleted-round-recipe','railgun-recipe']);
+  const allKnown = knowledge(['depleted-round','tungsten-core','railgun','static-spark'], ['deep-pierce'], ['depleted-round-recipe','railgun-recipe']);
   const tree = buildSkillTree(demoContent, allKnown, 'lightning');
   const boundary = tree.nodes.find(node => node.definitionId === 'depleted-round')!;
   assert.equal(boundary.boundary, true);
