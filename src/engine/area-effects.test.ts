@@ -57,6 +57,56 @@ test("meteor showers resolve separate delayed impacts on nearby enemies and obey
   assert.equal(crowded.entities.filter(entity => entity.kind === "area").length, AREA_LIMITS.perCast);
 });
 
+test("worldfall strikes with a stronger giant meteor and smaller impacts clustered around it", () => {
+  const state = battle([enemy("center", 50, 60, {hp: 500, maxHp: 500}), enemy("edge", 62, 60, {hp: 500, maxHp: 500})]);
+  const spell = demoContent.spells.worldfall;
+  state.items["spark-1"].definitionId = spell.id;
+  const { events, emit } = capture();
+  assert.equal(castSpell(state, "character-1", {itemId: "spark-1", definitionId: spell.id, power: spell.power,
+    manaCost: spell.manaCost, cooldownMs: spell.cooldownMs, range: spell.range, casts: 1}, demoContent, emit), true);
+
+  const impacts = state.entities.filter(entity => entity.kind === "area");
+  const [giant, ...fragments] = impacts;
+  assert.equal(impacts.length, 6);
+  assert.equal(giant.areaImpactRole, "primary");
+  assert.ok(fragments.every(fragment => fragment.areaImpactRole === "fragment"));
+  assert.equal(giant.area!.radius, 16.5);
+  assert.equal(giant.damage, 78);
+  assert.ok(fragments.every(fragment => fragment.area!.radius === 5.5 && fragment.damage === 26));
+  assert.ok(fragments.every(fragment => Math.hypot(fragment.x - giant.x, fragment.y - giant.y) <= 12));
+  assert.deepEqual(impacts.map(impact => impact.launchDelayMs), [800, 960, 1120, 1280, 1440, 1600]);
+
+  advanceAreaEffects(state, 799, emit);
+  assert.equal(state.entities[0].hp, 500);
+  advanceAreaEffects(state, 1, emit);
+  assert.equal(state.entities[0].hp, 422);
+  assert.equal(state.entities[1].hp, 422, "the giant impact reaches beyond a fragment's radius");
+  advanceAreaEffects(state, 160, emit);
+  assert.equal(state.entities[0].hp, 396, "the first fragment deals its own smaller hit");
+  assert.equal(events.filter(event => event.type === "areaActivated").length, 2);
+});
+
+test("composite impacts retain size scaling and obey the payload and active-area budgets", () => {
+  const state = battle([]);
+  const { emit } = capture();
+  const area = structuredClone(demoContent.spells.worldfall.area!);
+  area.radius *= 1.3; // A compiled area modifier scales both the primary and fragments.
+  assert.equal(spawnAreaEffects(state, "character-1", spec(area, {position: {x: 40, y: 40}, maxCasts: 2}), emit), true);
+  const impacts = state.entities.filter(entity => entity.kind === "area");
+  assert.equal(impacts.length, 2);
+  assert.deepEqual(impacts.map(impact => impact.areaImpactRole), ["primary", "fragment"]);
+  assert.ok(Math.abs(impacts[0].area!.radius - 21.45) < 1e-9);
+  assert.ok(Math.abs(impacts[1].area!.radius - 7.15) < 1e-9);
+  assert.deepEqual([impacts[0].x, impacts[0].y], [40, 40]);
+
+  const crowded = battle();
+  assert.equal(spawnAreaEffects(crowded, "character-1", spec(area, {burstCount: 6}), emit), true);
+  assert.equal(crowded.entities.filter(entity => entity.kind === "area").length, AREA_LIMITS.perCast);
+  const extreme = battle();
+  assert.equal(spawnAreaEffects(extreme, "character-1", spec(area, {power: Number.MAX_VALUE}), emit), true);
+  assert.ok(extreme.entities.filter(entity => entity.kind === "area").every(entity => Number.isFinite(entity.damage)));
+});
+
 test("castSpell dispatches delayed strike areas without immediate damage and respects pause", () => {
   const state = battle();
   state.items["spark-1"].definitionId = "test-area";

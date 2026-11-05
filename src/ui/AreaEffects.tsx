@@ -78,6 +78,10 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
   const mode = entity.area?.mode;
   if (mode !== "strike" && mode !== "ring" && mode !== "eruption" && mode !== "field" && mode !== "vortex") return null;
   const meteor = METEOR_SPELLS.has(entity.definitionId);
+  const primaryMeteor = meteor && entity.areaImpactRole === "primary";
+  const meteorWidth = primaryMeteor ? bounded(radiusX * 0.55, 58, 96) : entity.areaImpactRole === "fragment" ? 20 : 26;
+  const meteorHeight = primaryMeteor ? meteorWidth * 1.15 : entity.areaImpactRole === "fragment" ? 24 : 30;
+  const meteorFall = primaryMeteor ? bounded(radiusY * 2.5, 140, 360) : radiusY;
   const persistent = mode === "field" || mode === "vortex";
   const element = entity.element ?? (persistent ? demoContent.spells[entity.definitionId]?.element : undefined) ?? "neutral";
   const globalField = mode === "field" && entity.area?.anchor === "field";
@@ -103,7 +107,7 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
     "--area-swirl-angle": `${elapsedMs * 0.09}deg`,
     "--area-marker-opacity": 0.35 + windup * 0.65,
     "--area-ring-scale": 0.08 + progress * 0.92,
-    "--area-marker-y": `${-radiusY * (1 - windup)}px`,
+    "--area-marker-y": `${-meteorFall * (1 - windup) - (primaryMeteor ? meteorHeight / 2 : 0)}px`,
     "--area-spike-scale": phase === "active" ? bounded(progress * 4, 0, 1) : 0,
     "--area-spike-opacity": phase === "active" ? (1 - progress) * bounded(progress * 4, 0, 1) : 0,
     "--area-inner-spike-opacity": phase === "active" ? (1 - progress) * bounded(progress * 4, 0, 1) * 0.8 : 0,
@@ -111,12 +115,13 @@ function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVis
     "--area-spike-height": `${spikeHeight}px`,
     "--area-spike-inner-height": `${innerSpikeHeight}px`,
   } as CSSProperties;
-  return <span className={`area-effect area-effect--${mode} area-effect--${element}`} data-area-id={entity.id} data-area-mode={mode} data-area-phase={phase} data-area-coverage={globalField ? "field" : "local"} style={style}>
+  return <span className={`area-effect area-effect--${mode} area-effect--${element}`} data-area-id={entity.id} data-area-mode={mode} data-area-phase={phase} data-area-coverage={globalField ? "field" : "local"} data-area-impact-role={entity.areaImpactRole} style={style}>
     {/* Full-field damage uses sparse marks, never a viewport-sized opaque wash. */}
     {!globalField && <MagicEffectArt resolution={resolution} className="area-effect__ground" kind="field" width={radiusX * 2} height={radiusY * 2} />}
     {mode === "ring" && <MagicEffectArt resolution={resolution} className="area-effect__ring" kind="ring" width={radiusX * 2} height={radiusY * 2} />}
     {mode === "strike" && <>
-      <MagicEffectArt resolution={resolution} className={`area-effect__marker${meteor ? " area-effect__meteor" : ""}`} kind={meteor ? "rock" : "lightning"} width={meteor ? 26 : 8} height={meteor ? 30 : Math.max(34, radiusY)} />
+      {primaryMeteor && <MagicEffectArt resolution={resolution} className="area-effect__meteor-trail" kind="flame" width={meteorWidth * 1.35} height={meteorHeight * 1.55} color="#e87543" />}
+      <MagicEffectArt resolution={resolution} className={`area-effect__marker${meteor ? " area-effect__meteor" : ""}`} kind={meteor ? "rock" : "lightning"} width={meteor ? meteorWidth : 8} height={meteor ? meteorHeight : Math.max(34, radiusY)} />
       <MagicEffectArt resolution={resolution} className="area-effect__impact" kind="impact" variant="impact" width={radiusX * 2} height={radiusY * 2} />
     </>}
     {mode === "eruption" && details && <>

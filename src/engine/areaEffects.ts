@@ -154,18 +154,22 @@ export function spawnAreaEffects(
   if (pattern.length === 0) return false;
 
   const damage = Math.max(0, finite(spec.power, 0));
+  const compositeShower = area.shower && (area.shower.primaryRadiusMultiplier !== undefined
+    || area.shower.primaryPowerMultiplier !== undefined);
   const usedIds = new Set(state.entities.map(entity => entity.id));
   for (let index = 0; index < pattern.length; index++) {
     const branch = pattern[index].branch;
+    const impact = pattern[index].impact;
+    const primary = compositeShower && impact === 0;
     const target = area.mode === "ring" ? ringTarget
-      : area.mode === "strike" || area.mode === "eruption" ? groundTargets[(branch + pattern[index].impact) % groundTargets.length]
+      : area.mode === "strike" || area.mode === "eruption" ? groundTargets[(branch + (compositeShower ? 0 : impact)) % groundTargets.length]
       : initialTarget;
     let branchCenter = !spec.position && center && (area.mode === "strike" || area.mode === "eruption") && target
       ? groundPoint(target, branch, pattern[index].branches, groundTargets.length, area.radius)
       : center!;
-    if (area.mode === "strike" && area.shower && pattern[index].impact > 0 && groundTargets.length === 1) {
-      const angle = pattern[index].impact * 2.399963229728653;
-      const distance = area.shower.spread * Math.sqrt(pattern[index].impact / area.shower.count);
+    if (area.mode === "strike" && area.shower && impact > 0 && (compositeShower || groundTargets.length === 1)) {
+      const angle = impact * 2.399963229728653;
+      const distance = area.shower.spread * Math.sqrt(impact / area.shower.count);
       branchCenter = { x: clamp(branchCenter.x + Math.cos(angle) * distance, 0, 100), y: clamp(branchCenter.y + Math.sin(angle) * distance, 0, 100) };
     }
     const delayMs = Math.min(AREA_LIMITS.maxTotalLifetimeMs - 1, area.delayMs + pattern[index].delay);
@@ -175,7 +179,8 @@ export function spawnAreaEffects(
     const durationMs = Math.max(1, Math.min(durationLimit, requestedDuration, AREA_LIMITS.maxTotalLifetimeMs - delayMs));
     const resolvedArea: AreaSpec = {
       ...area,
-      radius: area.mode === "ring" ? effectRange : area.radius,
+      radius: area.mode === "ring" ? effectRange : primary
+        ? clamp(area.radius * (area.shower?.primaryRadiusMultiplier ?? 1), 0, AREA_LIMITS.maxRadius) : area.radius,
       delayMs,
       durationMs,
     };
@@ -195,7 +200,7 @@ export function spawnAreaEffects(
       y: branchCenter.y,
       hp: 1,
       maxHp: 1,
-      damage,
+      damage: primary ? Math.min(Number.MAX_VALUE, damage * (area.shower?.primaryPowerMultiplier ?? 1)) : damage,
       speed: 0,
       range: area.mode === "ring" ? effectRange
         : area.mode === "field" || area.mode === "vortex" ? area.radius : castRange,
@@ -203,6 +208,7 @@ export function spawnAreaEffects(
       attackRemainingMs: area.mode === "field" || area.mode === "vortex" ? area.tickMs ?? 400 : 0,
       remainingMs: durationMs,
       area: resolvedArea,
+      ...(compositeShower ? { areaImpactRole: primary ? "primary" as const : "fragment" as const } : {}),
       hitIds: [],
       attackRoll: spec.attackRoll ? { ...spec.attackRoll } : undefined,
       ...(spec.onHit ? { onHit: structuredClone(spec.onHit) } : {}),
@@ -312,6 +318,10 @@ function normalizeArea(area: AreaSpec): AreaSpec | undefined {
     count: Math.floor(clamp(finite(area.shower.count, 1), 1, AREA_LIMITS.perCast)),
     intervalMs: clamp(finite(area.shower.intervalMs, 250), 0, 1000),
     spread: clamp(finite(area.shower.spread, 0), 0, AREA_LIMITS.maxRadius),
+    ...(area.shower.primaryRadiusMultiplier !== undefined
+      ? { primaryRadiusMultiplier: clamp(finite(area.shower.primaryRadiusMultiplier, 1), 1, 6) } : {}),
+    ...(area.shower.primaryPowerMultiplier !== undefined
+      ? { primaryPowerMultiplier: clamp(finite(area.shower.primaryPowerMultiplier, 1), 1, 6) } : {}),
   };
   if (area.mode === "field" || area.mode === "vortex") {
     normalized.tickMs = clamp(finite(area.tickMs, 400), AREA_LIMITS.minTickMs, AREA_LIMITS.maxTickMs);

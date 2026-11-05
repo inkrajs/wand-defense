@@ -133,8 +133,9 @@ export const expandedSpellDefinitions: Record<string, SpellDefinition> = {
   worldfall: {
     id: "worldfall", name: "灭世陨石", element: "earth", fusionElements: ["fire", "earth"], shape: square(3),
     asset: asset("worldfall", "灭世陨石", "#D88756"), effect: "area",
-    power: 40, manaCost: 80, cooldownMs: 9000, range: 42,
-    area: { mode: "strike", radius: 9, delayMs: 650, durationMs: 450, maxTargets: 8, shower: { count: 8, intervalMs: 240, spread: 18 } },
+    power: 26, manaCost: 80, cooldownMs: 9000, range: 42,
+    area: { mode: "strike", radius: 5.5, delayMs: 800, durationMs: 450, maxTargets: 8,
+      shower: { count: 6, intervalMs: 160, spread: 12, primaryRadiusMultiplier: 3, primaryPowerMultiplier: 3 } },
     onHit: { burn: { powerRatio: 0.15, durationMs: 1800, tickMs: 600 } }, level: 1, grade: "common",
   },
   "ember-seed": {

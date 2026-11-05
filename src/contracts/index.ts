@@ -19,7 +19,11 @@ export interface AreaSpec {
   tickMs?: number; anchor?: "target" | "caster" | "field";
   moveSpeed?: number; pullRadius?: number; pullStrength?: number;
   /** A ground strike can release several independently resolved impacts. */
-  shower?: { count: number; intervalMs: number; spread: number };
+  shower?: {
+    count: number; intervalMs: number; spread: number;
+    /** Optional stronger first impact; subsequent impacts land around it. */
+    primaryRadiusMultiplier?: number; primaryPowerMultiplier?: number;
+  };
 }
 /** Enemy effects resolved only after a real successful contact. Durations use simulation time. */
 export interface OnHitSpec {
@@ -163,6 +167,8 @@ export interface CombatEntity {
   impact?: ProjectileImpact; hitIds?: Id[]; remainingImpacts?: number;
   beamWidth?: number; maxTargets?: number;
   area?: AreaSpec;
+  /** Identifies the real main impact and fragments of a composite area strike. */
+  areaImpactRole?: "primary" | "fragment";
   attackRoll?: AttackRollStats;
   /** Simulation-time burst scheduling and a real initial split flight segment. */
   launchDelayMs?: number; splitBranchIndex?: number; splitBranchCount?: number;

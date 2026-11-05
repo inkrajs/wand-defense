@@ -27,6 +27,12 @@ function description(definitionId: string, content: ContentCatalog = contentWith
   return enrichMagicReward(itemReward(definitionId), content).description ?? "";
 }
 
+test("worldfall describes its giant primary impact and accompanying meteors", () => {
+  assert.match(description("worldfall"), /巨型陨石以3倍威力/);
+  assert.match(description("worldfall"), /伴随5颗小流星/);
+  assert.match(description("meteor-shower-large"), /接连落下5颗陨石/);
+});
+
 test("every spell and arcana in the current catalog receives a specific non-generic description", () => {
   const ids = [...Object.keys(contentWithFieldSpells.spells), ...Object.keys(contentWithFieldSpells.arcana)];
   assert.equal(Object.keys(contentWithFieldSpells.spells).length, 65);

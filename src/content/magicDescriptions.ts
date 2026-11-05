@@ -71,7 +71,13 @@ function describeSpellBehavior(spell: SpellDefinition, content: ContentCatalog):
         : undefined;
     case "area":
       if (!spell.area) return undefined;
-      if (spell.area.mode === "strike" && spell.area.shower) return `在目标附近接连落下${spell.area.shower.count}颗陨石，分别造成范围伤害。`;
+      if (spell.area.mode === "strike" && spell.area.shower) {
+        const shower = spell.area.shower;
+        if (shower.primaryRadiusMultiplier !== undefined || shower.primaryPowerMultiplier !== undefined) {
+          return `巨型陨石以${shower.primaryPowerMultiplier ?? 1}倍威力轰击目标，伴随${Math.max(0, shower.count - 1)}颗小流星落在附近。`;
+        }
+        return `在目标附近接连落下${shower.count}颗陨石，分别造成范围伤害。`;
+      }
       if (spell.area.mode === "strike") return `${spell.name}锁定地面位置，延迟后落下攻击范围内敌人。`;
       if (spell.area.mode === "ring") return `以角色为中心扩散${spell.name}，命中周围敌人。`;
       if (spell.area.mode === "eruption") return `${spell.name}预兆后从地面刺出，攻击范围内敌人。`;

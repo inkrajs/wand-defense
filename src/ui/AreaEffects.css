@@ -45,8 +45,11 @@ html[data-game-reduce-motion="true"] .area-effect__swirl { transform: rotate(0de
 html[data-game-reduce-motion="true"] .area-effect__mote { opacity: .65; }
 @media (forced-colors: active) { .area-effect { color: Highlight; } }
 
-.area-effect__meteor { left: -13px; transform: rotate(-25deg); }
-.area-effect[data-area-phase="active"] .area-effect__meteor { opacity: 0; }
+.area-effect__meteor { left: 0; transform: translateX(-50%) rotate(-25deg); }
+.area-effect__meteor-trail { position: absolute; left: 0; top: var(--area-marker-y); opacity: var(--area-marker-opacity); transform: translate(-50%, -38%) rotate(-25deg); }
+.area-effect[data-area-phase="active"] .area-effect__meteor, .area-effect[data-area-phase="active"] .area-effect__meteor-trail { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .area-effect__meteor-trail { display: none; } }
+html[data-game-reduce-motion="true"] .area-effect__meteor-trail { display: none; }
 
 /* Full-field borders stay sparse and translucent so the battle remains readable. */
 .area-field-frame { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; color: var(--area-field-pigment, #a1d3c0); }
