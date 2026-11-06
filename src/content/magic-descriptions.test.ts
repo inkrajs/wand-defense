@@ -149,8 +149,8 @@ test("area spell copy follows strike, expanding ring and ground eruption timing"
 });
 
 test("field spells describe periodic hits, screen-wide weather and moving vortex behavior", () => {
-  assert.equal(description("fire-field-bolt"), "发射火场弹，命中后展开持续领域，周期伤害附近敌人。");
-  assert.equal(description("thunder-field-bolt"), "发射雷场弹，命中或飞抵射程后展开持续领域，周期伤害附近敌人。");
+  assert.equal(description("fire-field-bolt"), "发射焰域弹，命中后展开持续领域，周期伤害附近敌人。");
+  assert.equal(description("thunder-field-bolt"), "发射雷域弹，命中或飞抵射程后展开持续领域，周期伤害附近敌人。");
   assert.equal(description("thunderstorm"), "雷暴覆盖屏内全域，持续周期伤害敌人。");
   assert.equal(description("moving-storm"), "风暴移动牵引周围敌人，持续造成周期伤害。");
   for (const id of ["fire-field-bolt", "thunder-field-bolt", "thunderstorm", "moving-storm"]) {

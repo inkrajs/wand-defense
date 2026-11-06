@@ -34,7 +34,7 @@ function assertSquareShape(spell: SpellDefinition, size: number): void {
 test("fire-field-bolt creates a contact-triggered periodic fire field", () => {
   const spell = fieldSpellDefinitions["fire-field-bolt"];
   assertCommonDefinition(spell);
-  assert.equal(spell.name, "火场弹");
+  assert.equal(spell.name, "焰域弹");
   assert.equal(spell.element, "fire");
   assert.equal(spell.effect, "projectile");
   assert.deepEqual([spell.power, spell.manaCost, spell.cooldownMs, spell.range, spell.speed], [6, 12, 2400, 30, 60]);
@@ -42,13 +42,13 @@ test("fire-field-bolt creates a contact-triggered periodic fire field", () => {
   assert.deepEqual(spell.impact, {
     type: "field", radius: 6, durationMs: 2400, tickMs: 400, maxTargets: 5, trigger: "contact",
   });
-  assert.equal(spellDescription(spell.id), "发射火场弹，命中后展开持续领域，周期伤害附近敌人。");
+  assert.equal(spellDescription(spell.id), "发射焰域弹，命中后展开持续领域，周期伤害附近敌人。");
 });
 
 test("thunder-field-bolt triggers its periodic lightning field on contact or range", () => {
   const spell = fieldSpellDefinitions["thunder-field-bolt"];
   assertCommonDefinition(spell);
-  assert.equal(spell.name, "雷场弹");
+  assert.equal(spell.name, "雷域弹");
   assert.equal(spell.element, "lightning");
   assert.equal(spell.effect, "projectile");
   assert.deepEqual([spell.power, spell.manaCost, spell.cooldownMs, spell.range, spell.speed], [7, 14, 2600, 34, 85]);
@@ -56,7 +56,7 @@ test("thunder-field-bolt triggers its periodic lightning field on contact or ran
   assert.deepEqual(spell.impact, {
     type: "field", radius: 5, durationMs: 2000, tickMs: 400, maxTargets: 6, trigger: "either",
   });
-  assert.equal(spellDescription(spell.id), "发射雷场弹，命中或飞抵射程后展开持续领域，周期伤害附近敌人。");
+  assert.equal(spellDescription(spell.id), "发射雷域弹，命中或飞抵射程后展开持续领域，周期伤害附近敌人。");
 });
 
 test("thunderstorm is a fixed center field covering the whole screen", () => {

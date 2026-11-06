@@ -7,15 +7,15 @@ const square = (size: number) => Array.from({ length: size * size }, (_, index) 
 /** Persistent projectile fields and caster-centered weather effects. */
 export const fieldSpellDefinitions: Record<string, SpellDefinition> = {
   "fire-field-bolt": {
-    id: "fire-field-bolt", name: "火场弹", element: "fire", shape: square(2),
-    asset: asset("fire-field-bolt", "火场弹", "#ed6842"), effect: "projectile",
+    id: "fire-field-bolt", name: "焰域弹", element: "fire", shape: square(2),
+    asset: asset("fire-field-bolt", "焰域弹", "#ed6842"), effect: "projectile",
     power: 6, manaCost: 12, cooldownMs: 2400, range: 30, speed: 60,
     impact: { type: "field", radius: 6, durationMs: 2400, tickMs: 400, maxTargets: 5, trigger: "contact" },
     level: 1, grade: "common",
   },
   "thunder-field-bolt": {
-    id: "thunder-field-bolt", name: "雷场弹", element: "lightning", shape: square(2),
-    asset: asset("thunder-field-bolt", "雷场弹", "#a993dd"), effect: "projectile",
+    id: "thunder-field-bolt", name: "雷域弹", element: "lightning", shape: square(2),
+    asset: asset("thunder-field-bolt", "雷域弹", "#a993dd"), effect: "projectile",
     power: 7, manaCost: 14, cooldownMs: 2600, range: 34, speed: 85,
     impact: { type: "field", radius: 5, durationMs: 2000, tickMs: 400, maxTargets: 6, trigger: "either" },
     level: 1, grade: "common",

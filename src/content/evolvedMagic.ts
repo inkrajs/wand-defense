@@ -131,13 +131,13 @@ export const evolvedArcana: Record<string, ArcanaDefinition> = {
   oxidation: affinity("oxidation", "氧化", { metal: .22 }, true),
   reduction: affinity("reduction", "还原", { fire: .24, metal: .24, wood: -.24 }, true),
   "root-feed": affinity("root-feed", "滋养", { wood: .3, fire: -.15 }),
-  "arc-coil": affinity("arc-coil", "感应线圈", { lightning: .25, metal: .25, earth: -.15 }),
+  "arc-coil": affinity("arc-coil", "雷磁符", { lightning: .25, metal: .25, earth: -.15 }),
   condense: {
     id: "condense", name: "凝聚", shape: row(1), asset: { key: "arcana.condense", label: "凝聚", color: "#eaa575" },
     modifier: "condense", value: .8, level: 1, grade: "common", rewardMinWave: 12,
   },
   "range-trigger": {
-    id: "range-trigger", name: "终点触发", shape: row(1), asset: { key: "arcana.range-trigger", label: "终点触发", color: "#b29ad1" },
+    id: "range-trigger", name: "末程符", shape: row(1), asset: { key: "arcana.range-trigger", label: "末程符", color: "#b29ad1" },
     modifier: "rangeTrigger", value: 1, level: 1, grade: "common", rewardMinWave: 8,
   },
   "rapid-cycle": {

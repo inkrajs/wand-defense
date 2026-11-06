@@ -187,8 +187,8 @@ export const expandedSpellDefinitions: Record<string, SpellDefinition> = {
     onHit: { slow: { multiplier: 0.8, durationMs: 900 } }, level: 1, grade: "common",
   },
   "conductive-tide": {
-    id: "conductive-tide", name: "导电潮", element: "lightning", fusionElements: ["water", "lightning"], shape: square(2),
-    asset: asset("conductive-tide", "导电潮", "#7AB9D5"), effect: "chain", power: 12, manaCost: 20, cooldownMs: 2400, range: 32,
+    id: "conductive-tide", name: "鸣潮", element: "lightning", fusionElements: ["water", "lightning"], shape: square(2),
+    asset: asset("conductive-tide", "鸣潮", "#7AB9D5"), effect: "chain", power: 12, manaCost: 20, cooldownMs: 2400, range: 32,
     impact: { type: "chain", radius: 16, maxTargets: 4, falloff: 0.75 },
     onHit: { slow: { multiplier: 0.8, durationMs: 900 } }, level: 1, grade: "common",
   },

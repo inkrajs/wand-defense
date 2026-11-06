@@ -62,8 +62,17 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
   state.runStatistics = restoreRunStatistics(state, content);
   state.rewardRefresh = normalizeRewardRefresh(state.rewardRefresh, state.wave);
   // Refresh presentation of already-offered cards without drawing new rewards.
-  state.rewards=state.rewards.map(reward=>enrichMagicReward(reward.kind === "buff" && reward.effect?.type === "luck"
-    ? {...reward,description:rewardLuckDescription} : reward,content));
+  state.rewards = state.rewards.map(reward => {
+    if (reward.kind === "buff" && reward.effect?.type === "luck") {
+      return {...reward, description: rewardLuckDescription};
+    }
+    const refreshed = enrichMagicReward(reward, content);
+    if (reward.kind !== "item" || !reward.definitionId) return refreshed;
+    const id = reward.definitionId;
+    if (Object.hasOwn(content.spells, id)) refreshed.label = content.spells[id].name;
+    else if (Object.hasOwn(content.arcana, id)) refreshed.label = content.arcana[id].name;
+    return refreshed;
+  });
   // Repair only legacy duplicate offers. Existing distinct choices and their IDs stay stable.
   if (state.phase === "reward" && new Set(state.rewards.map(getRewardOfferKey)).size < state.rewards.length) {
     state.rewards=fillUniqueRewardOffers(state.rewards,{

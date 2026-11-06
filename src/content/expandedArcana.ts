@@ -120,13 +120,13 @@ export const expandedArcana: Record<string, ArcanaDefinition> = {
     modifier: "precision", value: 0.1, level: 1, grade: "common",
   },
   "hit-trigger": {
-    id: "hit-trigger", name: "命中触发", shape: [cell(0, 0)],
-    asset: { key: "arcana.hit-trigger", label: "命中触发", color: "#D39C61" },
+    id: "hit-trigger", name: "击发符", shape: [cell(0, 0)],
+    asset: { key: "arcana.hit-trigger", label: "击发符", color: "#D39C61" },
     modifier: "hitTrigger", value: 1, level: 1, grade: "common",
   },
   "timer-trigger": {
-    id: "timer-trigger", name: "定时触发", shape: [cell(0, 0)],
-    asset: { key: "arcana.timer-trigger", label: "定时触发", color: "#9D86C9" },
+    id: "timer-trigger", name: "刻时符", shape: [cell(0, 0)],
+    asset: { key: "arcana.timer-trigger", label: "刻时符", color: "#9D86C9" },
     modifier: "timerTrigger", value: 500, level: 1, grade: "common",
   },
   "short-reach": {
