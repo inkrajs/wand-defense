@@ -28,9 +28,9 @@ test("attribute rewards change actual mana, regeneration, range and cooldown and
   }
 });
 
-test("new teammates inherit run mana bonuses and cooldown reduction stops at seventy percent",()=>{
+test("new teammates inherit run mana bonuses and cooldown reduction stops at ninety percent",()=>{
   const checkpoint=createGameRuntime().checkpoint();checkpoint.state.phase="reward";
-  checkpoint.state.runBonuses={attackPercent:20,maxMana:30,manaRegen:4,cooldownPercent:65};
+  checkpoint.state.runBonuses={attackPercent:20,maxMana:30,manaRegen:4,cooldownPercent:85};
   checkpoint.state.characters[0].maxMana=130;checkpoint.state.characters[0].mana=100;checkpoint.state.characters[0].manaRegen=16;
   checkpoint.state.rewards=[{id:"recruit",kind:"character",label:"同行者"}];
   const runtime=createGameRuntime(demoContent,checkpoint);
@@ -38,7 +38,7 @@ test("new teammates inherit run mana bonuses and cooldown reduction stops at sev
   assert.equal(runtime.getState().characters[1].maxMana,130);assert.equal(runtime.getState().characters[1].manaRegen,16);
   const next=runtime.checkpoint();next.state.phase="reward";next.state.rewards=[{id:"cooldown",kind:"buff",label:"冷却",effect:{type:"cooldownPercent",value:15}}];
   const cap=createGameRuntime(demoContent,next);cap.dispatch({id:"reduce",type:"claimReward",rewardId:"cooldown"});
-  assert.equal(cap.getState().runBonuses!.cooldownPercent,70);assert.equal(cap.getState().runBonuses!.attackPercent,20);
+  assert.equal(cap.getState().runBonuses!.cooldownPercent,90);assert.equal(cap.getState().runBonuses!.attackPercent,20);
 });
 
 test("reward RNG belongs to the checkpoint and browser restarts can take fresh seeds",()=>{

@@ -32,7 +32,7 @@ export function projectContent(state: GameState, catalog?: ContentCatalog) {
   const known = new Set([...k.spellIds, ...k.arcanaIds]);
   return {
     spellIds: [...k.spellIds], arcanaIds: [...k.arcanaIds],
-    gearIds:[...(k.gearIds??[])],itemIds:[...(k.itemIds??[])],
+    gearIds:[...(k.gearIds??[])],itemIds:[...(k.itemIds??[])],wandIds:[...(k.wandIds??[])],
     gear:catalog?(k.gearIds??[]).flatMap(id=>Object.hasOwn(catalog.gear??{},id)?[structuredClone(catalog.gear![id])]:[]):[],
     items:catalog?(k.itemIds??[]).flatMap(id=>Object.hasOwn(catalog.items??{},id)?[structuredClone(catalog.items![id])]:[]):[],
     recipeIds: [...k.recipeIds], sequenceIds: [...k.sequenceIds],
@@ -91,6 +91,7 @@ export function projectState(state: GameState, catalog?: ContentCatalog) {
     wands:state.wands.map(w=>({...structuredClone(w),statBonuses:projectStatBonuses(w.statBonuses),placements:w.placements.filter(p=>!!items[p.itemId]).map(p=>({...p})),
       cooldowns:Object.fromEntries(Object.entries(w.cooldowns).filter(([id])=>!!items[id]))})),
     items,backpack:state.backpack.filter(id=>!!items[id]),
+    groundLoot:(state.groundLoot??[]).map(loot=>({id:loot.id,kind:loot.kind,x:loot.x,y:loot.y,grade:loot.instance.grade})),
     gear:Object.fromEntries(Object.entries(state.gear??{}).filter(([id,gear])=>gear.id===id&&(gear.definitionId
       ?knownGear.has(gear.definitionId):state.characters.some(character=>Object.values(character.gearIds??{}).includes(id))))
       .map(([id,gear])=>[id,{id:gear.id,definitionId:gear.definitionId,name:gear.name,slot:gear.slot,characterId:gear.characterId,
@@ -136,18 +137,18 @@ const publicEventTypes = new Set(['waveStarted','waveCleared','enemyKilled','ter
   'wave.started','wave.cleared','enemy.killed','territory.damaged','reward.claimed','spell.cast',
   'reward.offered','reward.refreshed','pause.changed','backpack.changed','cheats.unlocked','cheats.changed','cheat.executed',
   'damage','heal','spawn','despawn','playerLevelUp','player.levelReward','enemyAttacked','territoryAttacked','bossSpawned','enemySpawned',
-  'loadout.placed','loadout.removed','loadout.merged','loadout.equipped','game.restarted','wandUnequipped','wandCleared','itemDiscarded','wandDiscarded','gearEquipped','gearUnequipped','gearDiscarded','itemUsed','supplyDiscarded','lootGranted','speed.changed',
+  'loadout.placed','loadout.removed','loadout.merged','loadout.equipped','game.restarted','wandUnequipped','wandCleared','itemDiscarded','wandDiscarded','gearEquipped','gearUnequipped','gearDiscarded','itemUsed','supplyDiscarded','lootGranted','lootSpawned','lootCollected','speed.changed',
   'projectileSpawned','projectileExpired','beamSpawned','chainArc','areaSpawned','areaActivated','areaPulse','fieldTriggered','shieldRestored','attackMiss','itemsMerged','territoryUpgraded','territoryRepaired','territoryRecoveryUpgraded','characterLevelUp','character.levelReward','game.revived',
   'statusApplied','statusExpired','knockback','construct.deployed','constructSpawned','constructExpired','constructDestroyed','constructAttacked','constructHealed','constructDamaged','constructDied']);
 const numericFields = new Set(['wave','amount','count','damage','hp','maxHp','coins','xp','level','previousLevel','cost','paidCount','freeRemaining','increase','rate','beamWidth','radius','delayMs','durationMs','remainingMs','multiplier','distance','tickMs','tickRemainingMs','x','y','originX','originY','targetX','targetY','territoryHp','territoryShield','shieldAbsorbed','hpDamage','bossTier','speed']);
 const idFields = new Set(['itemId','gearId','replacedGearId','instanceId','wandId','characterId','xpCharacterId','entityId','targetId','sourceItemId','targetItemId','projectileId','beamId','chainId','areaId','rewardId','commandId','sourceCharacterId','sourceEntityId','enemyId','outputItemId','fromCharacterId','gameId']);
 export function projectEvents(state: GameState, events: GameEvent[]): GameEvent[] {
-  const known = new Set([...state.knowledge.spellIds,...state.knowledge.arcanaIds,...state.knowledge.recipeIds,...state.knowledge.sequenceIds,...(state.knowledge.gearIds??[]),...(state.knowledge.itemIds??[])]);
+  const known = new Set([...state.knowledge.spellIds,...state.knowledge.arcanaIds,...state.knowledge.recipeIds,...state.knowledge.sequenceIds,...(state.knowledge.gearIds??[]),...(state.knowledge.itemIds??[]),...(state.knowledge.wandIds??[])]);
   return events.map(event=>{
     const data: Record<string,unknown> = {};
     if (publicEventTypes.has(event.type)) for (const [key,value] of Object.entries(event.data)) {
       if (numericFields.has(key) && typeof value === 'number' && Number.isFinite(value)) data[key]=value;
-      else if (idFields.has(key) && typeof value === 'string') data[key]=value;
+      else if ((idFields.has(key) || (key === 'id' && (event.type === 'lootSpawned' || event.type === 'lootCollected'))) && typeof value === 'string') data[key]=value;
       else if (key === 'statusId' && typeof value === 'string'
         && (typeof event.data.effect !== 'string' || known.has(event.data.effect))) data[key]=value;
       else if (key === 'statusType' && ['slow','burn','knockback'].includes(String(value))) data[key]=value;
@@ -157,19 +158,19 @@ export function projectEvents(state: GameState, events: GameEvent[]): GameEvent[
       else if (key === 'track' && (value === 'wall' || value === 'shield')) data[key]=value;
       else if(key==='slot'&&['head','body','feet','accessory'].includes(String(value)))data[key]=value;
       else if(key==='effectType'&&['territoryHeal','territoryShield','partyMana','territoryRestore','partyManaPercent','cooldownAdvance','territoryHealPercent','territoryShieldPercent'].includes(String(value)))data[key]=value;
-      else if(key==='kind'&&['gear','item','summon','building'].includes(String(value)))data[key]=value;
+      else if(key==='kind'&&['gear','item','wand','summon','building'].includes(String(value)))data[key]=value;
       else if(key==='behavior'&&['attack','heal','shield'].includes(String(value)))data[key]=value;
       else if(key==='attackMode'&&['contact','projectile'].includes(String(value)))data[key]=value;
       else if(key==='mode'&&['strike','ring','eruption','field','vortex'].includes(String(value)))data[key]=value;
       else if(key==='trigger'&&['contact','range','either'].includes(String(value)))data[key]=value;
-      else if (key === 'reason' && typeof value === 'string' && ['timeout','targetLost','invalidPosition','outOfBounds','lifetime','damage'].includes(value)) data[key]=value;
+      else if (key === 'reason' && typeof value === 'string' && ['timeout','targetLost','invalidPosition','outOfBounds','lifetime','damage','pickup','waveClear'].includes(value)) data[key]=value;
       else if (['definitionId','spellId','recipeId','sequenceId','effect'].includes(key) && typeof value === 'string' && known.has(value)) data[key]=value;
     }
     return {seq:event.seq,gameTimeMs:event.gameTimeMs,type:publicEventTypes.has(event.type)?event.type:'stateChanged',data};
   });
 }
 const commandSchemas = {
-  startWave:{},deployConstruct:{characterId:'own character id',itemId:'equipped known summon/building spell id',x:'finite 0..100 world coordinate',y:'finite 0..100 world coordinate'},restart:{},setPaused:{paused:'boolean'},setSpeed:{speed:'0.25|0.5|0.75|1|2|3|5'},setBackpack:{open:'boolean'},
+  startWave:{},pickupLoot:{lootId:'visible ground loot id'},deployConstruct:{characterId:'own character id',itemId:'equipped known summon/building spell id',x:'finite 0..100 world coordinate',y:'finite 0..100 world coordinate'},restart:{},setPaused:{paused:'boolean'},setSpeed:{speed:'0.25|0.5|0.75|1|2|3|5'},setBackpack:{open:'boolean'},
   upgradeTerritory:{track:'wall|shield'},repairTerritory:{track:'wall|shield'},upgradeTerritoryRecovery:{track:'wall|shield'},
   placeItem:{wandId:'id',itemId:'id',x:'integer',y:'integer',rotation:'0|1|2|3'},
   removeItem:{wandId:'id',itemId:'id'},mergeRecipe:{wandId:'id',recipeId:'known recipe id',itemIds:'id[]'},

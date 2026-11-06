@@ -1,0 +1,11 @@
+.ground-loot { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.ground-loot__item { position: absolute; width: 44px; height: 44px; padding: 2px; border: 0; background: transparent; transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; touch-action: none; }
+.ground-loot__item:focus-visible { outline: 2px solid var(--inkra-focus); outline-offset: 2px; border-radius: 8px; }
+.ground-loot__art { position: relative; display: grid; place-items: center; width: 100%; height: 100%; color: var(--loot-grade); }
+.ground-loot__surface { position: absolute !important; inset: 1px; color: var(--loot-grade); background: var(--inkra-paper); border-radius: 8px; }
+.ground-loot__icon { position: relative; display: grid; place-items: center; width: 100%; height: 100%; }
+.ground-loot__flights { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
+.ground-loot__flight { position: absolute; display: block; width: 40px; height: 40px; margin: -20px; animation: ground-loot-fly 550ms cubic-bezier(.32,.08,.55,1) var(--loot-delay, 0ms) both; }
+@keyframes ground-loot-fly { from { transform: translate(0, 0) scale(1); opacity: 1; } to { transform: translate(var(--loot-dx), var(--loot-dy)) scale(.12); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ground-loot__flight { animation-duration: 1ms; animation-delay: 0ms; } }
+html[data-game-reduce-motion='true'] .ground-loot__flight { animation-duration: 1ms; animation-delay: 0ms; }

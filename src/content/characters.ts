@@ -301,7 +301,7 @@ export function getCharacterStats(
       projectileSpeedPercent,
       projectileSpeedMultiplier: 1 + projectileSpeedPercent / 100,
       castSpeedPercent,
-      cooldownMultiplier: boundedResult(1 / (1 + castSpeedPercent / 100) * (1 - clamp(run.cooldownPercent, 0, 70) / 100)),
+      cooldownMultiplier: boundedResult(1 / (1 + castSpeedPercent / 100) * (1 - clamp(run.cooldownPercent, 0, 90) / 100)),
       accuracy: clamp(base.accuracy + equipment.accuracy, 0, 1),
       critChance: clamp(base.critChance + equipment.critChance, 0, 1),
       critMultiplier: clamp(base.critMultiplier + equipment.critMultiplier, 1, 10),

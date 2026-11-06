@@ -2,6 +2,8 @@
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .game-shell { --game-board-space: 0px; --inventory-page-rows: 5; --inventory-content-offset: calc(48px + var(--game-hud-inset) - 4px); --inventory-space: calc(var(--inventory-page-rows) * 48px + var(--inventory-content-offset) + 8px + 2 * var(--game-hud-inset)); --game-inventory-space: var(--inventory-space); --game-hero-size: 64px; --game-hud-row-height: 44px; --game-defense-bottom: calc(var(--game-hud-inset) + var(--game-hud-row-height) / 2 + var(--game-hero-size) / 2 + 12px); --game-motion-duration: 280ms; --game-motion-ease: cubic-bezier(.22,1,.36,1); --game-hud-inset: max(var(--inkra-space-3), env(safe-area-inset-top), env(safe-area-inset-right), env(safe-area-inset-bottom), env(safe-area-inset-left)); position: relative; isolation: isolate; width: 100%; height: 100vh; height: 100dvh; overflow: hidden; color: var(--inkra-ink); font-family: var(--inkra-font-body); background: var(--inkra-paper); }
 .game-shell *, .game-shell *::before, .game-shell *::after { box-sizing: border-box; }
+/* A translated, focused detail panel must not scroll the entire game viewport. */
+.game-shell { overflow: clip; }
 /* Center the authored, unrotated canvas in the rotation-aware icon frame.
    The icon module owns rotation; this only centers its pre-rotation canvas so
    quarter turns keep the visible bounds aligned with the inventory item. */

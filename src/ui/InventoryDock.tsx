@@ -11,6 +11,7 @@ import { carryMergeLayout, hasMeasuredInventoryWidth, projectInventoryLayout, re
 import { AssetImage, resolveAsset } from "./assets";
 import { getWandDetailLabel, WandPreview } from "./WandMiniatures";
 import { WandActions } from "./WandBoard";
+import { getWandRecipeMaterialIds } from "./WandRecipeConfirmation";
 import { fitWandSlots } from "./wandSizing";
 import { FittedWand } from "./FittedWand";
 import { useMagicInspectGesture } from "./useMagicInspectGesture";
@@ -171,19 +172,29 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     return () => { observer.disconnect(); window.removeEventListener("resize", reportHeight); };
   }, [activeCharacterId, category, showWands, showLoadout, onWandAreaHeightChange]);
   useLayoutEffect(() => {
-    if (!showLoadout || category !== "equipment") { setLoadoutTargets([]); return; }
-    const targets = Array.from(document.querySelectorAll<HTMLElement>("[data-character-wand-slot]"));
-    setLoadoutTargets(targets);
-  }, [activeCharacterId, category, showLoadout]);
-  useLayoutEffect(() => {
-    if (!showLoadout || category !== "items") { setGearTargets({}); return; }
-    const targets = Array.from(document.querySelectorAll<HTMLElement>("[data-character-gear-slot]"));
-    const mapped: Partial<Record<GearSlot, HTMLElement>> = {};
-    for (const target of targets) {
-      const slot = target.dataset.characterGearSlot as GearSlot | undefined;
-      if (slot === "head" || slot === "body" || slot === "feet" || slot === "accessory") mapped[slot] = target;
+    if (!showLoadout || (category !== "equipment" && category !== "items")) {
+      setLoadoutTargets(previous => previous.length ? [] : previous);
+      setGearTargets(previous => Object.keys(previous).length ? {} : previous);
+      return;
     }
-    setGearTargets(mapped);
+    // The character page is lazy-loaded and its active tab can mount after this dock.
+    // Observe its stable host so portal targets are discovered both now and after mount.
+    const host = document.getElementById("character-panel") ?? document.querySelector(".game-shell");
+    if (!host) return;
+    const syncTargets = () => {
+      const wands = category === "equipment" ? Array.from(host.querySelectorAll<HTMLElement>("[data-character-wand-slot]")) : [];
+      const gears: Partial<Record<GearSlot, HTMLElement>> = {};
+      if (category === "items") for (const target of host.querySelectorAll<HTMLElement>("[data-character-gear-slot]")) {
+        const slot = target.dataset.characterGearSlot as GearSlot | undefined;
+        if (slot === "head" || slot === "body" || slot === "feet" || slot === "accessory") gears[slot] = target;
+      }
+      setLoadoutTargets(previous => previous.length === wands.length && previous.every((node, index) => node === wands[index]) ? previous : wands);
+      setGearTargets(previous => (["head", "body", "feet", "accessory"] as const).every(slot => previous[slot] === gears[slot]) ? previous : gears);
+    };
+    syncTargets();
+    const observer = new MutationObserver(syncTargets);
+    observer.observe(host, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, [activeCharacterId, category, showLoadout]);
   const [result, setResult] = useState<CommandResult | null>(null);
   const [selectedSupplyId, setSelectedSupplyId] = useState<string | null>(null);
@@ -194,6 +205,9 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
   const inventoryGridHandle = useRef<InventoryGridHandle>(null);
   const dragging = useRef(false);
   const lastDragEnd = useRef(-Infinity);
+  const touchGesture = useRef<{ pointerId: number; itemId: string; containerId: string; x: number; y: number; started: number; moved: boolean } | null>(null);
+  const lastTouchTap = useRef<{ itemId: string; x: number; y: number; time: number } | null>(null);
+  const lastTouchEquip = useRef(-Infinity);
   const inspectHandlers = useMagicInspectGesture(state, onInspectMagic ? itemId => {
     if (dragging.current) return;
     onInspectMagic(itemId);
@@ -203,6 +217,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
   const [mergeEventCursor, setMergeEventCursor] = useState(state.nextEventSeq);
   const primaryCharacter = state.characters.find((character) => character.id === activeCharacterId) ?? state.characters[0];
   const activeWands = useMemo(() => state.wands.filter(entry => entry.characterId === primaryCharacter?.id && primaryCharacter.wandIds.includes(entry.id)), [primaryCharacter, state.wands]);
+  const recipeMaterials = useMemo(() => getWandRecipeMaterialIds(state, activeWands), [state, activeWands]);
   const wandFit = fitWandSlots(availableWidth, activeWands, GRID_CELL_SIZE);
 
   const spellItems = useMemo(() => state.backpack.flatMap(id => state.items[id] ? [makeGridItem(state.items[id], { x: 0, y: 0 })] : []), [state.backpack, state.items]);
@@ -440,7 +455,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
             ? <MagicPresentationIcon definitionId={item.definitionId} size={GRID_CELL_SIZE * Math.max(1, ...iconDefinition.shape.map(cell => Math.max(cell.x + 1, cell.y + 1)))} rotation={renderState.rotation} seed={`inventory-${item.definitionId}`} />
             : <AssetImage asset={resolveAsset(definitionFor(item)?.asset, { label: item.label ?? item.id, icon: item.kind === "spell" ? "✦" : "◇" })} />;
       const iconBox = <span className={`inventory-dock__item-icon${iconDefinition ? " inventory-dock__item-icon--magic" : ""}`} aria-hidden="true">{icon}</span>;
-      return <span className="inventory-dock__item" data-kind={item.kind} data-combine-target={renderState.combineTarget || undefined}>
+      return <span className="inventory-dock__item" data-kind={item.kind} data-combine-target={renderState.combineTarget || undefined} data-wand-recipe-ready={!renderState.dragging && recipeMaterials.has(item.id) || undefined}>
         {iconDefinition ? <MagicItemTooltip label={label}>{iconBox}</MagicItemTooltip> : iconBox}
         {!iconDefinition && <PencilText className="inventory-dock__item-label" as="span" seed="inventory-item-label">{String(item.label)}</PencilText>}
       </span>;
@@ -574,33 +589,63 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     {category === "supplies" && selectedSupplyId && supplyItems.some(item => item.id === selectedSupplyId) && <Button type="button" size="icon" variant="outline" className="inventory-dock__use-selected-supply" aria-label="使用选中道具" title="使用选中道具" disabled={gridProps.disabled} onClick={() => { setResult(dispatch({ id: commandId(), type: "useItem", itemId: selectedSupplyId })); setSelectedSupplyId(null); }}><PencilIcon paths={categoryIcons.supplies} sourceSize={24} size={24} seed="inventory-use-selected-supply" decorative /></Button>}
   </nav>;
 
-  function equipOnDoubleClick(event: React.MouseEvent<HTMLElement>) {
-    if (!primaryCharacter || gridProps.disabled || dragging.current || performance.now() - lastDragEnd.current < 500) return;
-    const target = event.target as HTMLElement;
-    if (target.closest("button, a, input, select, textarea")) return;
-    const itemNode = target.closest<HTMLElement>("[data-inventory-item]");
-    const container = itemNode?.closest<HTMLElement>("[data-inventory-container]");
-    if (!itemNode || itemNode.getAttribute("aria-disabled") === "true" || !container) return;
-    const itemId = itemNode.dataset.inventoryItem;
+  function equipStoredItem(itemId: string, containerId: string) {
+    if (!primaryCharacter || gridProps.disabled || dragging.current || performance.now() - lastDragEnd.current < 500) return false;
     let command: Command | undefined;
-    if (category === "equipment" && isStorageContainer(container.dataset.inventoryContainer ?? "", "equipment-backpack")) {
+    if (category === "equipment" && isStorageContainer(containerId, "equipment-backpack")) {
       const wand = state.wands.find(entry => entry.id === itemId && entry.characterId === null);
       if (wand) {
         const slot: 0 | 1 = primaryCharacter.wandIds[0] ? (primaryCharacter.wandIds[1] ? 0 : 1) : 0;
         command = { id: commandId(), type: "equipWand", wandId: wand.id, characterId: primaryCharacter.id, slot };
       }
-    } else if (category === "items" && isStorageContainer(container.dataset.inventoryContainer ?? "", "gear-backpack")) {
-      const gear = itemId ? state.gear?.[itemId] : undefined;
+    } else if (category === "items" && isStorageContainer(containerId, "gear-backpack")) {
+      const gear = state.gear?.[itemId];
       if (gear && gear.characterId === null) command = { id: commandId(), type: "equipGear", gearId: gear.id, characterId: primaryCharacter.id };
     }
-    if (!command) return;
-    event.preventDefault();
-    event.stopPropagation();
+    if (!command) return false;
     inventoryGridHandle.current?.cancelDrag();
     const response = dispatch(command);
     setResult(response.status === "rejected" ? response : null);
+    return true;
   }
-  return <section className="inventory-dock" {...inspectHandlers} onDoubleClickCapture={equipOnDoubleClick} onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-supply-selection={category === "supplies" && Boolean(selectedSupplyId && supplyItems.some(item => item.id === selectedSupplyId)) ? "true" : undefined} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": pageRows } as React.CSSProperties}>
+  function storedTarget(target: EventTarget | null) {
+    if (!(target instanceof Element) || target.closest("button, a, input, select, textarea")) return undefined;
+    const item = target.closest<HTMLElement>("[data-inventory-item]");
+    const container = item?.closest<HTMLElement>("[data-inventory-container]");
+    if (!item || item.getAttribute("aria-disabled") === "true" || !item.dataset.inventoryItem || !container?.dataset.inventoryContainer) return undefined;
+    return { itemId: item.dataset.inventoryItem, containerId: container.dataset.inventoryContainer };
+  }
+  function equipOnDoubleClick(event: React.MouseEvent<HTMLElement>) {
+    if (performance.now() - lastTouchEquip.current < 800) return;
+    const target = storedTarget(event.target);
+    if (!target || !equipStoredItem(target.itemId, target.containerId)) return;
+    event.preventDefault(); event.stopPropagation();
+  }
+  function onTouchStart(event: React.PointerEvent<HTMLElement>) {
+    inspectHandlers.onPointerDownCapture(event);
+    if (event.pointerType !== "touch" || !event.isPrimary) return;
+    const target = storedTarget(event.target);
+    const valid = target && ((category === "items" && isStorageContainer(target.containerId, "gear-backpack")) || (category === "equipment" && isStorageContainer(target.containerId, "equipment-backpack")));
+    touchGesture.current = valid ? { ...target, pointerId: event.pointerId, x: event.clientX, y: event.clientY, started: performance.now(), moved: false } : null;
+  }
+  function onTouchMove(event: React.PointerEvent<HTMLElement>) {
+    const current = touchGesture.current;
+    if (current && current.pointerId === event.pointerId && Math.hypot(event.clientX - current.x, event.clientY - current.y) >= 6) current.moved = true;
+  }
+  function onTouchEnd(event: React.PointerEvent<HTMLElement>) {
+    const current = touchGesture.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    touchGesture.current = null;
+    const now = performance.now();
+    const target = storedTarget(event.target);
+    if (current.moved || now - current.started >= 180 || !target || target.itemId !== current.itemId || dragging.current) { lastTouchTap.current = null; return; }
+    const previous = lastTouchTap.current;
+    if (previous && previous.itemId === current.itemId && now - previous.time <= 350 && Math.hypot(event.clientX - previous.x, event.clientY - previous.y) < 24) {
+      lastTouchTap.current = null;
+      if (equipStoredItem(current.itemId, current.containerId)) { lastTouchEquip.current = now; event.preventDefault(); event.stopPropagation(); }
+    } else lastTouchTap.current = { itemId: current.itemId, x: event.clientX, y: event.clientY, time: now };
+  }
+  return <section className="inventory-dock" {...inspectHandlers} onPointerDownCapture={onTouchStart} onPointerMoveCapture={onTouchMove} onPointerUpCapture={onTouchEnd} onPointerCancelCapture={() => { touchGesture.current = null; lastTouchTap.current = null; }} onDoubleClickCapture={equipOnDoubleClick} onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-supply-selection={category === "supplies" && Boolean(selectedSupplyId && supplyItems.some(item => item.id === selectedSupplyId)) ? "true" : undefined} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": pageRows } as React.CSSProperties}>
     <div className="inventory-dock__measure" ref={measureRef} aria-hidden="true" />
 
     {localGrid ? <GridRoot {...gridProps} {...combineProps}>{renderTabs(true)}{renderToolbar()}</GridRoot> : <>{renderTabs(false)}{renderToolbar()}</>}

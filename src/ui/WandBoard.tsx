@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
-import { Button, DropdownMenu, InventoryGrid, PencilIcon, PencilText, Tooltip } from "@inkra/react";
+import { InventoryGrid, PencilText, Tooltip } from "@inkra/react";
 import type { InventoryContainer, InventoryChangeDetails, InventoryGridProps, InventoryItemRenderState } from "@inkra/react/inventory-grid";
 import { AssetImage, resolveAsset } from "./assets";
 import type { Command, CommandResult, GameState, WandInstance } from "../contracts";
@@ -10,7 +10,7 @@ import { WandClearButton } from "./WandClearButton";
 import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
 import { enrichMagicReward } from "../content/magicDescriptions";
 import { demoContent } from "../content/demo";
-import { getWandRecipeOptions } from "../loadout/recipe-options";
+import { getWandRecipeMaterialIds } from "./WandRecipeConfirmation";
 import "./WandBoard.css";
 import {useMagicInspectGesture} from "./useMagicInspectGesture";
 import {fitWandSlots} from "./wandSizing";
@@ -21,6 +21,7 @@ type BoardItem = Extract<DockItem, { kind: "spell" | "arcana" }>;
 type ComposedGridRootProps = InventoryGridProps<BoardItem> & {
   children: ReactNode;
   getItemContentPlacement?: (item: BoardItem) => "bounds" | "first-cell";
+  onDraggingChange?: (active: boolean) => void;
 };
 type ComposedGridApi = {
   Root?: ComponentType<ComposedGridRootProps>;
@@ -40,37 +41,19 @@ function MagicItemTooltip({ label, children }: { label: string; children: ReactN
   </Tooltip.Root></Tooltip.Provider>;
 }
 
-/** Explicit recipe action, separate from dragging identical items to upgrade them. */
+/** Shared clear action for the board and backpack wand views. */
 export function WandActions({wand, state, dispatch, className}: {
   wand?: WandInstance; state: GameState; dispatch: Props['dispatch']; className?: string;
 }) {
-  const options = useMemo(() => wand ? getWandRecipeOptions(state, wand.id, demoContent) : [], [state, wand]);
-  const [open, setOpen] = useState(false);
-  const label = (id: string) => state.knowledge.spellIds.includes(id) || state.knowledge.arcanaIds.includes(id)
-    ? (demoContent.spells[id] ?? demoContent.arcana[id])?.name ?? '未知' : '未知';
-  return <span className={`wand-actions${className ? ` ${className}` : ''}`}>
-    <WandClearButton wand={wand} state={state} dispatch={dispatch} />
-    {wand && <DropdownMenu.Root open={open && options.length > 0} onOpenChange={setOpen}>
-      <DropdownMenu.Trigger asChild><Button type="button" size="icon" variant="ghost" className="wand-actions__recipes"
-        aria-label={`${wand.name}配方合成`} title={options.length ? '配方合成' : '将已发现配方的材料相邻放入法杖'} disabled={!options.length}>
-        <PencilIcon paths={[{d: 'M4 6h6v6H4zM14 6h6v6h-6zM7 15l5 5 5-5M12 13v7', mode: 'stroke'}]} sourceSize={24} size={24} seed="wand-recipes" decorative />
-        <span className="wand-actions__recipe-label">合成</span>
-      </Button></DropdownMenu.Trigger>
-      <DropdownMenu.Portal><DropdownMenu.Content className="wand-actions__menu" side="left" align="start" sideOffset={8} aria-label={`${wand.name}可合成配方`}>
-        {options.map(option => <DropdownMenu.Item key={option.recipeId} className="wand-actions__recipe" onSelect={() => {
-          setOpen(false);
-          dispatch({id: `wand-recipe-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, type: 'mergeRecipe', wandId: wand.id, recipeId: option.recipeId, itemIds: [...option.itemIds]});
-        }}>
-          <PencilText as="span">{`${option.itemIds.map(id => label(state.items[id].definitionId)).join(' + ')} → ${label(option.output)}`}</PencilText>
-        </DropdownMenu.Item>)}
-      </DropdownMenu.Content></DropdownMenu.Portal>
-    </DropdownMenu.Root>}
-  </span>;
+  return <WandClearButton wand={wand} state={state} dispatch={dispatch} className={className} />;
 }
 
 export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeightChange, onInspectMagic }: Props) {
   const boardRef = useRef<HTMLDivElement>(null);
-  const inspectHandlers=useMagicInspectGesture(state,onInspectMagic);
+  const dragging = useRef(false);
+  const inspectHandlers = useMagicInspectGesture(state, onInspectMagic ? itemId => {
+    if (!dragging.current) onInspectMagic(itemId);
+  } : undefined);
   const [availableWidth,setAvailableWidth]=useState(0);
   useLayoutEffect(()=>{
     const node=boardRef.current?.closest<HTMLElement>(".game-scene");
@@ -90,6 +73,7 @@ export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeigh
     return wand ? [wand] : [];
   }).slice(0, 2) : [], [character, state.wands]);
 
+  const recipeMaterials = useMemo(() => getWandRecipeMaterialIds(state, equippedWands), [state, equippedWands]);
   const fit=fitWandSlots(availableWidth,equippedWands,WAND_CELL_SIZE);
   const containers = useMemo<InventoryContainer<BoardItem>[]>(() => {
     return equippedWands.map((wand) => ({
@@ -162,7 +146,10 @@ export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeigh
       requested: (item: string) => `已提交 ${item} 的布局操作`,
       cancelled: (item: string) => `已取消 ${item} 的移动`,
     },
-    getItemLabel: (item: BoardItem) => getMagicPresentationIcon(item.definitionId) ? magicItemLabel(item) : item.label ?? item.id,
+    getItemLabel: (item: BoardItem) => {
+      const label = getMagicPresentationIcon(item.definitionId) ? magicItemLabel(item) : item.label ?? item.id;
+      return recipeMaterials.has(item.id) ? `${label} 可合成` : label;
+    },
     ...appearanceProps,
     renderItem: (item: BoardItem, renderState: InventoryItemRenderState) => {
       const instance = state.items[item.id];
@@ -175,21 +162,22 @@ export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeigh
         ? <MagicPresentationIcon definitionId={item.definitionId} size={iconSize} rotation={renderState.rotation} seed={`wand-board-${item.definitionId}`} />
         : <AssetImage asset={resolveAsset(definition?.asset, { label: item.label ?? item.id, icon: item.kind === "spell" ? "✦" : "◇" })} />;
       const iconBox = <span className={`wand-board__item-icon${iconDefinition ? " wand-board__item-icon--magic" : ""}`}>{icon}</span>;
-      return <span className="wand-board__item" data-cast-flashing={sourceWand && flashes.has(sourceWand.id, item.id) ? "true" : undefined}>
+      return <span className="wand-board__item" data-wand-recipe-ready={!renderState.dragging && recipeMaterials.has(item.id) || undefined} data-cast-flashing={sourceWand && flashes.has(sourceWand.id, item.id) ? "true" : undefined}>
         {iconDefinition ? <MagicItemTooltip label={label}>{iconBox}</MagicItemTooltip> : iconBox}
         {!iconDefinition && <PencilText as="span" className="wand-board__item-label" seed="wand-board-item-label">{String(item.label)}</PencilText>}
       </span>;
     },
   } satisfies InventoryGridProps<BoardItem>;
-  const composedContentPlacementProps = composed ? {
+  const composedInteractionProps = composed ? {
     getItemContentPlacement: (item: BoardItem) => getMagicPresentationIcon(item.definitionId) ? "bounds" as const : "first-cell" as const,
+    onDraggingChange: (active: boolean) => { dragging.current = active; },
   } : {};
 
   return <div className="wand-board" ref={boardRef} {...inspectHandlers}>
     {containers.length > 0 && composed ? <GridRoot
       key={character?.id ?? activeCharacterId}
       {...gridProps}
-      {...composedContentPlacementProps}
+      {...composedInteractionProps}
     >
       {containers.map((container,index) => {
         const wandId = container.id.slice("wand:".length);

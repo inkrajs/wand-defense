@@ -24,6 +24,7 @@ import { getRewardRefreshQuote, normalizeRewardRefresh } from "./rewardRefresh";
 import { grantCoinIncome } from "../content/economy";
 import { compileWand } from "../loadout";
 import { castSpell } from "../engine/effects";
+import { pickupGroundLoot } from "../engine/loot";
 import { applyCatalogCheat, isCatalogCheatAction } from "./cheatCatalog";
 import { migrateAtomicSpellPlacements } from "./atomicSpellMigration";
 
@@ -66,6 +67,9 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
     if (reward.kind === "buff" && reward.effect?.type === "luck") {
       return {...reward, description: rewardLuckDescription};
     }
+    if (reward.kind === "buff" && reward.effect?.type === "cooldownPercent" && reward.description) {
+      return {...reward, description: reward.description.replace(/70(?=[%％])/g, "90")};
+    }
     const refreshed = enrichMagicReward(reward, content);
     if (reward.kind !== "item" || !reward.definitionId) return refreshed;
     const id = reward.definitionId;
@@ -78,7 +82,7 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
     state.rewards=fillUniqueRewardOffers(state.rewards,{
       wave:state.wave,characterCount:state.characters.length,wandCount:state.wands.length,content,
       random:()=>nextRewardDraw(state),luck:getWaveRewardLuck(state,content),canHeal:state.territory.hp<state.territory.maxHp,
-      cooldownCapped:(state.runBonuses?.cooldownPercent??0)>=70,
+      cooldownCapped:(state.runBonuses?.cooldownPercent??0)>=90,
     });
     // Newly visible replacement cards are discoveries, not grants or historical claims.
     for (const reward of state.rewards) {
@@ -148,13 +152,17 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
   function prepareRewards() {
     state.rewardRefresh = normalizeRewardRefresh(state.rewardRefresh, state.wave);
     state.rewards = createWaveRewards(state.wave,state.characters.length,state.wands.length,content,()=>nextRewardDraw(state),
-      {luck:getWaveRewardLuck(state,content),canHeal:state.territory.hp < state.territory.maxHp,cooldownCapped:(state.runBonuses?.cooldownPercent ?? 0) >= 70});
+      {luck:getWaveRewardLuck(state,content),canHeal:state.territory.hp < state.territory.maxHp,cooldownCapped:(state.runBonuses?.cooldownPercent ?? 0) >= 90});
     // Reward offers are visible discoveries; unoffered definitions stay undisclosed.
     for (const reward of state.rewards) if (reward.definitionId) discover(reward.definitionId);
     emit("reward.offered", {wave: state.wave, rewards: structuredClone(state.rewards)});
   }
   function applyLocal(command: Command): string | undefined {
     switch (command.type) {
+      case "pickupLoot": {
+        if (state.phase !== "battle" || !pickupGroundLoot(state, command.lootId, emit)) return "LOOT_NOT_FOUND";
+        return;
+      }
       case "restart": {
         const previous = state;
         state = freshState();
@@ -230,7 +238,7 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
         const rewards = createWaveRewards(state.wave,state.characters.length,state.wands.length,content,()=>{
           rng = (Math.imul(rng,1664525) + 1013904223) >>> 0;
           return rng / 0x1_0000_0000;
-        }, {luck:getWaveRewardLuck(state,content),canHeal:state.territory.hp<state.territory.maxHp,cooldownCapped:(state.runBonuses?.cooldownPercent??0)>=70});
+        }, {luck:getWaveRewardLuck(state,content),canHeal:state.territory.hp<state.territory.maxHp,cooldownCapped:(state.runBonuses?.cooldownPercent??0)>=90});
         if (rewards.length !== 4 || new Set(rewards.map(getRewardOfferKey)).size !== rewards.length) return "REWARD_REFRESH_UNAVAILABLE";
         const refreshCount = refresh.refreshCount + 1;
         state.coins -= quote.cost;
@@ -263,7 +271,7 @@ export function createGameRuntime(content: ContentCatalog = demoContent, checkpo
           const bonuses = state.runBonuses ?? {attackPercent:0};
           const current = bonuses[effect.type] ?? 0;
           if (!Number.isFinite(current)) return "REWARD_NOT_AVAILABLE";
-          const next = effect.type === "cooldownPercent" ? Math.min(70,current+effect.value) : current+effect.value;
+          const next = effect.type === "cooldownPercent" ? Math.min(90,current+effect.value) : current+effect.value;
           if (!Number.isFinite(next) || next <= current) return "REWARD_NOT_AVAILABLE";
           state.runBonuses = {...bonuses,[effect.type]:next};
           if (effect.type === "maxMana") for (const character of state.characters) {

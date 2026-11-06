@@ -9,7 +9,7 @@ function seeded(seed: number) {
   return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 0x1_0000_0000; };
 }
 
-test('zero reward luck retains the original grade/type draws and saved random stream', () => {
+test('zero or invalid luck uses the same deterministic rewards and random stream', () => {
   const values = [0,0,0,.5,.2,.7,.9,.8,.99,.999,0,.6];
   let baseline: ReturnType<typeof createWaveRewards> | undefined;
   for (const luck of [undefined, 0, -10, NaN, Infinity]) {
@@ -18,9 +18,9 @@ test('zero reward luck retains the original grade/type draws and saved random st
     assert.equal(index,12);
     assert.deepEqual(cards.map(({id,kind,grade,effect,amount})=>({id,kind,grade,effect,amount})),[
       {id:'reward-8-0',kind:'buff',grade:'common',effect:{type:'attackPercent',value:10},amount:undefined},
-      {id:'reward-8-1',kind:'item',grade:'uncommon',effect:undefined,amount:undefined},
-      {id:'reward-8-2',kind:'wand',grade:'legendary',effect:undefined,amount:undefined},
-      {id:'reward-8-3',kind:'coins',grade:'uncommon',effect:undefined,amount:15},
+      {id:'reward-8-1',kind:'item',grade:'common',effect:undefined,amount:undefined},
+      {id:'reward-8-2',kind:'wand',grade:'rare',effect:undefined,amount:undefined},
+      {id:'reward-8-3',kind:'coins',grade:'common',effect:undefined,amount:10},
     ]);
     assert.ok(cards[1].definitionId && demoContent.spells[cards[1].definitionId]);
     if (baseline) assert.deepEqual(cards, baseline);

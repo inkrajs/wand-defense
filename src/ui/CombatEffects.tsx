@@ -32,7 +32,7 @@ export function CombatEffects({ state }: { state: GameState }) {
       setVisuals([]);
       return;
     }
-    const fresh = collectCastVisuals(state,cursor.current.seq).filter(effect => settings.impactSparks || effect.kind === "heal" || effect.kind === "shield");
+    const fresh = collectCastVisuals(state,cursor.current.seq).filter(effect => effect.directStrike || settings.impactSparks || effect.kind === "heal" || effect.kind === "shield");
     cursor.current.seq = state.nextEventSeq - 1;
     if (state.paused) { setVisuals(previous => previous.length ? [] : previous); return; }
     if (!fresh.length) return;
@@ -73,7 +73,7 @@ export function CombatEffects({ state }: { state: GameState }) {
         <MagicEffectArt resolution={settings.effectResolution} kind={visual.kind} variant="projectile" seed={`projectile:${visual.kind}`} width={size} height={size} color="var(--cast-color)" />
       </span></div>;
     })}
-    {visuals.filter(effect => settings.impactSparks || effect.kind === "heal" || effect.kind === "shield").map(effect => <div key={`${state.id}-${effect.seq}`} className={`combat-cast combat-cast--${effect.kind}${effect.groundStrike ? " is-ground-strike" : ""}${effect.fizzled ? " is-fizzled" : ""}`} style={{
+    {visuals.filter(effect => effect.directStrike || settings.impactSparks || effect.kind === "heal" || effect.kind === "shield").map(effect => <div key={`${state.id}-${effect.seq}`} className={`combat-cast combat-cast--${effect.kind}${effect.groundStrike ? " is-ground-strike" : ""}${effect.fizzled ? " is-fizzled" : ""}`} style={{
       "--cast-x":`${effect.x}cqw`,"--cast-y":`${effect.y}cqh`,
       "--cast-index":effect.characterIndex,"--cast-count":state.characters.length,
       "--cast-source-x":layout.sources[state.characters[effect.characterIndex]?.id??""]
@@ -84,7 +84,7 @@ export function CombatEffects({ state }: { state: GameState }) {
       "--cast-impact-size":`${effect.fizzled?16:impactSizes[effect.kind]??40}px`,
     } as CSSProperties}>
       {effect.groundStrike && <span className="combat-cast__strike"><MagicEffectArt resolution={settings.effectResolution} kind="lightning" variant="impact" seed="storm-strike" width={96} height={40} fit="stretch" color="var(--cast-color)" className="combat-cast__strike-art" /></span>}
-      <div className="combat-cast__impact"><MagicEffectArt resolution={settings.effectResolution} kind={effect.groundStrike ? "impact" : impactKinds[effect.kind]??effect.kind} variant="impact" seed={`impact:${effect.kind}`} width={effect.fizzled?16:impactSizes[effect.kind]??40} color="var(--cast-color)" /></div>
+      {!effect.directStrike && <div className="combat-cast__impact"><MagicEffectArt resolution={settings.effectResolution} kind={effect.groundStrike ? "impact" : impactKinds[effect.kind]??effect.kind} variant="impact" seed={`impact:${effect.kind}`} width={effect.fizzled?16:impactSizes[effect.kind]??40} color="var(--cast-color)" /></div>}
     </div>)}
   </div>;
 }

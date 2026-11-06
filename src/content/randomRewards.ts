@@ -20,11 +20,12 @@ const buffMetadata: Record<BuffType, { name: string; unit: string; description: 
   maxMana: { name: '法力上限', unit: '', description: '增加本局每名角色的法力上限。' },
   manaRegen: { name: '法力回复', unit: '/秒', description: '增加本局每名角色每秒回复的法力。' },
   rangePercent: { name: '射程提升', unit: '%', description: '提升本局全队法术射程，同类加成相加。' },
-  cooldownPercent: { name: '冷却缩减', unit: '%', description: '缩短本局全队法术冷却，同类加成相加，总缩减上限70%。' },
+  cooldownPercent: { name: '冷却缩减', unit: '%', description: '缩短本局全队法术冷却，同类加成相加，总缩减上限90%。' },
   luck: { name: '幸运', unit: '', description: rewardLuckDescription },
   gatheringPercent: { name: '采集', unit: '%', description: '提升本局全队金币收入，包括击杀、清波和金币奖励，同类加成相加。' },
 };
-const gradeWeights = [60, 22, 12, 4, 1.5, 0.5] as const;
+// Most early offers are common; luck progressively opens up the upper grades.
+const gradeWeights = [85, 12, 2.4, 0.48, 0.1, 0.02] as const;
 const healValues = [20, 30, 40, 50, 70, 100] as const;
 const coinValues = [10, 15, 20, 30, 40, 60] as const;
 const kindWeights: Readonly<Partial<Record<RewardKind, number>>> = Object.freeze({
@@ -45,7 +46,7 @@ export interface WaveRewardSampling {
 
 type OfferCandidate =
   | { key: string; kind: 'buff'; type: BuffType }
-  | { key: string; kind: 'item'; definitionId: string; definition: { name: string; level: number; shape: { x: number; y: number }[] } }
+  | { key: string; kind: 'item'; definitionId: string; tier: number; definition: { name: string; level: number; shape: { x: number; y: number }[] } }
   | { key: string; kind: 'heal' | 'character' | 'wand' | 'coins' };
 
 type CandidatePool = Partial<Record<RewardKind, OfferCandidate[]>>;
@@ -93,6 +94,30 @@ export function dedupeRewardOffers(existing: readonly RewardOption[]): RewardOpt
   });
 }
 
+/** Shortest complete synthesis route, independent of the currently displayed skill-tree branch. */
+function recipeTiers(content: ContentCatalog): Map<string, number> {
+  const definitions = new Set([...Object.keys(content.spells), ...Object.keys(content.arcana)]);
+  const recipes = content.recipes.filter(recipe => definitions.has(recipe.output) && recipe.inputs.length > 0
+    && recipe.inputs.every(id => definitions.has(id)));
+  const outputs = new Set(recipes.map(recipe => recipe.output));
+  const tiers = new Map<string, number>();
+  for (const id of definitions) if (!outputs.has(id)) tiers.set(id, 0);
+
+  // Relax until no shorter route is found. Cycles without an atomic origin remain unresolved.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const recipe of recipes) {
+      const inputs = recipe.inputs.map(id => tiers.get(id));
+      if (inputs.some(tier => tier === undefined)) continue;
+      const next = 1 + Math.max(...inputs as number[]);
+      const previous = tiers.get(recipe.output);
+      if (previous === undefined || next < previous) { tiers.set(recipe.output, next); changed = true; }
+    }
+  }
+  return tiers;
+}
+
 function buildCandidatePools(
   { wave, characterCount, wandCount, content, canHeal = true, cooldownCapped = false }: WaveRewardSampling,
   excludedKeys: ReadonlySet<string>,
@@ -109,13 +134,14 @@ function buildCandidatePools(
   }
 
   const seenItems = new Set<string>();
+  const tiers = recipeTiers(content);
   for (const [definitionId, definition] of [...Object.entries(content.spells), ...Object.entries(content.arcana)]) {
     if ('rewardMinWave' in definition && Number.isFinite(definition.rewardMinWave)
         && wave < definition.rewardMinWave!) continue;
     const key = `item:${definitionId}`;
     if (seenItems.has(key)) continue;
     seenItems.add(key);
-    add({ key, kind: 'item', definitionId, definition });
+    add({ key, kind: 'item', definitionId, definition, tier: tiers.get(definitionId) ?? 4 });
   }
 
   if (canHeal) add({ key: 'heal:territory-hp', kind: 'heal' });
@@ -143,17 +169,21 @@ function availableKinds(pools: CandidatePool, strength: number): { value: Reward
       * (kind === 'item' || kind === 'character' || kind === 'wand' ? 1 + 2 * strength : 1) }));
 }
 
-function takeCandidate(pools: CandidatePool, random: () => number, strength: number): OfferCandidate | undefined {
+function takeCandidate(pools: CandidatePool, random: () => number, strength: number, wave: number): OfferCandidate | undefined {
   const kinds = availableKinds(pools, strength);
   if (kinds.length === 0) return undefined;
   const kind = weighted(kinds, random);
   const candidates = pools[kind]!;
-  const index = Math.floor(unitRandom(random) * candidates.length);
+  // Each additional recipe step is rarer, while luck and later waves ease the penalty.
+  const tierWeight = 0.12 + 0.65 * strength + Math.min(0.18, Math.max(0, wave - 1) * 0.004);
+  const selected = weighted(candidates.map((value, index) => ({ value: index,
+    weight: value.kind === 'item' ? tierWeight ** Math.min(8, value.tier) : 1 })), random);
+  const index = selected;
   return candidates.splice(index, 1)[0];
 }
 
 function sampleGrade(random: () => number, strength: number): Grade {
-  return weighted(gradeOrder.map((value, index) => ({ value, weight: gradeWeights[index] * (1 + 3 * index * strength) })), random);
+  return weighted(gradeOrder.map((value, index) => ({ value, weight: gradeWeights[index] * (1 + 3 * strength) ** index })), random);
 }
 
 function makeReward(candidate: OfferCandidate, wave: number, index: number, grade: Grade, content: ContentCatalog): RewardOption {
@@ -257,7 +287,7 @@ export function fillUniqueRewardOffers(
   const pools = buildCandidatePools(sampling, usedKeys);
   const strength = luckStrength(sampling.luck);
   for (const [index, slot] of replacementBases) {
-    const candidate = takeCandidate(pools, sampling.random, strength);
+    const candidate = takeCandidate(pools, sampling.random, strength, safeWave(sampling.wave));
     if (!candidate) continue;
     usedKeys.add(candidate.key);
     const reward = makeReward(candidate, safeWave(sampling.wave), index, sampleGrade(sampling.random, strength), sampling.content);

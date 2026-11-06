@@ -9,13 +9,13 @@ const spellVisuals: Record<string, VisualKind> = {
   "tidal-orb": "water", "stone-spike": "rock", "iron-disc": "disc", "gale-burst": "wind",
   "arc-chain": "lightning", "light-arrow": "light", "dark-orb": "shadow", ward: "shield",
   "spark-hop": "lightning", "thunder-chain": "lightning", "storm-net": "lightning",
-  thunderstorm: "lightning",
+  thunderstorm: "lightning", "thunder-strike": "lightning",
   "twilight-orb": "shadow", "annihilation-orb": "shadow", "antimatter-bomb": "shadow", "depleted-round": "needle", railgun: "needle", "flame-elemental": "fireball",
   "fission-bomb": "fireball", "thunder-prison": "lightning",
   "solar-ray": "light", "ember-ray": "fireball", "void-ray": "shadow",
 };
 export interface CastVisual {
-  seq: number; kind: VisualKind; x: number; y: number; characterIndex: number; fizzled?: boolean; groundStrike?: boolean;
+  seq: number; kind: VisualKind; x: number; y: number; characterIndex: number; fizzled?: boolean; groundStrike?: boolean; directStrike?: boolean;
 }
 export function projectileVisual(entity: CombatEntity) {
   const kind = spellVisuals[entity.definitionId];
@@ -40,7 +40,10 @@ export function collectCastVisuals(state: GameState, afterSeq: number): CastVisu
     const data = event.data, fizzled = event.type === "projectileExpired";
     const definitionId = data.effect ?? state.items[String(data.sourceItemId)]?.definitionId;
     const kind = spellVisuals[String(definitionId)];
-    const groundStrike = definitionId === "thunderstorm" && (event.type === "damage" || event.type === "attackMiss");
+    const directStrike = definitionId === "thunder-strike";
+    const secondary = data.sourceKind === "reaction" || data.sourceKind === "status";
+    if (directStrike && secondary) return [];
+    const groundStrike = (definitionId === "thunderstorm" || directStrike) && (event.type === "damage" || event.type === "attackMiss") && !secondary;
     if (event.type === "attackMiss" && !groundStrike) return [];
     const characterIndex = state.characters.findIndex(character => character.id === data.sourceCharacterId);
     if (!kind || characterIndex < 0 || (!groundStrike && !fizzled && (typeof data.amount !== "number" || data.amount <= 0))) return [];
@@ -48,6 +51,6 @@ export function collectCastVisuals(state: GameState, afterSeq: number): CastVisu
     const x = typeof data.x === "number" ? data.x : target?.x;
     const y = typeof data.y === "number" ? data.y : target?.y;
     if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y)) return [];
-    return [{seq:event.seq,kind,x,y,characterIndex,fizzled,...(groundStrike ? {groundStrike:true} : {})}];
+    return [{seq:event.seq,kind,x,y,characterIndex,fizzled,...(groundStrike ? {groundStrike:true, ...(directStrike ? {directStrike:true} : {})} : {})}];
   });
 }

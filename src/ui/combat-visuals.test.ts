@@ -97,3 +97,19 @@ test("storm contact remains visible when armor absorbs it or accuracy misses", (
     data:{effect:"thunderstorm",sourceCharacterId:state.characters[0].id,amount:0,x:30 + index,y:40}}));
   assert.deepEqual(collectCastVisuals(state, 0).map(flash => [flash.groundStrike, flash.x]), [[true,30],[true,31]]);
 });
+
+test('thunder strike flashes directly at every real area contact and retains its radius and windup', () => {
+  const state = createInitialState();
+  state.phase='battle';state.wave=1;state.items['spark-1'].definitionId='thunder-strike';
+  const enemy=(id:string,x:number)=>({id,definitionId:'enemy-basic',kind:'enemy' as const,faction:'enemy' as const,x,y:72,
+    hp:1000,maxHp:1000,damage:0,speed:0,range:0,cooldownMs:1000,attackRemainingMs:1000});
+  state.entities=[enemy('primary',50),enemy('near',52),enemy('far',75)];
+  const cast=stepBattle(state,50,demoContent).state;
+  assert.equal(cast.entities.some(e=>e.kind==='area'&&e.definitionId==='thunder-strike'),true);
+  assert.deepEqual(collectCastVisuals(cast,0),[]);
+  const result=stepBattle(cast,350,demoContent).state;
+  assert.deepEqual(collectCastVisuals(result,0).map(v=>[v.kind,v.groundStrike,v.directStrike,v.x,v.y]),[
+    ['lightning',true,true,50,72],['lightning',true,true,52,72],
+  ]);
+  assert.equal(result.entities.find(e=>e.id==='far')?.hp,1000);
+});

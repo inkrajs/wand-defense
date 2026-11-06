@@ -165,7 +165,7 @@ test("final stats clamp additive values and malformed sequence or run data safel
   assert.equal(stats.final.luck, 0);
   assert.equal(stats.final.elementBonuses.fire, -1);
   assert.equal(stats.run.maxMana, 0);
-  assert.ok(Math.abs(stats.final.cooldownMultiplier - 0.3) < 1e-12);
+  assert.ok(Math.abs(stats.final.cooldownMultiplier - 0.1) < 1e-12);
   assert.equal("unexpectedMultiplier" in stats.equipment, false);
 });
 
@@ -207,7 +207,7 @@ test("extreme finite inputs and unknown bonus keys cannot produce non-finite out
   assert.equal(stats.final.projectileSpeedMultiplier, 101);
   assert.ok(Number.isFinite(stats.final.projectileSpeedMultiplier) && stats.final.projectileSpeedMultiplier > 0);
   assert.equal(stats.final.castSpeedPercent, 10_000);
-  assert.ok(Math.abs(stats.final.cooldownMultiplier - (0.3 / 101)) < 1e-12);
+  assert.ok(Math.abs(stats.final.cooldownMultiplier - (0.1 / 101)) < 1e-12);
   assert.equal(stats.final.mana, character.mana);
   assert.equal(stats.final.luck, 1_000_000);
   assert.equal(stats.final.totalLuck, 1_000_000);

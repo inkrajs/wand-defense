@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import * as Inkra from "@inkra/react";
 import { Button, DependencyGraph, PencilIcon, PencilLine, PencilSurface, PencilText, Tabs, Tooltip, type DependencyGraphRef, type DependencyGraphNode, type PencilIconPath } from "@inkra/react";
 import type { Element, GameState, RecipeDefinition } from "../contracts";
 import { findRecipeExample } from "../loadout/recipe-layout";
@@ -88,6 +89,12 @@ type SkillTreeProps = { knowledge: GameState["knowledge"] };
 const knowledgeLists = ["spellIds", "arcanaIds", "recipeIds"] as const;
 const graphControls = { zoomIn: true, zoomOut: true, fitView: true, position: "bottom-left" } as const;
 const graphStyle = { minHeight: 0 };
+const graphLayout = { direction: "LR", nodeWidth: 80, nodeHeight: 80, rankGap: 52, nodeGap: 12 } as const;
+type LayoutNode = { position: { x: number; y: number }; width: number; height: number };
+// The registry build has DependencyGraph but does not export its layout helper.
+const layoutDependencyGraph = Reflect.get(Inkra, "layoutDependencyGraph") as
+  | ((nodes: GraphNode[], edges: ReturnType<typeof buildSkillTree>["edges"], options: typeof graphLayout) => { nodes: LayoutNode[] })
+  | undefined;
 
 function sameKnowledge(previous: SkillTreeProps, next: SkillTreeProps) {
   return knowledgeLists.every(key => {
@@ -100,21 +107,10 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
   const [element, setElement] = useState<Element | "arcana">("fire");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailPath, setDetailPath] = useState<string[]>([]);
-  const root = useRef<HTMLDivElement>(null);
+  const graphArea = useRef<HTMLDivElement>(null);
   const graphRef = useRef<DependencyGraphRef>(null);
-  const [viewport, setViewport] = useState<"pending" | "narrow" | "wide">("pending");
-  const narrow = viewport !== "wide";
-  useLayoutEffect(() => {
-    const node = root.current;
-    if (!node) return;
-    const measure = () => {
-      if (node.clientWidth > 0) setViewport(node.clientWidth < 600 ? "narrow" : "wide");
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+  const lastFocus = useRef<{ element: Element | "arcana"; detailId: string | null; id: string;
+    width: number; height: number; viewport: ReturnType<DependencyGraphRef["getViewport"]> } | null>(null);
   const models = useMemo(() => new Map<Element | "arcana", ReturnType<typeof buildSkillTree>>(), [
     knowledge.spellIds, knowledge.arcanaIds, knowledge.recipeIds,
   ]);
@@ -128,28 +124,25 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
   const nodes = useMemo<GraphNode[]>(() => model.nodes.map(node => ({
     id: node.id, label: node.known ? node.name : "未知", icon: nodeIcon(node), data: node,
   })), [model]);
-  // Avoid mounting the whole graph for the initial fit. Its built-in culling
-  // can stay active from the first render with an explicit focus target.
-  const focusedElement = useRef<Element | "arcana" | null>(null);
-  useEffect(() => {
-    if (focusedElement.current === element || viewport === "pending" || !model.nodes.length) return;
-    const origin = model.nodes.find(node => node.atomic && node.known && !node.boundary)
-      ?? model.nodes.find(node => node.known && !node.boundary) ?? model.nodes[0];
-    const progression = element === "arcana" && !narrow
-      ? ["arcana:double", "arcana:quadruple", "arcana:sextuple"].filter(id => model.nodes.some(node => node.id === id && node.known))
-      : [];
-    const nodes = (progression.length ? progression : [origin.id]).map(id => ({id}));
-    let cancelled = false, frame = 0, attempts = 0;
-    const fit = () => {
-      void graphRef.current?.fitView({nodes, minZoom: narrow ? .85 : .65, maxZoom: 1, padding: .2}).then(success => {
-        if (cancelled) return;
-        if (success) focusedElement.current = element;
-        else if (++attempts < 12) frame = requestAnimationFrame(fit);
-      });
+  const graphBounds = useMemo(() => {
+    if (!nodes.length) return null;
+    const layout = layoutDependencyGraph?.(nodes, model.edges, graphLayout).nodes;
+    if (!layout) {
+      // Even the widest chain and tallest rank of this size must fit.
+      const gaps = nodes.length - 1;
+      return {
+        width: nodes.length * graphLayout.nodeWidth + gaps * graphLayout.rankGap,
+        height: nodes.length * graphLayout.nodeHeight + gaps * graphLayout.nodeGap,
+      };
+    }
+    if (!layout.length) return null;
+    const left = Math.min(...layout.map(node => node.position.x));
+    const top = Math.min(...layout.map(node => node.position.y));
+    return {
+      width: Math.max(...layout.map(node => node.position.x + node.width)) - left,
+      height: Math.max(...layout.map(node => node.position.y + node.height)) - top,
     };
-    frame = requestAnimationFrame(fit);
-    return () => {cancelled=true;cancelAnimationFrame(frame);};
-  }, [model, element, viewport, narrow]);
+  }, [nodes, model.edges]);
   const selectNode = useCallback((id: string | null) => {
     setSelectedId(id);
     setDetailPath(path => path.length ? [] : path);
@@ -157,6 +150,45 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
   const selected = useMemo(() => model.nodes.find(node => node.id === selectedId), [model, selectedId]);
   const definitionId = selected?.known ? detailPath.at(-1) ?? selected.definitionId : undefined;
   const definition = definitionId && (demoContent.spells[definitionId] ?? demoContent.arcana[definitionId]);
+  const detailId = definition ? selectedId : null;
+  const originId = (model.nodes.find(node => node.atomic && node.known && !node.boundary)
+    ?? model.nodes.find(node => node.known && !node.boundary) ?? model.nodes[0])?.id;
+  useLayoutEffect(() => {
+    const area = graphArea.current;
+    if (!area || !originId || !graphBounds) return;
+    let disposed = false, frame = 0, attempts = 0;
+    const fit = async () => {
+      frame = 0;
+      const graph = graphRef.current;
+      const { clientWidth: width, clientHeight: height } = area;
+      if (!graph || !width || !height) return;
+      const previous = lastFocus.current;
+      const initial = previous?.element !== element;
+      const changedSize = previous?.width !== width || previous.height !== height;
+      const current = graph.getViewport();
+      const manuallyMoved = previous && (Math.abs(previous.viewport.x - current.x) > .5
+        || Math.abs(previous.viewport.y - current.y) > .5 || Math.abs(previous.viewport.zoom - current.zoom) > .001);
+      const docked = area.parentElement!.clientWidth >= 600;
+      const changedDetail = docked && previous?.detailId !== detailId;
+      if (!initial && !changedDetail && (!changedSize || manuallyMoved)) return;
+      const id = docked && detailId ? detailId : (!initial && model.nodes.some(node => node.id === previous.id) ? previous.id : originId);
+      const zoom = initial ? 1 : current.zoom;
+      const fitsWholeTree = graphBounds.width * zoom <= width && graphBounds.height * zoom <= height;
+      const success = await graph.fitView({nodes: fitsWholeTree ? undefined : [{id}], minZoom: zoom, maxZoom: zoom});
+      if (disposed) return;
+      if (success) lastFocus.current = {element, detailId, id, width, height, viewport: graph.getViewport()};
+      else if (++attempts < 12) schedule();
+    };
+    // React Flow observes the same resize. Fit after its dimensions have updated.
+    const schedule = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => { frame = requestAnimationFrame(fit); });
+    };
+    const observer = new ResizeObserver(schedule);
+    observer.observe(area);
+    schedule();
+    return () => { disposed = true; observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [element, originId, detailId, model, graphBounds]);
   const recipes = useMemo(() => definitionId
     ? getKnownRecipesForDefinition(demoContent, knowledge, definitionId) : [], [definitionId, knowledge]);
   const spell = definitionId && Object.hasOwn(demoContent.spells, definitionId) ? demoContent.spells[definitionId] : undefined;
@@ -165,26 +197,26 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
     return enrichMagicReward({ id: definitionId, kind: "item", definitionId, label: definition.name }, demoContent).description;
   }, [definitionId, definition]);
 
-  return <Tabs.Root ref={root} className="skill-tree" value={element} onValueChange={value => {
-    if (value === "arcana" || elements.includes(value as Element)) { focusedElement.current = null; setElement(value as Element | "arcana"); setSelectedId(null); setDetailPath([]); }
+  return <Tabs.Root className="skill-tree" value={element} onValueChange={value => {
+    if (value === "arcana" || elements.includes(value as Element)) { lastFocus.current = null; setElement(value as Element | "arcana"); setSelectedId(null); setDetailPath([]); }
   }}>
     <GameTabsList className="skill-tree__tabs" aria-label="技能树分类" overflow="scroll" labelVisibility="hidden">
       <Tabs.Trigger value="arcana" aria-label="奥术" startIcon={<span style={{color:"var(--inkra-selection-pigment)"}}><SkillTreeElementIcon element="arcana" /></span>} />
       {elements.map(entry => <Tabs.Trigger key={entry} value={entry} aria-label={`${elementAppearances[entry].name}系`} startIcon={<span style={{ color: elementAppearances[entry].pigment }}><SkillTreeElementIcon element={entry} /></span>} />)}
     </GameTabsList>
-    <Tabs.Content value={element} className="skill-tree__content" onKeyDown={event => {
+    <Tabs.Content value={element} className="skill-tree__content" data-detail-open={Boolean(detailId) || undefined} onKeyDown={event => {
       if (event.key === "Escape" && selectedId !== null && !event.defaultPrevented) {
         event.preventDefault();
         selectNode(null);
       }
     }}>
-      <DependencyGraph.Root ref={graphRef} className="skill-tree__graph" aria-label={element === "arcana" ? "奥术技能树" : `${elementAppearances[element].name}系技能树`}
-        nodes={nodes} edges={model.edges} direction="LR" nodeWidth={80} nodeHeight={80} rankGap={52} nodeGap={12} nodeVariant="icon"
+      <div className="skill-tree__graph-area" ref={graphArea}><DependencyGraph.Root ref={graphRef} className="skill-tree__graph" aria-label={element === "arcana" ? "奥术技能树" : `${elementAppearances[element].name}系技能树`}
+        nodes={nodes} edges={model.edges} {...graphLayout} nodeVariant="icon"
         selectedId={selectedId} onSelectedIdChange={selectNode} highlight="both"
         onClick={event => { if (event.target instanceof Element && event.target.classList.contains("react-flow__pane")) {setSelectedId(null); setDetailPath([]);} }}
         style={graphStyle}
         fitView={false} hideAttribution minZoom={0.06} maxZoom={1.5} panOnDrag zoomOnPinch onlyRenderVisibleElements emptyState={<PencilText as="p">尚未发现</PencilText>}
-        controls={graphControls} />
+        controls={graphControls} /></div>
       {definitionId && definition && <PencilSurface as="aside" className="skill-tree__detail" variant="outline" seed={`skill-tree-detail-${definitionId}`} aria-label={`${definition.name}详情`}>
         <Button className="skill-tree__detail-close" type="button" size="icon" variant="ghost" aria-label="关闭详情" onClick={() => {setSelectedId(null); setDetailPath([]);}}><PencilIcon paths={closePaths} sourceSize={24} size={24} decorative /></Button>
         {detailPath.length > 0 && <Button className="skill-tree__detail-back" type="button" size="icon" variant="ghost" aria-label="返回上一层法术详情" onClick={() => setDetailPath(path => path.slice(0,-1))}><PencilIcon paths={backPaths} sourceSize={24} size={24} decorative /></Button>}

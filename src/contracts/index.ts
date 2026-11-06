@@ -254,6 +254,12 @@ export interface RunStatistics {
   levelsGained:number; enemiesDefeated:number; bossesDefeated:number;
   coinsEarned:number; wavesCleared:number;
 }
+/** Visible battlefield loot; ownership and discovery are granted only on collection. */
+export type GroundLoot = { id: Id; enemyId: Id; definitionId: Id; x: number; y: number } & (
+  | { kind: "gear"; instance: GearInstance }
+  | { kind: "item"; instance: SupplyInstance }
+  | { kind: "wand"; instance: WandInstance }
+);
 export interface GameState {
   schemaVersion: 1; id: Id; revision: number; phase: "ready" | "battle" | "reward" | "defeat";
   gameTimeMs: number; speed: GameSpeed; paused: boolean; backpackOpen: boolean;
@@ -270,6 +276,7 @@ export interface GameState {
   supplies?:Record<Id,SupplyInstance>;
   characters: CharacterInstance[]; wands: WandInstance[]; items: Record<Id, ItemInstance>;
   backpack: Id[]; entities: CombatEntity[]; rewards: RewardOption[];
+  groundLoot?: GroundLoot[];
   remains?: { entity: CombatEntity; expiresAt: number }[];
   /** Absent only in older checkpoints. */
   rewardRefresh?: RewardRefreshState;
@@ -277,12 +284,13 @@ export interface GameState {
   rewardHistory?:ClaimedReward[];
   rewardHistoryComplete?:boolean;
   runStatistics?:RunStatistics;
-  knowledge: { spellIds: Id[]; arcanaIds: Id[]; recipeIds: Id[]; sequenceIds: Id[]; gearIds?:Id[];itemIds?:Id[] };
+  knowledge: { spellIds: Id[]; arcanaIds: Id[]; recipeIds: Id[]; sequenceIds: Id[]; gearIds?:Id[];itemIds?:Id[];wandIds?:Id[] };
   cheats: { unlocked: boolean; enabled: boolean };
   events: GameEvent[]; nextEventSeq: number;
 }
 export type Command =
   | { id: Id; type: "startWave" }
+  | { id: Id; type: "pickupLoot"; lootId: Id }
   | { id:Id; type:"deployConstruct"; characterId:Id; itemId:Id; x:number; y:number }
   | { id: Id; type: "restart" }
   | { id: Id; type: "setPaused"; paused: boolean }

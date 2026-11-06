@@ -5,7 +5,7 @@ import { createGearFromDefinition } from '../content/gear';
 import { demoContent } from '../content/demo';
 import { createSupplyFromDefinition } from '../content/supplies';
 import { createFixtureState } from '../runtime/mock';
-import { grantEnemyLoot } from './loot';
+import { collectWaveLoot, pickupGroundLoot, spawnEnemyLoot } from './loot';
 
 function fixture(): GameState {
   const state = createFixtureState();
@@ -34,8 +34,10 @@ function enemy(overrides: Partial<CombatEntity> = {}): CombatEntity {
 
 function capture(state: GameState, target: CombatEntity, luck = 0, catalog = content()) {
   const events: Array<{ type: string; data: Record<string, unknown> }> = [];
-  grantEnemyLoot(state, target, luck, catalog, (type, data) => events.push({ type, data }));
-  return events;
+  const emit = (type: string, data: Record<string, unknown>) => events.push({ type, data });
+  spawnEnemyLoot(state, target, luck, catalog, emit);
+  collectWaveLoot(state, emit);
+  return events.filter(event => event.type === "lootGranted");
 }
 
 function firstRandom(seed: number): { seed: number; value: number } {
@@ -43,8 +45,11 @@ function firstRandom(seed: number): { seed: number; value: number } {
   return { seed: next, value: next / 0x1_0000_0000 };
 }
 
-function seedForRoll(predicate: (value: number) => boolean): number {
-  for (let seed = 0; seed < 100_000; seed++) if (predicate(firstRandom(seed).value)) return seed;
+function seedForRoll(predicate: (value: number, nextSeed: number) => boolean): number {
+  for (let seed = 0; seed < 100_000; seed++) {
+    const roll = firstRandom(seed);
+    if (predicate(roll.value, roll.seed)) return seed;
+  }
   throw new Error('No matching deterministic seed');
 }
 
@@ -226,7 +231,7 @@ function gradeOrderIndex(grade: string): number {
 }
 
 test('generated ids avoid keys and actual ids in every registry plus backpack', () => {
-  const base = 'loot-gear-collision';
+  const base = 'loot-gear-0-1';
   const catalog = content({ supplies: false });
   const installers: Array<(state: GameState) => void> = [
     state => { state.items[base] = { ...state.items['spark-1'], id: base }; },
@@ -252,6 +257,8 @@ test('generated ids avoid keys and actual ids in every registry plus backpack', 
 
 test('empty or invalid catalogs cannot fabricate drops; registry and knowledge remain untouched', () => {
   const state = fixture();
+  state.wave = 20;
+  state.rngState = seedForRoll(value => value < .005);
   const emptyContent = content({ gear: false, supplies: false });
   const before = structuredClone(state);
   const rng = state.rngState;
@@ -265,4 +272,55 @@ test('empty or invalid catalogs cannot fabricate drops; registry and knowledge r
   assert.deepEqual(capture(state, enemy(), 0, invalid), []);
   assert.deepEqual(state.gear, {});
   assert.deepEqual(state.supplies, {});
+  assert.equal(state.rngState, rng);
+});
+
+
+test('ground gear remains undiscovered, counts toward first-gear guarantee, and is awarded once', () => {
+  const state = fixture(), catalog = content({ supplies: false });
+  const events: Array<{ type: string; data: Record<string, unknown> }> = [];
+  const emit = (type: string, data: Record<string, unknown>) => events.push({type, data});
+  spawnEnemyLoot(state, enemy(), 0, catalog, emit);
+  assert.deepEqual(Object.keys(state.gear!), []);
+  assert.deepEqual(state.knowledge.gearIds, []);
+  const [gear] = state.groundLoot!;
+  assert.equal(gear.kind, 'gear');
+  assert.deepEqual([gear.x, gear.y], [23,45]);
+  assert.deepEqual(events.map(event => event.type), ['lootSpawned']);
+  state.rngState = seedForRoll(value => value > .3);
+  spawnEnemyLoot(state, enemy({id:'enemy-2'}), 0, catalog, emit);
+  assert.equal(state.groundLoot!.length, 1);
+  assert.equal(pickupGroundLoot(state, gear.id, emit), true);
+  assert.equal(pickupGroundLoot(state, gear.id, emit), false);
+  assert.deepEqual(state.gear![gear.id], gear.instance);
+  assert.deepEqual(state.knowledge.gearIds, [gear.definitionId]);
+  assert.deepEqual(events.map(event => event.type), ['lootSpawned','lootCollected','lootGranted']);
+  assert.equal(events[1].data.reason, 'pickup');
+  assert.deepEqual(events[1].data.instance, gear.instance);
+});
+
+test('wand drops are wave gated, do not equip on pickup, and allow the rare larger template later', () => {
+  const catalog = content({ gear:false, supplies:true });
+  const first = seedForRoll((supply, afterSupply) => supply >= .04 && firstRandom(afterSupply).value < .005);
+  const state = fixture();state.wave=7;state.rngState=first;
+  spawnEnemyLoot(state,enemy(),0,catalog,()=>{});
+  assert.equal(state.groundLoot,undefined);
+  state.wave=8;
+  state.rngState=first;
+  spawnEnemyLoot(state,enemy(),0,catalog,()=>{});
+  const wand=state.groundLoot![0];
+  assert.equal(wand.kind,'wand');assert.equal(wand.definitionId,'wand-4x4');
+  assert.equal(state.wands.length,1);assert.equal(state.knowledge.wandIds,undefined);
+  collectWaveLoot(state,()=>{});
+  assert.equal(state.wands.length,2);assert.equal(state.wands[1].characterId,null);
+  assert.deepEqual(state.knowledge.wandIds,['wand-4x4']);
+  const later=fixture();later.wave=20;
+  later.rngState = seedForRoll((supply, afterSupply) => {
+    const wand = firstRandom(afterSupply);
+    const grade = firstRandom(wand.seed);
+    const template = firstRandom(grade.seed);
+    return supply >= .04 && wand.value < .005 && template.value < .15;
+  });
+  spawnEnemyLoot(later,enemy(),0,catalog,()=>{});
+  assert.equal(later.groundLoot?.[0]?.definitionId,'wand-5x5');
 });

@@ -43,9 +43,9 @@ export function MagicDetails({ state, itemId, onClose }: Props) {
   useLayoutEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const node = dialog.current;
-    node?.focus();
+    node?.focus({ preventScroll: true });
     return () => {
-      if (node && (document.activeElement === node || node.contains(document.activeElement)) && previous?.isConnected) previous.focus();
+      if (node && (document.activeElement === node || node.contains(document.activeElement)) && previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, [itemId]);
 

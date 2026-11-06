@@ -1,0 +1,22 @@
+.wand-recipe { cursor: auto; }
+.wand-recipe__choices, .wand-recipe__actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.wand-recipe__choices > button, .wand-recipe__actions > button { min-height: 44px; }
+.wand-recipe__formula { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; width: 100%; }
+.wand-recipe__ingredients { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0; list-style: none; }
+.wand-recipe__ingredients > li { display: inline-flex; align-items: center; gap: 6px; }
+.wand-recipe__ingredients > li + li::before { content: '+'; color: var(--inkra-ink-muted); }
+.wand-recipe__magic { display: grid; justify-items: center; gap: 2px; text-align: center; }
+.wand-recipe__grade, .wand-recipe__status { color: var(--inkra-ink-muted); }
+.wand-recipe__status { margin: 0; text-align: center; }
+.wand-recipe__arrow { color: var(--inkra-ink-muted); }
+
+/* Reuse the actual Inkra item silhouette, including rotated or irregular shapes. */
+.inkra-inventory-grid__item:has([data-wand-recipe-ready='true']) .inkra-inventory-grid__shape-fill {
+  filter: drop-shadow(0 0 3px var(--inkra-selection-foreground));
+  animation: wand-recipe-glow 1.4s ease-in-out infinite alternate;
+}
+@keyframes wand-recipe-glow { from { opacity: .55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .inkra-inventory-grid__item:has([data-wand-recipe-ready='true']) .inkra-inventory-grid__shape-fill { animation: none; }
+}
+html[data-game-reduce-motion='true'] .inkra-inventory-grid__item:has([data-wand-recipe-ready='true']) .inkra-inventory-grid__shape-fill { animation: none; }

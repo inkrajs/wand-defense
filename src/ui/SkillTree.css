@@ -1,9 +1,10 @@
-.skill-tree { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 48px minmax(0, 1fr); gap: 8px; width: 100%; height: 100%; min-width: 0; min-height: 0; }
+.skill-tree { container-type: inline-size; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 48px minmax(0, 1fr); gap: 8px; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .skill-tree__tabs { width: max-content; max-width: 100%; column-gap: 8px; }
 .skill-tree__tabs > .inkra-tabs__list { flex: 0 1 auto; display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .skill-tree__tabs .inkra-tabs__trigger { flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; padding: 6px; }
 .skill-tree__tabs .inkra-tabs__label { display: none; }
-.skill-tree__content { position: relative; display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; }
+.skill-tree__content { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; }
+.skill-tree__graph-area { min-width: 0; min-height: 0; }
 .skill-tree__graph { width: 100%; height: 100%; min-width: 0; min-height: 0; min-block-size: 0; background: transparent; }
 .skill-tree__detail { position: absolute; z-index: 5; inset: 8px 8px 8px auto; width: min(280px, calc(100% - 16px)); box-sizing: border-box; overflow: auto; padding: 12px; background: var(--inkra-paper); color: var(--inkra-ink); }
 .skill-tree__detail-close { position: absolute; top: 12px; right: 12px; z-index: 2; }
@@ -17,7 +18,11 @@
 .skill-tree__detail-stats > div { display: flex; justify-content: space-between; gap: 6px; }
 .skill-tree__detail-stats dt { color: var(--inkra-ink-muted); }
 .skill-tree__detail-stats dd { margin: 0; text-align: end; }
-@media (max-width: 600px) { .skill-tree__detail { inset: 8px; width: auto; } }
+@container (width < 600px) { .skill-tree__detail { inset: 8px; width: auto; } }
+@container (width >= 600px) {
+  .skill-tree__content[data-detail-open] { grid-template-columns: minmax(0, 1fr) 280px; gap: 8px; }
+  .skill-tree__detail { position: relative; inset: auto; width: auto; margin: 8px 8px 8px 0; min-height: 0; }
+}
 
 .skill-tree__recipes { display: grid; gap: 12px; margin-top: 12px; min-width: 0; }
 .skill-tree__recipe-board { position: relative; width: 100%; aspect-ratio: 1; min-width: 0; }

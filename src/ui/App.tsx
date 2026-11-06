@@ -17,12 +17,13 @@ import { WaveProgress } from "./WaveProgress";
 import { useCastFlashes } from "./wandMiniatureEvents";
 import { localProgress } from "./progressOptions";
 import { RewardChoices } from "./RewardChoices";
+import { MagicDetails } from "./MagicDetails";
+import { getWandRecipeChoices, WandRecipeConfirmation } from "./WandRecipeConfirmation";
 import { getRewardRefreshQuote } from "../runtime/rewardRefresh";
 import type { MenuPage } from "./MenuPages";
 import type { TerritoryUpgradeTrack } from "../content/territory";
 import "./App.css";
 
-const MagicDetails = lazy(() => import("./MagicDetails").then(module=>({default:module.MagicDetails})));
 const CharacterPage = lazy(() => import("./CharacterPage").then(module => ({ default: module.CharacterPage })));
 const MenuPages = lazy(() => import("./MenuPages").then(module => ({ default: module.MenuPages })));
 const TerritoryPanel = lazy(() => import("./TerritoryPanel").then(module => ({ default: module.TerritoryPanel })));
@@ -57,22 +58,32 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
   const debugUnlock = useDebugUnlock(runtime);
   const [state, setState] = useState<GameState>(() => runtime.getState());
   const [inspectedMagic,setInspectedMagic]=useState<string|null>(null);
+  const [inspectSynthesis, setInspectSynthesis] = useState(false);
   const inspectionPause=useRef<{runId:string;paused:boolean}|null>(null);
+  const inspectionFocus = useRef<HTMLElement | null>(null);
   function inspectMagic(itemId:string) {
     const current=runtime.getState(),item=current.items[itemId];
     if(!item||(item.kind!=="spell"&&item.kind!=="arcana"))return;
+    inspectionFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     inspectionPause.current={runId:current.id,paused:current.paused};
     if(current.phase==="battle"&&!current.paused) {
       const result=runtime.dispatch({id:commandId(),type:"setPaused",paused:true});
       if(result.status==="rejected"){inspectionPause.current=null;return;}
     }
+    setInspectSynthesis(getWandRecipeChoices(current, itemId).length > 0);
     setInspectedMagic(itemId);
   }
   function closeMagicDetails() {
-    const previous=inspectionPause.current;inspectionPause.current=null;setInspectedMagic(null);
+    const target = inspectionFocus.current;
+    inspectionFocus.current = null;
+    if (document.activeElement instanceof HTMLElement && document.activeElement.closest('.game-magic-stage')) document.activeElement.blur();
+    const previous=inspectionPause.current;inspectionPause.current=null;setInspectedMagic(null);setInspectSynthesis(false);
     const current=runtime.getState();
     if(previous&&previous.runId===current.id&&current.phase==="battle"&&!current.backpackOpen&&current.paused!==previous.paused)
       runtime.dispatch({id:commandId(),type:"setPaused",paused:previous.paused});
+    if (target?.isConnected) requestAnimationFrame(() => {
+      if (target.isConnected && !target.closest('[inert]')) target.focus({ preventScroll: true });
+    });
   }
   useEffect(()=>{
     if(inspectedMagic&&(!state.items[inspectedMagic]||inspectionPause.current?.runId!==state.id))closeMagicDetails();
@@ -211,7 +222,7 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
   const speedIndex = Math.max(0, GAME_SPEEDS.indexOf(state.speed));
   const phaseLabel = { ready: "准备中", battle: "战斗中", reward: "选择奖励", defeat: "领地失守" }[state.phase];
   return <main data-magic-inspection={inspectedMagic !== null} className={`game-shell game-shell--${state.phase}`} style={{ "--inventory-page-rows": inventoryPageRows, "--game-vitals-height": localProgress ? "20px" : "28px", "--game-hero-mini-space": "0px", "--game-board-space": state.phase === "battle" ? `${wandBoardHeight * .2}px` : "0px", "--wand-height": `${wandBoardHeight}px`, "--ready-wand-height": `${readyWandHeight}px` } as CSSProperties} aria-label="杀死那个巫师游戏画面">
-    <div className={`game-scene${state.backpackOpen ? " game-scene--inventory" : ""}`} inert={menuPage !== null}><Battlefield state={state} flashes={castFlashes} activeCharacterId={territoryOpen || talentOpen || skillTreeOpen ? "" : activeCharacter?.id ?? ""} hideActiveMini={state.phase === "ready" && !territoryOpen && !talentOpen && !skillTreeOpen} onCharacterSelect={characterId => { closeMagicDetails(); setSkillTreeOpen(false); setActiveCharacterId(characterId); setTerritoryOpen(false); setTalentOpen(false); }} />
+    <div className={`game-scene${state.backpackOpen ? " game-scene--inventory" : ""}`} inert={menuPage !== null}><Battlefield state={state} dispatch={dispatch} flashes={castFlashes} activeCharacterId={territoryOpen || talentOpen || skillTreeOpen ? "" : activeCharacter?.id ?? ""} hideActiveMini={state.phase === "ready" && !territoryOpen && !talentOpen && !skillTreeOpen} onCharacterSelect={characterId => { closeMagicDetails(); setSkillTreeOpen(false); setActiveCharacterId(characterId); setTerritoryOpen(false); setTalentOpen(false); }} />
     <ConstructDeployment state={state} characterId={activeCharacter?.id ?? ""} runtime={runtime} dispatch={dispatch} enabled={inspectedMagic === null && menuPage === null && !state.backpackOpen && !characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen} />
     {!characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen && menuPage === null && <WaveProgress state={state} />}
     <header className="game-header" aria-label="游戏状态">
@@ -244,7 +255,9 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
     </div></div>}
     {state.phase === "defeat" && !characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen && menuPage === null && <div className="game-overlay game-overlay--center"><RunSummary state={state} onRestart={restart} /></div>}
     <MotionPresence active={rewardReady && !state.backpackOpen && !characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen} className="game-reward-stage"><RewardChoices key={`${state.id}:${state.wave}`} rewards={state.rewards} onClaim={rewardId => send({type:"claimReward", rewardId})} refreshQuote={getRewardRefreshQuote(state)} onRefresh={offerId => send({type:"refreshRewards", offerId})} /></MotionPresence>
-    <MotionPresence active={inspectedMagic !== null} className="game-magic-stage"><Suspense fallback={null}>{inspectedMagic && <MagicDetails state={state} itemId={inspectedMagic} onClose={closeMagicDetails} />}</Suspense></MotionPresence>
+    <MotionPresence active={inspectedMagic !== null} className="game-magic-stage">{inspectedMagic && (inspectSynthesis
+      ? <WandRecipeConfirmation key={inspectedMagic} state={state} itemId={inspectedMagic} dispatch={dispatch} onClose={closeMagicDetails} />
+      : <MagicDetails state={state} itemId={inspectedMagic} onClose={closeMagicDetails} />)}</MotionPresence>
     </div>
     <div id="game-inventory-panel" ref={loadoutRef} className="game-inventory" data-open={state.backpackOpen && menuPage === null} inert={!state.backpackOpen || menuPage !== null || inspectedMagic !== null} aria-hidden={!state.backpackOpen || menuPage !== null || inspectedMagic !== null} aria-label="背包" role="region" tabIndex={-1}>
       <PencilLine className="game-inventory__separator" seed="inventory-separator" aria-hidden="true" />

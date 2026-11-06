@@ -138,7 +138,7 @@ test('different magic definitions can fill multiple item slots and grades remain
   assert.ok(itemOnly.every(card => card.kind === 'item'));
   assert.equal(new Set(itemOnly.map(card => card.definitionId)).size, 4);
 
-  const gradeRolls = [0.3, 0.7, 0.88, 0.96, 0.985, 0.999];
+  const gradeRolls = [0.3, 0.90, 0.98, 0.996, 0.999, 0.9999];
   const types = Object.keys(rewardBuffValues) as (keyof typeof rewardBuffValues)[];
   for (const [typeIndex, type] of types.entries()) for (const [rank, gradeRoll] of gradeRolls.entries()) {
     const cards = fillUniqueRewardOffers([], {
@@ -225,4 +225,32 @@ test('cooldown-capped sampling removes only that buff semantic and keeps determi
   assert.equal(upperBoundary[0].effect?.type, 'gatheringPercent');
   const uncapped = fillUniqueRewardOffers([], { ...input, random: sequence([0, 0.65, 0]) }, 1);
   assert.equal(uncapped[0].effect?.type, 'cooldownPercent');
+});
+
+test('early high grades and advanced synthesis are rare, with luck increasing both chances', () => {
+  const content: ContentCatalog = {
+    spells: {},
+    arcana: Object.fromEntries(['double', 'quadruple', 'sextuple'].map(id => [id, demoContent.arcana[id]])),
+    recipes: demoContent.recipes.filter(recipe => ['quadruple', 'sextuple'].includes(recipe.output)),
+    sequences: {},
+  };
+  function sample(luck: number, wave: number) {
+    let seed = 9137;
+    const random = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x1_0000_0000;
+    let total = 0, highGrade = 0, magic = 0, sextuple = 0;
+    for (let i = 0; i < 1000; i++) for (const offer of fillUniqueRewardOffers([], {
+      wave, luck, random, content, characterCount: 1, wandCount: 1,
+    }, 1)) {
+      total++;
+      if (offer.grade && gradeOrder.indexOf(offer.grade) >= 2) highGrade++;
+      if (offer.kind === 'item') { magic++; if (offer.definitionId === 'sextuple') sextuple++; }
+    }
+    return { gradeRate: highGrade / total, sextupleRate: sextuple / magic };
+  }
+  const early = sample(0, 4), lucky = sample(100, 4), later = sample(0, 40);
+  assert.ok(early.gradeRate < .05, `early high-grade rate ${early.gradeRate}`);
+  assert.ok(lucky.gradeRate > early.gradeRate * 3, 'luck should improve reward quality');
+  assert.ok(early.sextupleRate < .04, `early six-cast rate ${early.sextupleRate}`);
+  assert.ok(lucky.sextupleRate > early.sextupleRate * 3, 'luck should improve advanced magic chance');
+  assert.ok(later.sextupleRate > early.sextupleRate, 'later waves should gradually open advanced magic');
 });

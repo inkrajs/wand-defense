@@ -81,6 +81,7 @@ function areaVisual(entity: CombatEntity, state: GameState, width: number, heigh
 function AreaShape({ visual, details, resolution, washScale }: { visual: AreaVisual; details: boolean; resolution: number; washScale: number }) {
   const { entity, phase, progress, elapsedMs, windup, radiusX, radiusY, x, y } = visual;
   const mode = entity.area?.mode;
+  if (entity.definitionId === "thunder-strike" && mode === "strike") return null;
   if (mode !== "strike" && mode !== "ring" && mode !== "eruption" && mode !== "field" && mode !== "vortex") return null;
   const meteor = METEOR_SPELLS.has(entity.definitionId);
   const rod = entity.definitionId === "god-rod";

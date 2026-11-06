@@ -125,3 +125,26 @@ test('two amplification tiers really synthesize and strengthen adjacent magic', 
   assert.equal(compileWand(placed.state,state.wands[0].id,content)!.spells[0].power, baseline * 2);
   assert.equal(content.arcana['supreme-amplify'].value, 3);
 });
+
+test('an inspected material finds its own legal group even when another pair is listed first', () => {
+  const horizontal = 'glimmer-shield-recipe', vertical = 'glimmer-ray-recipe';
+  let state = fixture(); state.knowledge.recipeIds = [horizontal, vertical];
+  state = place(state, 'corner', 'glimmer', 0, 0);
+  state = place(state, 'right', 'glimmer', 1, 0);
+  state = place(state, 'below', 'glimmer', 0, 1);
+  state = place(state, 'second-left', 'glimmer', 4, 0);
+  state = place(state, 'second-right', 'glimmer', 5, 0);
+  state = place(state, 'isolated', 'glimmer', 9, 5);
+  const wandId = state.wands[0].id;
+  const inspect = (id: string) => getWandRecipeOptions(state, wandId, content, id);
+  assert.deepEqual(inspect('corner').map(option => option.recipeId), [horizontal, vertical]);
+  assert.deepEqual(inspect('below').map(option => option.recipeId), [vertical]);
+  assert.deepEqual(inspect('isolated'), []);
+  assert.deepEqual(inspect('missing'), []);
+  const [choice] = inspect('second-right');
+  assert.equal(choice.recipeId, horizontal);
+  assert.deepEqual(choice.itemIds, ['second-left', 'second-right']);
+  const merged = applyLoadoutCommand(state, {id: 'picked-pair', type: 'mergeRecipe', wandId, recipeId: choice.recipeId, itemIds: choice.itemIds}, content);
+  assert.equal(merged.result.status, 'executed');
+  assert.deepEqual(merged.state.wands[0].placements.map(p => p.itemId), ['corner', 'right', 'below', 'isolated']);
+});

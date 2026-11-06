@@ -4,8 +4,8 @@ import { matchesRecipeLayout } from './recipe-layout';
 
 export interface WandRecipeOption { recipeId: string; output: string; itemIds: string[] }
 
-/** Find one deterministic executable material group per discovered recipe, without mutating state. */
-export function getWandRecipeOptions(state: GameState, wandId: string, content: ContentCatalog): WandRecipeOption[] {
+/** Find one deterministic executable material group per discovered recipe, optionally requiring a particular material instance. */
+export function getWandRecipeOptions(state: GameState, wandId: string, content: ContentCatalog, requiredItemId?: string): WandRecipeOption[] {
   if (state.phase === 'defeat' || (state.phase === 'battle' && !state.paused)) return [];
   const wand = state.wands.find(entry => entry.id === wandId);
   if (!wand) return [];
@@ -17,6 +17,8 @@ export function getWandRecipeOptions(state: GameState, wandId: string, content: 
       || state.wands.reduce((count, entry) => count + entry.placements.filter(other => other.itemId === placement.itemId).length, 0) !== 1) return [];
     return [{itemId: item.id, definitionId: item.definitionId, cells: placementCells(definition.shape, placement)}];
   });
+  const requiredMaterial = requiredItemId === undefined ? undefined : materials.find(material => material.itemId === requiredItemId);
+  if (requiredItemId !== undefined && !requiredMaterial) return [];
   function connected(indices: number[]) {
     const reached = new Set([indices[0]]), queue = [indices[0]];
     for (let cursor = 0; cursor < queue.length; cursor++) {
@@ -32,11 +34,13 @@ export function getWandRecipeOptions(state: GameState, wandId: string, content: 
   const seen = new Set<string>();
   for (const recipe of content.recipes) {
     if (!known.has(recipe.id) || seen.has(recipe.id) || !recipe.inputs.length
+      || (requiredMaterial && !recipe.inputs.includes(requiredMaterial.definitionId))
       || !(content.spells[recipe.output] || content.arcana[recipe.output])) continue;
     seen.add(recipe.id);
     const selected: number[] = [];
     function find(inputIndex: number): boolean {
-      if (inputIndex === recipe.inputs.length) return (!recipe.requireAdjacency || connected(selected))
+      if (inputIndex === recipe.inputs.length) return (!requiredMaterial || selected.some(index => materials[index] === requiredMaterial))
+        && (!recipe.requireAdjacency || connected(selected))
         && matchesRecipeLayout(recipe, selected.map(index => materials[index]), content);
       const definitionId = recipe.inputs[inputIndex];
       // Identical materials are combinations, rather than permutations of the same instances.

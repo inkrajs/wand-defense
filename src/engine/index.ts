@@ -11,7 +11,7 @@ import { nextCombatRandom } from "./random";
 import { getCharacterStats } from "../content/characters";
 import { advanceEnemies, beginWave } from "./waves";
 import { advanceTerritoryRecovery } from "./territoryRecovery";
-import { grantEnemyLoot } from "./loot";
+import { collectWaveLoot, spawnEnemyLoot } from "./loot";
 import { grantCoinIncome } from "../content/economy";
 import { discardExpiredRemains, rememberFallenUnit } from "./remains";
 import { advanceConstructs, releaseConstructDeathBurst } from "./constructs";
@@ -82,7 +82,7 @@ function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills, 
     emit("enemyKilled", { entityId: entity.id, definitionId: entity.definitionId, xp, coins,
       x: entity.x, y: entity.y, maxHp: entity.maxHp, level, grade: entity.grade ?? "common", wave: state.wave,
       ...cause, ...(beneficiary ? { xpCharacterId: beneficiary.id } : {}) });
-    grantEnemyLoot(state,entity,sourceLuck,content,emit);
+    spawnEnemyLoot(state,entity,sourceLuck,content,emit);
   }
   state.entities = state.entities.filter(entity => entity.hp > 0 && (entity.remainingMs === undefined || entity.remainingMs > 0));
   // Each character owns a cumulative pool. The team tally never drives upgrades.
@@ -124,6 +124,7 @@ function advanceBattle(state: GameState, dtMs: number, content: ContentCatalog, 
       if (next.territory.hp <= 0) {
         next.territory.hp = 0;
         next.phase = "defeat";
+        delete next.groundLoot;
         delete next.remains;
         next.entities = next.entities.filter(entity => entity.kind === "enemy");
         emit("defeat", { wave: next.wave });
@@ -176,6 +177,7 @@ function advanceBattle(state: GameState, dtMs: number, content: ContentCatalog, 
           const view = getCharacterStats(next,character.id,content);
           if (view) character.mana = view.final.maxMana;
         }
+        collectWaveLoot(next, emit);
         next.phase = "reward";
         delete next.remains;
         next.entities = next.entities.filter(entity=>entity.faction === "player" && (entity.kind === "summon" || entity.kind === "building")

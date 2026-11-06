@@ -15,6 +15,27 @@ export type RunReadResult =
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+function validGroundLoot(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  const ids = new Set<string>();
+  return value.every(loot => {
+    if (!record(loot) || typeof loot.id !== "string" || loot.id.length === 0 || loot.id.length > 160 || Object.hasOwn(Object.prototype, loot.id)
+      || ids.has(loot.id) || typeof loot.definitionId !== "string" || typeof loot.enemyId !== "string"
+      || ![loot.x,loot.y].every(coord => typeof coord === "number" && Number.isFinite(coord) && coord >= 0 && coord <= 100)
+      || !record(loot.instance) || loot.instance.id !== loot.id || !Number.isSafeInteger(loot.instance.level)
+      || Number(loot.instance.level) < 1 || !["common","uncommon","rare","epic","legendary","mythic"].includes(String(loot.instance.grade))) return false;
+    ids.add(loot.id);
+    const item = loot.instance;
+    if (loot.kind === "item") return item.definitionId === loot.definitionId;
+    if (loot.kind === "gear") return item.definitionId === loot.definitionId && item.characterId === null
+      && typeof item.name === "string" && ["head","body","feet","accessory"].includes(String(item.slot));
+    return loot.kind === "wand" && item.characterId === null && typeof item.name === "string"
+      && typeof item.width === "number" && Number.isSafeInteger(item.width) && item.width > 0
+      && typeof item.height === "number" && Number.isSafeInteger(item.height) && item.height > 0
+      && Array.isArray(item.placements) && item.placements.length === 0 && record(item.cooldowns);
+  });
+}
+
 function parseRun(raw: string | null): RuntimeCheckpoint | undefined {
   try {
     if (!raw) return;
@@ -28,6 +49,7 @@ function parseRun(raw: string | null): RuntimeCheckpoint | undefined {
       typeof state.paused !== "boolean" || typeof state.backpackOpen !== "boolean" ||
       !record(state.territory) || !record(state.items) || !record(state.knowledge) || !record(state.cheats) ||
       !["characters", "wands", "backpack", "entities", "rewards", "events"].every(key => Array.isArray(state[key])) ||
+      (state.groundLoot !== undefined && !validGroundLoot(state.groundLoot)) ||
       !saved.results.every(entry => Array.isArray(entry) && entry.length === 2 &&
         typeof entry[0] === "string" && record(entry[1]) &&
         ["accepted", "executed", "rejected"].includes(String(entry[1].status)))) return;

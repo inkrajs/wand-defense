@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useRef } from "react";
 import { PencilSurface, PencilText } from "@inkra/react";
 import { Progress } from "@inkra/react/display";
 import { getExperienceProgress } from "../content/progression";
@@ -9,7 +9,7 @@ import { demoContent } from "../content/demo";
 import { getCharacterStats } from "../content/characters";
 import { getCharacterAnchors } from "../content/characterAnchors";
 import { getMonsterSize } from "../content/monsters";
-import type { CombatEntity, GameState } from "../contracts";
+import type { CombatEntity, Command, CommandResult, GameState } from "../contracts";
 import "./Battlefield.css";
 import { AssetImage, resolveEntityAsset } from "./assets";
 import { CombatEffects } from "./CombatEffects";
@@ -24,6 +24,7 @@ import { MagicEffectArt } from "./MagicEffectArt";
 import { localProgress, ringOptions, strokeOptions } from "./progressOptions";
 import { useMonsterAttackBobs, type ActiveMonsterBob } from "./monsterAnimation";
 import { useGraphicsSettings } from "./graphicsSettings";
+import { GroundLootLayer } from "./GroundLoot";
 
 function ratio(value: number, maximum: number) {
   if (!Number.isFinite(value) || !Number.isFinite(maximum) || maximum <= 0) return 0;
@@ -79,15 +80,16 @@ const BattlefieldUnit = memo(function BattlefieldUnit({ entity, attackBob, resol
 }, (a, b) => a.attackBob?.eventSeq === b.attackBob?.eventSeq && a.resolution === b.resolution && a.entity.id === b.entity.id && a.entity.kind === b.entity.kind && a.entity.faction === b.entity.faction && a.entity.definitionId === b.entity.definitionId && a.entity.bodySize === b.entity.bodySize && a.entity.x === b.entity.x && a.entity.y === b.entity.y && a.entity.hp === b.entity.hp && a.entity.maxHp === b.entity.maxHp && ((a.entity.kind !== "summon" && a.entity.kind !== "building") || Math.ceil((a.entity.remainingMs ?? 0) / 1000) === Math.ceil((b.entity.remainingMs ?? 0) / 1000)) && visibleStatusKey(a.entity) === visibleStatusKey(b.entity));
 
 /** Read-only battlefield projection. World coordinates are expressed on a 0–100 field. */
-type Props = { state: GameState; flashes: CastFlashLookup; activeCharacterId: string; hideActiveMini?: boolean; onCharacterSelect: (characterId: string) => void };
+type Props = { state: GameState; flashes: CastFlashLookup; activeCharacterId: string; hideActiveMini?: boolean; onCharacterSelect: (characterId: string) => void; dispatch: (command: Command) => CommandResult };
 
-export function Battlefield({ state, flashes, activeCharacterId, hideActiveMini = false, onCharacterSelect }: Props) {
+export function Battlefield({ state, flashes, activeCharacterId, hideActiveMini = false, onCharacterSelect, dispatch }: Props) {
+  const fieldRef = useRef<HTMLDivElement>(null);
   const monsterAttackBob = useMonsterAttackBobs(state);
   const { settings } = useGraphicsSettings();
   const anchors = new Map(getCharacterAnchors(state.characters).map(anchor => [anchor.characterId, anchor]));
   return (
     <section className={`battlefield battlefield--${state.phase}`} data-progress-mode={localProgress ? "local" : "fallback"} aria-label="战场">
-      <div className={`battlefield__field${state.paused ? " is-paused" : ""}`} role="group" aria-label={`第 ${state.wave} 波战场，${state.entities.length} 个单位，领地生命 ${state.territory.hp} / ${state.territory.maxHp}`}>
+      <div ref={fieldRef} className={`battlefield__field${state.paused ? " is-paused" : ""}`} data-has-ground-loot={Boolean(state.groundLoot?.length) || undefined} role="group" aria-label={`第 ${state.wave} 波战场，${state.entities.length} 个单位，领地生命 ${state.territory.hp} / ${state.territory.maxHp}`}>
         <BloodDecals state={state} />
         {state.entities.filter(entity => entity.kind !== "projectile" && entity.kind !== "beam" && entity.kind !== "area" && entity.kind !== "chain").map(entity => <BattlefieldUnit key={entity.id} entity={entity} resolution={settings.effectResolution} attackBob={entity.kind === "enemy" ? monsterAttackBob(entity.id) : undefined} />)}
 
@@ -96,6 +98,7 @@ export function Battlefield({ state, flashes, activeCharacterId, hideActiveMini 
         <DeathEffects state={state} />
         <CombatEffects state={state} />
         <BeamEffects state={state} />
+        <GroundLootLayer state={state} dispatch={dispatch} fieldRef={fieldRef} />
         <div className="battlefield__heroes" aria-label="守城角色">
           {state.characters.map((character) => {
             const effective = getCharacterStats(state, character.id)?.final;
