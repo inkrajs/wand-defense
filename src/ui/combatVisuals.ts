@@ -1,4 +1,5 @@
 import type { CombatEntity, GameState } from "../contracts";
+import type { BeamLayout } from "./beamVisuals";
 
 export type VisualKind = "ember" | "fireball" | "needle" | "water" | "lightning" | "wind" | "rock" | "thorn" | "disc" | "light" | "shadow" | "heal" | "shield";
 // Presentation registry: replace a visual here without changing a spell's rules.
@@ -32,6 +33,16 @@ export function projectileVisual(entity: CombatEntity) {
   return {kind,originX,originY,originWeight:Number.isFinite(distance) && Number.isFinite(travelled) && distance > 0 && !(entity.hitIds?.length) ? Math.max(0,Math.min(1,1 - travelled / distance)) : 0,
     heading,
     x,y,targetX,targetY};
+}
+
+/** Project character casts from the HUD hero into the shared battlefield world. */
+export function projectileScreenPosition(entity: CombatEntity, visual: NonNullable<ReturnType<typeof projectileVisual>>, layout: BeamLayout) {
+  const world = { x: visual.x / 100 * layout.width, y: visual.y / 100 * layout.height };
+  const source = entity.sourceCharacterId ? layout.sources[entity.sourceCharacterId] : undefined;
+  // Triggered and construct shots originate at their real point, not at their owner.
+  if (!source || entity.fixedOrigin || entity.sourceEntityId) return world;
+  const start = { x: visual.originX / 100 * layout.width, y: visual.originY / 100 * layout.height };
+  return { x: world.x + visual.originWeight * (source.x - start.x), y: world.y + visual.originWeight * (source.y - start.y) };
 }
 /** Use recorded hit coordinates even when the target died in this same tick. */
 export function collectCastVisuals(state: GameState, afterSeq: number): CastVisual[] {

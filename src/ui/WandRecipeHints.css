@@ -1,0 +1,6 @@
+.wand-recipe-hints { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.wand-recipe-hints__wash { position: absolute; display: block; pointer-events: none; opacity: .32; animation: wand-recipe-wash 1.2s ease-in-out infinite alternate; }
+.inkra-inventory-grid:has(.inkra-inventory-grid__item[data-dragging]) .wand-recipe-hints { visibility: hidden; }
+@keyframes wand-recipe-wash { from { opacity: .12; } to { opacity: .52; } }
+@media (prefers-reduced-motion: reduce) { .wand-recipe-hints__wash { animation: none; opacity: .35; } }
+html[data-game-reduce-motion='true'] .wand-recipe-hints__wash { animation: none; opacity: .35; }

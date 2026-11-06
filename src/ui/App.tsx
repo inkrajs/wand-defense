@@ -18,6 +18,7 @@ import { useCastFlashes } from "./wandMiniatureEvents";
 import { localProgress } from "./progressOptions";
 import { RewardChoices } from "./RewardChoices";
 import { MagicDetails } from "./MagicDetails";
+import { hasInventoryDetail, InventoryDetailScreen, InventoryEntityDetails } from "./InventoryDetails";
 import { getWandRecipeChoices, WandRecipeConfirmation } from "./WandRecipeConfirmation";
 import { getRewardRefreshQuote } from "../runtime/rewardRefresh";
 import type { MenuPage } from "./MenuPages";
@@ -57,27 +58,29 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
   const inventoryPageRows = useInventoryPageRows();
   const debugUnlock = useDebugUnlock(runtime);
   const [state, setState] = useState<GameState>(() => runtime.getState());
-  const [inspectedMagic,setInspectedMagic]=useState<string|null>(null);
+  const [inspectedItem,setInspectedItem]=useState<string|null>(null);
   const [inspectSynthesis, setInspectSynthesis] = useState(false);
+  const [inspectionMaterials, setInspectionMaterials] = useState<string[] | undefined>();
   const inspectionPause=useRef<{runId:string;paused:boolean}|null>(null);
   const inspectionFocus = useRef<HTMLElement | null>(null);
-  function inspectMagic(itemId:string) {
-    const current=runtime.getState(),item=current.items[itemId];
-    if(!item||(item.kind!=="spell"&&item.kind!=="arcana"))return;
+  function inspectMagic(itemId:string, preferredItemIds?:string[]) {
+    const current = runtime.getState();
+    if (!hasInventoryDetail(current, itemId)) return;
     inspectionFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     inspectionPause.current={runId:current.id,paused:current.paused};
     if(current.phase==="battle"&&!current.paused) {
       const result=runtime.dispatch({id:commandId(),type:"setPaused",paused:true});
       if(result.status==="rejected"){inspectionPause.current=null;return;}
     }
-    setInspectSynthesis(getWandRecipeChoices(current, itemId).length > 0);
-    setInspectedMagic(itemId);
+    setInspectSynthesis(Object.hasOwn(current.items, itemId) && getWandRecipeChoices(current, itemId, preferredItemIds).length > 0);
+    setInspectionMaterials(preferredItemIds);
+    setInspectedItem(itemId);
   }
   function closeMagicDetails() {
     const target = inspectionFocus.current;
     inspectionFocus.current = null;
     if (document.activeElement instanceof HTMLElement && document.activeElement.closest('.game-magic-stage')) document.activeElement.blur();
-    const previous=inspectionPause.current;inspectionPause.current=null;setInspectedMagic(null);setInspectSynthesis(false);
+    const previous=inspectionPause.current;inspectionPause.current=null;setInspectedItem(null);setInspectSynthesis(false);setInspectionMaterials(undefined);
     const current=runtime.getState();
     if(previous&&previous.runId===current.id&&current.phase==="battle"&&!current.backpackOpen&&current.paused!==previous.paused)
       runtime.dispatch({id:commandId(),type:"setPaused",paused:previous.paused});
@@ -86,8 +89,8 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
     });
   }
   useEffect(()=>{
-    if(inspectedMagic&&(!state.items[inspectedMagic]||inspectionPause.current?.runId!==state.id))closeMagicDetails();
-  },[state.id,state.items,inspectedMagic]);
+    if(inspectedItem&&(!hasInventoryDetail(state, inspectedItem)||inspectionPause.current?.runId!==state.id))closeMagicDetails();
+  },[state.id,state.items,state.gear,state.supplies,state.wands,inspectedItem]);
   const [initialUi] = useState(() => readUiSession(state.id, state.characters));
   const [uiRunId, setUiRunId] = useState(state.id);
   const rewardReady = useBattleSettlement(state);
@@ -110,7 +113,7 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
   const [menuPage, setMenuPage] = useState<MenuPage | null>(null);
   const [menuMounted, setMenuMounted] = useState(false);
   useEffect(() => {
-    if (inspectedMagic && (menuPage !== null || characterOpen || territoryOpen || talentOpen || skillTreeOpen)) closeMagicDetails();
+    if (inspectedItem && (menuPage !== null || characterOpen || territoryOpen || talentOpen || skillTreeOpen)) closeMagicDetails();
   }, [menuPage, characterOpen, territoryOpen, talentOpen, skillTreeOpen]);
   const pausedBeforeMenu = useRef(false);
   const pendingPauseRestore = useRef<boolean | null>(null);
@@ -221,9 +224,9 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
   const readyWandHeight = state.backpackOpen ? inventoryWandAreaHeight : wandBoardHeight;
   const speedIndex = Math.max(0, GAME_SPEEDS.indexOf(state.speed));
   const phaseLabel = { ready: "准备中", battle: "战斗中", reward: "选择奖励", defeat: "领地失守" }[state.phase];
-  return <main data-magic-inspection={inspectedMagic !== null} className={`game-shell game-shell--${state.phase}`} style={{ "--inventory-page-rows": inventoryPageRows, "--game-vitals-height": localProgress ? "20px" : "28px", "--game-hero-mini-space": "0px", "--game-board-space": state.phase === "battle" ? `${wandBoardHeight * .2}px` : "0px", "--wand-height": `${wandBoardHeight}px`, "--ready-wand-height": `${readyWandHeight}px` } as CSSProperties} aria-label="杀死那个巫师游戏画面">
-    <div className={`game-scene${state.backpackOpen ? " game-scene--inventory" : ""}`} inert={menuPage !== null}><Battlefield state={state} dispatch={dispatch} flashes={castFlashes} activeCharacterId={territoryOpen || talentOpen || skillTreeOpen ? "" : activeCharacter?.id ?? ""} hideActiveMini={state.phase === "ready" && !territoryOpen && !talentOpen && !skillTreeOpen} onCharacterSelect={characterId => { closeMagicDetails(); setSkillTreeOpen(false); setActiveCharacterId(characterId); setTerritoryOpen(false); setTalentOpen(false); }} />
-    <ConstructDeployment state={state} characterId={activeCharacter?.id ?? ""} runtime={runtime} dispatch={dispatch} enabled={inspectedMagic === null && menuPage === null && !state.backpackOpen && !characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen} />
+  return <main data-magic-inspection={inspectedItem !== null} className={`game-shell game-shell--${state.phase}`} style={{ "--inventory-page-rows": inventoryPageRows, "--game-vitals-height": localProgress ? "20px" : "28px", "--game-hero-mini-space": "0px", "--game-board-space": state.phase === "battle" ? `${wandBoardHeight * .2}px` : "0px", "--wand-height": `${wandBoardHeight}px`, "--ready-wand-height": `${readyWandHeight}px` } as CSSProperties} aria-label="杀死那个巫师游戏画面">
+    <div className={`game-scene${state.backpackOpen ? " game-scene--inventory" : ""}`} inert={menuPage !== null || inspectedItem !== null}><Battlefield state={state} dispatch={dispatch} flashes={castFlashes} activeCharacterId={territoryOpen || talentOpen || skillTreeOpen ? "" : activeCharacter?.id ?? ""} hideActiveMini={state.phase === "ready" && !territoryOpen && !talentOpen && !skillTreeOpen} onCharacterSelect={characterId => { closeMagicDetails(); setSkillTreeOpen(false); setActiveCharacterId(characterId); setTerritoryOpen(false); setTalentOpen(false); }} />
+    <ConstructDeployment state={state} characterId={activeCharacter?.id ?? ""} runtime={runtime} dispatch={dispatch} enabled={inspectedItem === null && menuPage === null && !state.backpackOpen && !characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen} />
     {!characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen && menuPage === null && <WaveProgress state={state} />}
     <header className="game-header" aria-label="游戏状态">
       <div className="game-coins" aria-label={`金币 ${state.coins}`}><PencilIcon paths={coinPaths} sourceSize={24} size={32} seed="coin" decorative /><PencilText seed="coin-count">{String(state.coins)}</PencilText></div><div className="game-meta" onClick={debugUnlock.onTitleClick}><PencilText seed="wave-status">{`第 ${state.wave} 波 · ${phaseLabel}`}</PencilText></div>
@@ -244,25 +247,35 @@ export function App({ runtime, agentPanel }: { runtime: RuntimePort; agentPanel?
     </div>
     {message && <p className="game-message" role="alert">{message}</p>}
 
-    <div className={`game-workbench game-workbench--${state.phase}${state.backpackOpen || characterOpen || territoryOpen || talentOpen || skillTreeOpen || state.phase === "reward" || state.phase === "battle" ? " is-obscured" : ""}`} style={state.phase === "ready" ? { top: wandBoardHeight > 0 ? "calc(var(--ready-center) - 28px)" : "var(--ready-center)" } : undefined} inert={inspectedMagic !== null || state.phase === "battle" || state.phase === "reward" || state.backpackOpen || characterOpen || territoryOpen || talentOpen || skillTreeOpen}><WandBoard state={state} flashes={castFlashes} dispatch={dispatch} activeCharacterId={activeCharacter?.id ?? ""} onHeightChange={setWandBoardHeight} onInspectMagic={inspectMagic} /></div>
-    {characterOpen && !territoryOpen && !skillTreeOpen && <section id="character-panel" className="game-character-stage" aria-label="角色详情"><div className="game-character-stage__content"><PanelBackdrop wide><Suspense fallback={<span role="status">正在加载角色…</span>}><CharacterPage state={state} dispatch={dispatch} activeCharacterId={activeCharacter?.id ?? ""} showLoadout={loadoutVisible} loadoutCategory={inventoryCategory === "items" || inventoryCategory === "equipment" ? inventoryCategory : undefined} tab={characterTab} onTabChange={setCharacterTab} /></Suspense></PanelBackdrop></div></section>}
+    <div className={`game-workbench game-workbench--${state.phase}${state.backpackOpen || characterOpen || territoryOpen || talentOpen || skillTreeOpen || state.phase === "reward" || state.phase === "battle" ? " is-obscured" : ""}`} style={state.phase === "ready" ? { top: wandBoardHeight > 0 ? "calc(var(--ready-center) - 28px)" : "var(--ready-center)" } : undefined} inert={inspectedItem !== null || state.phase === "battle" || state.phase === "reward" || state.backpackOpen || characterOpen || territoryOpen || talentOpen || skillTreeOpen}><WandBoard state={state} flashes={castFlashes} dispatch={dispatch} activeCharacterId={activeCharacter?.id ?? ""} onHeightChange={setWandBoardHeight} onInspectMagic={inspectMagic} /></div>
+    {characterOpen && !territoryOpen && !skillTreeOpen && <section id="character-panel" className="game-character-stage" aria-label="角色详情"><div className="game-character-stage__content"><PanelBackdrop wide><Suspense fallback={<span role="status">正在加载角色…</span>}><CharacterPage state={state} dispatch={dispatch} activeCharacterId={activeCharacter?.id ?? ""} showLoadout={loadoutVisible} loadoutCategory={inventoryCategory === "items" || inventoryCategory === "equipment" ? inventoryCategory : undefined} tab={characterTab} onTabChange={setCharacterTab} onInspectItem={inspectMagic} /></Suspense></PanelBackdrop></div></section>}
     <MotionPresence active={skillTreeOpen && menuPage === null} className="game-territory-stage game-skill-tree-stage" label="技能树" containerRef={skillTreePanelRef}><div id="skill-tree-panel" className="game-skill-tree-stage__content" onKeyDown={event=>{if(event.key==="Escape"&&!event.defaultPrevented){event.preventDefault();setSkillTreeOpen(false);requestAnimationFrame(()=>skillTreeButtonRef.current?.focus());}}}><PanelBackdrop wide><Suspense fallback={null}><SkillTree knowledge={state.knowledge} /></Suspense></PanelBackdrop></div></MotionPresence>
     {talentOpen && menuPage === null && <section id="talent-panel" className="game-territory-stage" aria-label="天赋"><PanelBackdrop><Suspense fallback={<span role="status">正在加载天赋…</span>}><TalentPanel state={state} /></Suspense></PanelBackdrop></section>}
     {territoryOpen && menuPage === null && <section className="game-territory-stage" aria-label="领地管理"><PanelBackdrop><Suspense fallback={<span role="status">正在加载领地…</span>}><TerritoryPanel state={state} onUpgrade={(track: TerritoryUpgradeTrack) => dispatch({ id: commandId(), type: "upgradeTerritory", track })} onRepair={(track: TerritoryUpgradeTrack) => dispatch({ id: commandId(), type: "repairTerritory", track })} onUpgradeRecovery={(track: TerritoryUpgradeTrack) => dispatch({ id: commandId(), type: "upgradeTerritoryRecovery", track })} /></Suspense></PanelBackdrop></section>}
-    {state.phase === "ready" && !characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen && <div className="game-center-stage" inert={inspectedMagic !== null} style={state.phase === "ready" ? { top: readyWandHeight > 0 ? "min(calc(var(--ready-center) + var(--ready-wand-height) / 2 - 16px), calc(100% - var(--game-hud-inset) - 48px))" : "min(calc(var(--ready-center) - 22px), calc(100% - var(--game-hud-inset) - 48px))" } : undefined}><div className="game-center-stage__content">
+    {state.phase === "ready" && !characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen && <div className="game-center-stage" inert={inspectedItem !== null} style={state.phase === "ready" ? { top: readyWandHeight > 0 ? "min(calc(var(--ready-center) + var(--ready-wand-height) / 2 - 16px), calc(100% - var(--game-hud-inset) - 48px))" : "min(calc(var(--ready-center) - 22px), calc(100% - var(--game-hud-inset) - 48px))" } : undefined}><div className="game-center-stage__content">
       {state.phase === "ready" && <Button style={{ minHeight: 44 }} onClick={() => send({type:"startWave"})}>{state.wave === 0 ? "开始游戏" : "开始下一波"}</Button>}
 
     </div></div>}
     {state.phase === "defeat" && !characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen && menuPage === null && <div className="game-overlay game-overlay--center"><RunSummary state={state} onRestart={restart} /></div>}
     <MotionPresence active={rewardReady && !state.backpackOpen && !characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen} className="game-reward-stage"><RewardChoices key={`${state.id}:${state.wave}`} rewards={state.rewards} onClaim={rewardId => send({type:"claimReward", rewardId})} refreshQuote={getRewardRefreshQuote(state)} onRefresh={offerId => send({type:"refreshRewards", offerId})} /></MotionPresence>
-    <MotionPresence active={inspectedMagic !== null} className="game-magic-stage">{inspectedMagic && (inspectSynthesis
-      ? <WandRecipeConfirmation key={inspectedMagic} state={state} itemId={inspectedMagic} dispatch={dispatch} onClose={closeMagicDetails} />
-      : <MagicDetails state={state} itemId={inspectedMagic} onClose={closeMagicDetails} />)}</MotionPresence>
+
     </div>
-    <div id="game-inventory-panel" ref={loadoutRef} className="game-inventory" data-open={state.backpackOpen && menuPage === null} inert={!state.backpackOpen || menuPage !== null || inspectedMagic !== null} aria-hidden={!state.backpackOpen || menuPage !== null || inspectedMagic !== null} aria-label="背包" role="region" tabIndex={-1}>
+    <div id="game-inventory-panel" ref={loadoutRef} className="game-inventory" data-open={state.backpackOpen && menuPage === null} inert={!state.backpackOpen || menuPage !== null || inspectedItem !== null} aria-hidden={!state.backpackOpen || menuPage !== null || inspectedItem !== null} aria-label="背包" role="region" tabIndex={-1}>
       <PencilLine className="game-inventory__separator" seed="inventory-separator" aria-hidden="true" />
-      <div className="game-inventory__content"><InventoryDock key={state.id} pageRows={inventoryPageRows} onInspectMagic={inspectMagic} category={inventoryCategory} activeCharacterId={activeCharacter?.id ?? ""} state={state} dispatch={dispatch} showWands={!characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen} showLoadout={loadoutVisible} onCategoryChange={category => { setSkillTreeOpen(false); setInventoryCategory(category); if (category === "equipment" || category === "items") { setTerritoryOpen(false); setTalentOpen(false); setCharacterOpen(true); setCharacterTab("equipment"); } else if (category === "spells") { setCharacterOpen(false); setTalentOpen(false); } }} onWandAreaHeightChange={setInventoryWandAreaHeight} /></div>
+      <div className="game-inventory__content"><InventoryDock key={state.id} pageRows={inventoryPageRows} onInspectMagic={inspectMagic} onInspectItem={inspectMagic} category={inventoryCategory} activeCharacterId={activeCharacter?.id ?? ""} state={state} dispatch={dispatch} showWands={!characterOpen && !territoryOpen && !talentOpen && !skillTreeOpen} showLoadout={loadoutVisible} onCategoryChange={category => { setSkillTreeOpen(false); setInventoryCategory(category); if (category === "equipment" || category === "items") { setTerritoryOpen(false); setTalentOpen(false); setCharacterOpen(true); setCharacterTab("equipment"); } else if (category === "spells") { setCharacterOpen(false); setTalentOpen(false); } }} onWandAreaHeightChange={setInventoryWandAreaHeight} /></div>
     </div>
+    <MotionPresence active={inspectedItem !== null} className="game-magic-stage">
+      {inspectedItem && <InventoryDetailScreen key={inspectedItem} onClose={closeMagicDetails}>
+        {inspectSynthesis && <WandRecipeConfirmation state={state} itemId={inspectedItem} preferredItemIds={inspectionMaterials} dispatch={dispatch} onClose={closeMagicDetails} />}
+        {Object.hasOwn(state.items, inspectedItem)
+          ? <MagicDetails state={state} itemId={inspectedItem} />
+          : <InventoryEntityDetails state={state} itemId={inspectedItem} onUseSupply={() => {
+            const result = dispatch({ id: commandId(), type: "useItem", itemId: inspectedItem });
+            if (result.status === "executed") closeMagicDetails();
+            return result;
+          }} />}
+      </InventoryDetailScreen>}
+    </MotionPresence>
     {menuMounted && <Suspense fallback={<span role="status">正在加载菜单…</span>}><MenuPages restart={restart} dispatch={dispatch} page={menuPage} navigate={setMenuPage} close={closeMenu} agentPanel={agentPanel} state={state} unlock={() => send({type:"unlockCheats"})} toggleCheats={() => send({type:"setCheats", enabled:!state.cheats.enabled})} heal={() => send({type:"cheat", action:"heal"})} /></Suspense>}
   </main>;
 }

@@ -3,7 +3,7 @@ import type { GameState } from "../contracts";
 import "./CombatEffects.css";
 import { useGraphicsSettings } from "./graphicsSettings";
 
-import { collectCastVisuals, projectileVisual, type CastVisual, type VisualKind } from "./combatVisuals";
+import { collectCastVisuals, projectileScreenPosition, projectileVisual, type CastVisual, type VisualKind } from "./combatVisuals";
 import { useCombatLayout } from "./useCombatLayout";
 import { getCharacterAnchors } from "../content/characterAnchors";
 import { MagicEffectArt, type MagicEffectArtKind } from "./MagicEffectArt";
@@ -11,11 +11,6 @@ import { MagicEffectArt, type MagicEffectArtKind } from "./MagicEffectArt";
 const projectileSizes: Partial<Record<VisualKind, number>> = { fireball: 36, lightning: 32, wind: 34, rock: 30, shadow: 30 };
 const impactSizes: Partial<Record<VisualKind, number>> = { fireball: 56, heal: 56, shield: 64 };
 const impactKinds: Partial<Record<VisualKind, MagicEffectArtKind>> = { ember: "impact", fireball: "impact", water: "ring", disc: "ring" };
-
-function sourceOffset(source: number | undefined, origin: number, extent: number) {
-  const value = source === undefined ? 0 : source - origin / 100 * extent;
-  return Number.isFinite(value) ? value : 0;
-}
 
 type ActiveVisual = CastVisual & { expires: number; duration: number };
 /** Cosmetic event playback only: no timers, hits or mana are written into the runtime. */
@@ -57,10 +52,8 @@ export function CombatEffects({ state }: { state: GameState }) {
     {state.phase === "battle" && state.entities.map(entity => {
       const visual = projectileVisual(entity);
       if (!visual) return null;
-      const source=layout.sources[entity.sourceCharacterId??""];
       const size=projectileSizes[visual.kind]??28;
-      const x=visual.x/100*layout.width+visual.originWeight*sourceOffset(source?.x,visual.originX,layout.width);
-      const y=visual.y/100*layout.height+visual.originWeight*sourceOffset(source?.y,visual.originY,layout.height);
+      const { x, y } = projectileScreenPosition(entity, visual, layout);
       // World axes can have different screen scales. Keep the drawn tip on the real flight direction.
       const heading=visual.heading!==undefined && layout.width>0 && layout.height>0
         ? Math.atan2(entity.headingY!*layout.height,entity.headingX!*layout.width)*180/Math.PI+90

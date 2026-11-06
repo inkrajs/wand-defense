@@ -1,8 +1,12 @@
 import {useEffect,useRef,type PointerEvent as ReactPointerEvent,type MouseEvent,type KeyboardEvent} from 'react';
 import type {GameState} from '../contracts';
 
-/** A tap inspects; moving, cancelling or touch-holding remains the inventory drag gesture. */
-export function useMagicInspectGesture(state:Pick<GameState,'items'>,onInspect?: (itemId:string)=>void) {
+/** Inspect a tap and leave movement, long holds and cancelled gestures to the grid. */
+export function useMagicInspectGesture(
+  state: Pick<GameState, 'items'>,
+  onInspect?: (itemId: string, preferredItemIds?: string[]) => void,
+  onInspectOther?: (itemId: string, viaKeyboard: boolean) => void,
+) {
   const gesture=useRef<{id:string;pointerId:number;x:number;y:number;started:number;touch:boolean;moved:boolean}|null>(null);
   useEffect(()=>{
     const move=(event:PointerEvent)=>{
@@ -20,7 +24,21 @@ export function useMagicInspectGesture(state:Pick<GameState,'items'>,onInspect?:
     if(!(target instanceof Element)||target.closest('button,a,input,select,textarea'))return;
     const id=target.closest<HTMLElement>('[data-inventory-item]')?.dataset.inventoryItem;
     const item=id?state.items[id]:undefined;
-    return item&&(item.kind==='spell'||item.kind==='arcana')?id:undefined;
+    return (item && (item.kind === 'spell' || item.kind === 'arcana')) || onInspectOther ? id : undefined;
+  }
+  function inspect(id:string,target:EventTarget|null,viaKeyboard: boolean) {
+    if (!Object.hasOwn(state.items, id)) { onInspectOther?.(id, viaKeyboard); return; }
+    const board = target instanceof Element ? target.closest('.inkra-inventory-grid__board') : null;
+    for (const hint of board?.querySelectorAll<HTMLElement>('.wand-recipe-hints__wash[data-recipe-materials]') ?? []) {
+      try {
+        const ids: unknown = JSON.parse(hint.dataset.recipeMaterials ?? 'null');
+        if (Array.isArray(ids) && ids.every(value => typeof value === 'string') && ids.includes(id)) {
+          onInspect?.(id, ids);
+          return;
+        }
+      } catch { /* A malformed visual hint must never prevent inspection. */ }
+    }
+    onInspect?.(id);
   }
   return {
     onPointerDownCapture(event:ReactPointerEvent<HTMLElement>) {
@@ -28,13 +46,13 @@ export function useMagicInspectGesture(state:Pick<GameState,'items'>,onInspect?:
       gesture.current=id&&event.button===0?{id,pointerId:event.pointerId,x:event.clientX,y:event.clientY,started:performance.now(),touch:event.pointerType!=='mouse',moved:false}:null;
     },
     onClickCapture(event:MouseEvent<HTMLElement>) {
-      const id=itemId(event.target);if(!onInspect||!id)return;
+      const id=itemId(event.target);if((!onInspect&&!onInspectOther)||!id)return;
       if(event.detail!==0&&(!gesture.current||gesture.current.id!==id||gesture.current.moved))return;
-      event.preventDefault();event.stopPropagation();onInspect(id);
+      event.preventDefault();event.stopPropagation();inspect(id,event.target,event.detail===0);
     },
     onKeyDownCapture(event:KeyboardEvent<HTMLElement>) {
       const id=itemId(event.target);
-      if(onInspect&&id&&event.key==='Enter'){event.preventDefault();event.stopPropagation();onInspect(id);}
+      if((onInspect||onInspectOther)&&id&&event.key==='Enter'){event.preventDefault();event.stopPropagation();inspect(id,event.target,true);}
     },
   };
 }

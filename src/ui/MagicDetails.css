@@ -1,4 +1,4 @@
-.magic-details { width: min(420px, 100%); max-height: 100%; margin-inline: auto; overflow: auto; cursor: pointer; }
+.magic-details { width: 100%; margin-inline: auto; }
 .magic-details:focus-visible { outline: 2px solid var(--inkra-focus); outline-offset: -2px; }
 .magic-details__content { width: 100%; }
 .magic-details__body { display: grid; justify-items: center; gap: 12px; padding: 20px; color: var(--inkra-ink); }
@@ -16,3 +16,14 @@
 /* Keep the feathered paper inside its scroll clip; only the body owns spacing. */
 .magic-details .panel-backdrop { padding: 0; }
 .magic-details .panel-backdrop__wash { inset: 0; border-radius: 40px; }
+
+.inventory-detail-screen { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--inkra-paper); }
+.inventory-detail-screen__header { padding: var(--game-hud-inset) var(--game-hud-inset) 0; }
+.inventory-detail-screen__header > button { min-height: 44px; }
+.inventory-detail-screen__scroll { overflow-y: auto; overscroll-behavior-y: contain; touch-action: pan-y; padding: 12px var(--game-hud-inset) var(--game-hud-inset); }
+.inventory-detail-screen__page { display: grid; gap: 12px; width: min(100%, 480px); margin-inline: auto; }
+.inventory-detail-screen__icon { display: grid; place-items: center; }
+.inventory-detail-screen__icon > img { max-width: 72px; max-height: 72px; object-fit: contain; }
+.inventory-detail-screen__installed { display: grid; gap: 12px; width: 100%; padding: 0; margin: 0; list-style: none; }
+.inventory-detail-screen__installed > li { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 8px; }
+.inventory-detail-screen__installed p { grid-column: 1 / -1; margin: 0; line-height: 1.5; }

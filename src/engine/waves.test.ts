@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { CombatEntity, GameState } from '../contracts';
+import { TERRITORY_FRONT_Y } from '../content/battlefieldCoordinates';
 import { getCharacterAnchor } from '../content/characterAnchors';
 import { getMonsterSize, getUnlockedMinionDefinitions } from '../content/monsters';
 import { createFixtureState } from '../runtime/mock';
@@ -126,7 +127,7 @@ test('unlocked ordinary species rotate in catalog order and apply their full spa
   assert.equal(moss.definitionId, 'enemy-moss');
   assert.equal(moss.hp, 21 * spawn.hpMultiplier);
   assert.equal(moss.damage, 3 * spawn.damageMultiplier);
-  assert.equal(moss.speed, 10.5 * spawn.speedMultiplier);
+  assert.equal(moss.speed, 9.15 * spawn.speedMultiplier);
   assert.equal(moss.cooldownMs, Math.max(400, 995 * spawn.cooldownMultiplier));
   assert.equal(getMonsterSize(moss).id, 'small');
 
@@ -210,7 +211,7 @@ test('straight and legacy enemies keep their birth lane while moving vertically'
   assert.equal(enemy.y, 30);
 });
 
-test('hunter reaches its selected anchor, then continues down that lane to attack only the territory', () => {
+test('hunter follows its selected character lane to the front and attacks the territory there', () => {
   const state = battleState();
   addSecondCharacter(state);
   const { enemy } = spawnAt(state, 1);
@@ -225,12 +226,9 @@ test('hunter reaches its selected anchor, then continues down that lane to attac
 
   advanceEnemies(state, 1_000, type => events.push(type));
   assert.equal(enemy.x, anchor.x);
-  assert.equal(enemy.y, 84);
-  assert.equal(events.length, 0);
-
-  advanceEnemies(state, 1_000, type => events.push(type));
-  assert.equal(enemy.x, anchor.x);
-  assert.equal(enemy.y, 92);
+  assert.equal(anchor.y, 84);
+  assert.equal(enemy.y, TERRITORY_FRONT_Y);
+  advanceEnemies(state, 50, type => events.push(type));
   assert.deepEqual(events, ['territoryAttacked']);
   assert.equal(state.territory.shield, 48);
   assert.equal(state.territory.hp, 100);
@@ -250,7 +248,7 @@ test('missing hunter targets fall back to the first remaining character without 
   advanceEnemies(state, 1_000, () => {});
   assert.equal(enemy.targetCharacterId, 'character-1');
   assert.equal(enemy.x, 50);
-  assert.equal(enemy.y, 84);
+  assert.equal(enemy.y, TERRITORY_FRONT_Y);
   assert.equal(state.rngState, rngState);
 });
 
@@ -308,14 +306,14 @@ test('a real territory attack emits one source-position event and damages the te
   const state = battleState();
   const { enemy } = spawnAt(state, 0);
   state.waveSpawnRemaining = 0;
-  enemy.y = 92;
+  enemy.y = TERRITORY_FRONT_Y;
   enemy.attackRemainingMs = 0;
   const events: { type: string; data: Record<string, unknown> }[] = [];
   advanceEnemies(state, 50, (type, data) => events.push({ type, data }));
   assert.equal(events.length, 1);
   assert.equal(events[0].type, 'territoryAttacked');
   assert.deepEqual(events[0].data, {
-    enemyId: enemy.id, sourceEntityId: enemy.id, targetId: 'territory', x: enemy.x, y: 92,
+    enemyId: enemy.id, sourceEntityId: enemy.id, targetId: 'territory', x: enemy.x, y: TERRITORY_FRONT_Y,
     damage: 2, shieldAbsorbed: 2, hpDamage: 0, territoryShield: 48, territoryHp: 100,
   });
   assert.equal(state.territory.shield, 48);

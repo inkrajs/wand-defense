@@ -40,7 +40,7 @@ test("real accuracy misses cannot apply knockback or burn", () => {
 });
 
 test("water contact slows actual enemy travel without changing its base speed or ramp", () => {
-  let state = battle("water-bolt", { y: 80, speed: 10, moveSpeed: 10, moveRampMs: 0 });
+  let state = battle("water-bolt", { y: 70, speed: 10, moveSpeed: 10, moveRampMs: 0 });
   for (let index = 0; index < 20 && !state.entities[0].status?.slow; index++) {
     state = stepBattle(state, 50, demoContent).state;
   }

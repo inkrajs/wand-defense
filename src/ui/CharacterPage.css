@@ -4,6 +4,8 @@
 .character-page__gear-grid { display: grid; grid-template-columns: 56px minmax(96px, 112px) 56px; grid-template-rows: 56px 56px 56px; grid-template-areas: "head portrait wand-one" "body portrait wand-two" "feet portrait accessory"; align-items: center; justify-content: center; gap: var(--inkra-space-2); }
 .character-page__portrait { grid-area: portrait; display: grid; place-items: center; width: 100%; height: 100%; color: var(--inkra-ink-muted); }
 .character-page__gear-slot { position: relative; display: grid; place-items: center; width: 56px; height: 56px; }
+button.character-page__gear-slot { appearance: none; padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; }
+button.character-page__gear-slot:focus-visible { outline: 2px solid var(--inkra-focus); outline-offset: 2px; }
 .character-page__gear-slot.is-loadout { position: relative; width: 56px; height: 56px; overflow: visible; }
 .character-page__gear-slot-icon { z-index: 1; pointer-events: none; }
 .character-page__gear-slot-preview { display: grid; place-items: center; max-width: 44px; max-height: 44px; pointer-events: none; }

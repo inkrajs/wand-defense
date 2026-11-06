@@ -11,7 +11,8 @@ import { carryMergeLayout, hasMeasuredInventoryWidth, projectInventoryLayout, re
 import { AssetImage, resolveAsset } from "./assets";
 import { getWandDetailLabel, WandPreview } from "./WandMiniatures";
 import { WandActions } from "./WandBoard";
-import { getWandRecipeMaterialIds } from "./WandRecipeConfirmation";
+import { getHintMaterialIds, getWandRecipeHints } from "./wandRecipeHintModel";
+import { WandRecipeOverlays } from "./WandRecipeHints";
 import { fitWandSlots } from "./wandSizing";
 import { FittedWand } from "./FittedWand";
 import { useMagicInspectGesture } from "./useMagicInspectGesture";
@@ -38,7 +39,7 @@ const categoryIcons = {
 const trashPaths = [{ d: "M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6", mode: "stroke" as const }];
 const arrangePaths = [{ d: "M4 6h16M4 12h10M4 18h6M17 10l3 2-3 2M12 16l3 2-3 2", mode: "stroke" as const }];
 const gearSlotLabels: Record<GearSlot, string> = { head: "头部", body: "身体", feet: "足部", accessory: "饰品" };
-type Props = { category: Category; state: GameState; dispatch: (command: Command) => CommandResult; activeCharacterId: string; showWands?: boolean; showLoadout?: boolean; onCategoryChange?: (category: Category) => void; onWandAreaHeightChange?: (height: number) => void; onInspectMagic?: (itemId: string) => void; pageRows?: number };
+type Props = { category: Category; state: GameState; dispatch: (command: Command) => CommandResult; activeCharacterId: string; showWands?: boolean; showLoadout?: boolean; onCategoryChange?: (category: Category) => void; onWandAreaHeightChange?: (height: number) => void; onInspectMagic?: (itemId: string, preferredItemIds?: string[]) => void; onInspectItem?: (itemId: string) => void; pageRows?: number };
 type PendingStorageMove = { kind: "spell" | "equipment"; itemId: string; position: { x: number; y: number; rotation: 0 | 90 | 180 | 270 } };
 
 function magicIcon(item: DockItem) {
@@ -134,7 +135,8 @@ function dropSourceContainerId(source: InventoryPlacement | InventoryContainer<D
   return "containerId" in source ? source.containerId : source.id;
 }
 
-export function InventoryDock({ category, state, dispatch, activeCharacterId, showWands = true, showLoadout = false, onCategoryChange, onWandAreaHeightChange, onInspectMagic, pageRows = INVENTORY_PAGE_ROWS }: Props) {
+export function InventoryDock({ category, state, dispatch, activeCharacterId, showWands = true, showLoadout = false, onCategoryChange, onWandAreaHeightChange, onInspectMagic, onInspectItem, pageRows = INVENTORY_PAGE_ROWS }: Props) {
+  const recipeHostRef = useRef<HTMLElement>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const measureRef = useRef<HTMLDivElement>(null);
   const topAreaRef = useRef<HTMLDivElement>(null);
@@ -208,16 +210,36 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
   const touchGesture = useRef<{ pointerId: number; itemId: string; containerId: string; x: number; y: number; started: number; moved: boolean } | null>(null);
   const lastTouchTap = useRef<{ itemId: string; x: number; y: number; time: number } | null>(null);
   const lastTouchEquip = useRef(-Infinity);
-  const inspectHandlers = useMagicInspectGesture(state, onInspectMagic ? itemId => {
+  const lastTouchEquipId = useRef<string | null>(null);
+  const pendingInspection = useRef<number | undefined>(undefined);
+  function cancelPendingInspection() {
+    window.clearTimeout(pendingInspection.current);
+    pendingInspection.current = undefined;
+  }
+  useEffect(() => cancelPendingInspection, [category, state.id, state.backpackOpen]);
+  function inspectOtherItem(itemId: string, viaKeyboard: boolean) {
+    if (!onInspectItem || dragging.current || (lastTouchEquipId.current === itemId && performance.now() - lastTouchEquip.current < 800)) return;
+    cancelPendingInspection();
+    if (state.supplies?.[itemId]) setSelectedSupplyId(itemId);
+    const canDoubleEquip = state.gear?.[itemId]?.characterId === null || state.wands.some(wand => wand.id === itemId && wand.characterId === null);
+    if (viaKeyboard || !canDoubleEquip) { onInspectItem(itemId); return; }
+    pendingInspection.current = window.setTimeout(() => {
+      pendingInspection.current = undefined;
+      if (!dragging.current) onInspectItem(itemId);
+    }, 500);
+  }
+  const inspectHandlers = useMagicInspectGesture(state, onInspectMagic ? (itemId, preferredItemIds) => {
     if (dragging.current) return;
-    onInspectMagic(itemId);
-  } : undefined);
+    onInspectMagic(itemId, preferredItemIds);
+  } : undefined, onInspectItem ? inspectOtherItem : undefined);
   useEffect(() => { inventoryGridHandle.current?.cancelDrag(); setPageIndex(0); }, [pageRows]);
   const [pendingStorageMoves, setPendingStorageMoves] = useState<Record<string, PendingStorageMove>>({});
   const [mergeEventCursor, setMergeEventCursor] = useState(state.nextEventSeq);
   const primaryCharacter = state.characters.find((character) => character.id === activeCharacterId) ?? state.characters[0];
   const activeWands = useMemo(() => state.wands.filter(entry => entry.characterId === primaryCharacter?.id && primaryCharacter.wandIds.includes(entry.id)), [primaryCharacter, state.wands]);
-  const recipeMaterials = useMemo(() => getWandRecipeMaterialIds(state, activeWands), [state, activeWands]);
+  const recipeHints = useMemo(() => state.backpackOpen && showWands && category === "spells"
+    ? getWandRecipeHints(state, activeWands, demoContent) : new Map(), [state, activeWands, showWands, category]);
+  const recipeMaterials = useMemo(() => getHintMaterialIds(recipeHints), [recipeHints]);
   const wandFit = fitWandSlots(availableWidth, activeWands, GRID_CELL_SIZE);
 
   const spellItems = useMemo(() => state.backpack.flatMap(id => state.items[id] ? [makeGridItem(state.items[id], { x: 0, y: 0 })] : []), [state.backpack, state.items]);
@@ -449,7 +471,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
         ? <GearSlotIcon slot={item.slot} definitionId={item.definitionId} size={24} seed={`gear-${item.definitionId ?? item.slot}`} />
         : item.kind === "supply"
           ? supplyIcon
-            ? <SupplyPresentationIcon definitionId={item.definitionId} size={GRID_CELL_SIZE * Math.max(1, ...supplyIcon.shape.map(cell => Math.max(cell.x + 1, cell.y + 1)))} rotation={renderState.rotation} seed={`supply-${item.definitionId}`} />
+            ? <SupplyPresentationIcon definitionId={item.definitionId} size={24} seed={`supply-${item.definitionId}`} />
             : <AssetImage asset={resolveAsset(definitionFor(item)?.asset, { label: item.label ?? item.id, icon: "◇" })} />
           : iconDefinition
             ? <MagicPresentationIcon definitionId={item.definitionId} size={GRID_CELL_SIZE * Math.max(1, ...iconDefinition.shape.map(cell => Math.max(cell.x + 1, cell.y + 1)))} rotation={renderState.rotation} seed={`inventory-${item.definitionId}`} />
@@ -490,7 +512,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     const label = `${primaryCharacter?.name ?? "角色"} 法杖位 ${slot + 1}`;
     const gearVisual = (dragState?: { isDragging: boolean; isOver: boolean; canDrop: boolean }) => <span className="inventory-dock__gear-drop" data-equipped={wand ? "true" : undefined} data-drop-active={dragState?.isDragging || undefined} data-drop-over={dragState?.isOver || undefined} data-can-drop={dragState?.canDrop || undefined} role="group" aria-label={wand?.name ? `${label}：${wand.name}` : `${label}：空装备位`}>
       {wand ? <>
-        <WandPreview state={state} wand={wand} size={44} />
+        <Button type="button" variant="ghost" size="icon" aria-label={`查看${wand.name}`} onClick={() => onInspectItem?.(wand.id)}><WandPreview state={state} wand={wand} size={40} /></Button>
         <Button type="button" size="icon-xs" variant="ghost" className="inventory-dock__gear-unequip" aria-label={`卸下${label}的${wand.name}`} title={`卸下${wand.name}`} disabled={gridProps.disabled} onClick={event => { event.stopPropagation(); setResult(dispatch({ id: commandId(), type: "unequipWand", wandId: wand.id })); }}><PencilIcon paths={[{ d: "M10 6 4 12l6 6M4 12h10a6 6 0 0 0 6-6", mode: "stroke" }]} size={18} sourceSize={24} seed={`unequip-wand-${slot}`} decorative /></Button>
       </> : null}
     </span>;
@@ -516,9 +538,9 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     const label = `${primaryCharacter.name} ${gearSlotLabels[slot]}`;
     const gearVisual = (dragState?: { isDragging: boolean; isOver: boolean; canDrop: boolean }) => <span className="inventory-dock__gear-drop" data-equipped={gear ? "true" : undefined} data-drop-active={dragState?.isDragging || undefined} data-drop-over={dragState?.isOver || undefined} data-can-drop={dragState?.canDrop || undefined} role="group" aria-label={gear ? `${label}：${gear.name}` : `${label}：空装备位`}>
       {gear ? <>
-        <span className="inventory-dock__gear-icon" aria-hidden="true"><GearSlotIcon slot={gear.slot} definitionId={gear.definitionId} size={32} seed={`equipped-gear-${gear.definitionId ?? gear.slot}`} /></span>
+        <Button type="button" variant="ghost" size="icon" aria-label={`查看${gear.name}`} onClick={() => onInspectItem?.(gear.id)}><GearSlotIcon slot={gear.slot} definitionId={gear.definitionId} size={32} seed={`equipped-gear-${gear.definitionId ?? gear.slot}`} /></Button>
         <Button type="button" size="icon-xs" variant="ghost" className="inventory-dock__gear-unequip" aria-label={`卸下${label}的${gear.name}`} title={`卸下${gear.name}`} disabled={gridProps.disabled} onClick={event => { event.stopPropagation(); setResult(dispatch({ id: commandId(), type: "unequipGear", gearId: gear.id })); }}><PencilIcon paths={[{ d: "M10 6 4 12l6 6M4 12h10a6 6 0 0 0 6-6", mode: "stroke" }]} size={18} sourceSize={24} seed={`unequip-gear-${slot}`} decorative /></Button>
-      </> : null}
+      </> : <span className="inventory-dock__gear-icon" aria-hidden="true"><GearSlotIcon slot={slot} size={32} seed={`empty-gear-${slot}`} /></span>}
     </span>;
     const content = DropTarget ? <DropTarget
       targetId={`character:${primaryCharacter.id}:gear-slot:${slot}`}
@@ -603,6 +625,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
       if (gear && gear.characterId === null) command = { id: commandId(), type: "equipGear", gearId: gear.id, characterId: primaryCharacter.id };
     }
     if (!command) return false;
+    cancelPendingInspection();
     inventoryGridHandle.current?.cancelDrag();
     const response = dispatch(command);
     setResult(response.status === "rejected" ? response : null);
@@ -622,6 +645,7 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     event.preventDefault(); event.stopPropagation();
   }
   function onTouchStart(event: React.PointerEvent<HTMLElement>) {
+    cancelPendingInspection();
     inspectHandlers.onPointerDownCapture(event);
     if (event.pointerType !== "touch" || !event.isPrimary) return;
     const target = storedTarget(event.target);
@@ -642,13 +666,14 @@ export function InventoryDock({ category, state, dispatch, activeCharacterId, sh
     const previous = lastTouchTap.current;
     if (previous && previous.itemId === current.itemId && now - previous.time <= 350 && Math.hypot(event.clientX - previous.x, event.clientY - previous.y) < 24) {
       lastTouchTap.current = null;
-      if (equipStoredItem(current.itemId, current.containerId)) { lastTouchEquip.current = now; event.preventDefault(); event.stopPropagation(); }
+      if (equipStoredItem(current.itemId, current.containerId)) { lastTouchEquip.current = now; lastTouchEquipId.current = current.itemId; event.preventDefault(); event.stopPropagation(); }
     } else lastTouchTap.current = { itemId: current.itemId, x: event.clientX, y: event.clientY, time: now };
   }
-  return <section className="inventory-dock" {...inspectHandlers} onPointerDownCapture={onTouchStart} onPointerMoveCapture={onTouchMove} onPointerUpCapture={onTouchEnd} onPointerCancelCapture={() => { touchGesture.current = null; lastTouchTap.current = null; }} onDoubleClickCapture={equipOnDoubleClick} onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-supply-selection={category === "supplies" && Boolean(selectedSupplyId && supplyItems.some(item => item.id === selectedSupplyId)) ? "true" : undefined} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": pageRows } as React.CSSProperties}>
+  return <section ref={recipeHostRef} className="inventory-dock" {...inspectHandlers} onPointerDownCapture={onTouchStart} onPointerMoveCapture={onTouchMove} onPointerUpCapture={onTouchEnd} onPointerCancelCapture={() => { touchGesture.current = null; lastTouchTap.current = null; }} onDoubleClickCapture={equipOnDoubleClick} onFocusCapture={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); if (supply) setSelectedSupplyId(supply.id); }} onClick={event => { const target = (event.target as HTMLElement).closest<HTMLElement>("[data-inventory-item]"); const supply = supplyItems.find(item => item.id === target?.dataset.inventoryItem); setSelectedSupplyId(supply?.id ?? null); }} data-category={category} data-has-supply-selection={category === "supplies" && Boolean(selectedSupplyId && supplyItems.some(item => item.id === selectedSupplyId)) ? "true" : undefined} data-has-pages={pageCount > 1 ? "true" : undefined} data-ready-group={state.phase === "ready" && state.backpackOpen && showWands ? "true" : undefined} aria-label="背包库存" style={{ "--inventory-cell-size": `${GRID_CELL_SIZE}px`, "--inventory-columns": activeColumns, "--inventory-page-rows": pageRows } as React.CSSProperties}>
     <div className="inventory-dock__measure" ref={measureRef} aria-hidden="true" />
 
     {localGrid ? <GridRoot {...gridProps} {...combineProps}>{renderTabs(true)}{renderToolbar()}</GridRoot> : <>{renderTabs(false)}{renderToolbar()}</>}
+    <WandRecipeOverlays hostRef={recipeHostRef} hints={recipeHints} cellSize={GRID_CELL_SIZE} enabled={state.backpackOpen && showWands && category === "spells"} />
     {pageCount > 1 && <>
       <span className="sr-only" aria-live="polite" aria-atomic="true">第 {pageIndex + 1} 页，共 {pageCount} 页</span>
     </>}

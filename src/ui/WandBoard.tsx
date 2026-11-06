@@ -10,13 +10,14 @@ import { WandClearButton } from "./WandClearButton";
 import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
 import { enrichMagicReward } from "../content/magicDescriptions";
 import { demoContent } from "../content/demo";
-import { getWandRecipeMaterialIds } from "./WandRecipeConfirmation";
+import { getHintMaterialIds, getWandRecipeHints } from "./wandRecipeHintModel";
+import { WandRecipeOverlays } from "./WandRecipeHints";
 import "./WandBoard.css";
 import {useMagicInspectGesture} from "./useMagicInspectGesture";
 import {fitWandSlots} from "./wandSizing";
 import {FittedWand} from "./FittedWand";
 
-type Props = { flashes: CastFlashLookup; activeCharacterId: string; state: GameState; dispatch: (command: Command) => CommandResult; onHeightChange: (height: number) => void; onInspectMagic?: (itemId:string)=>void };
+type Props = { flashes: CastFlashLookup; activeCharacterId: string; state: GameState; dispatch: (command: Command) => CommandResult; onHeightChange: (height: number) => void; onInspectMagic?: (itemId:string, preferredItemIds?:string[])=>void };
 type BoardItem = Extract<DockItem, { kind: "spell" | "arcana" }>;
 type ComposedGridRootProps = InventoryGridProps<BoardItem> & {
   children: ReactNode;
@@ -51,8 +52,8 @@ export function WandActions({wand, state, dispatch, className}: {
 export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeightChange, onInspectMagic }: Props) {
   const boardRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
-  const inspectHandlers = useMagicInspectGesture(state, onInspectMagic ? itemId => {
-    if (!dragging.current) onInspectMagic(itemId);
+  const inspectHandlers = useMagicInspectGesture(state, onInspectMagic ? (itemId, preferredItemIds) => {
+    if (!dragging.current) onInspectMagic(itemId, preferredItemIds);
   } : undefined);
   const [availableWidth,setAvailableWidth]=useState(0);
   useLayoutEffect(()=>{
@@ -73,7 +74,9 @@ export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeigh
     return wand ? [wand] : [];
   }).slice(0, 2) : [], [character, state.wands]);
 
-  const recipeMaterials = useMemo(() => getWandRecipeMaterialIds(state, equippedWands), [state, equippedWands]);
+  const recipeHints = useMemo(() => state.phase === "ready" && !state.backpackOpen
+    ? getWandRecipeHints(state, equippedWands, demoContent) : new Map(), [state, equippedWands]);
+  const recipeMaterials = useMemo(() => getHintMaterialIds(recipeHints), [recipeHints]);
   const fit=fitWandSlots(availableWidth,equippedWands,WAND_CELL_SIZE);
   const containers = useMemo<InventoryContainer<BoardItem>[]>(() => {
     return equippedWands.map((wand) => ({
@@ -195,5 +198,6 @@ export function WandBoard({ state, flashes, dispatch, activeCharacterId, onHeigh
       </div>
       <InventoryGrid<BoardItem> {...gridProps} />
     </div> : <div className="wand-board__slot wand-board__slot--empty"><WandClearButton className="wand-board__clear-button" state={state} dispatch={dispatch} /></div>}
+    <WandRecipeOverlays hostRef={boardRef} hints={recipeHints} cellSize={WAND_CELL_SIZE} enabled={state.phase === "ready" && !state.backpackOpen} />
   </div>;
 }

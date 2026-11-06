@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { CombatEntity } from "../contracts";
+import { TERRITORY_FRONT_Y } from "../content/battlefieldCoordinates";
 import { demoContent } from "../content/demo";
 import { createInitialState } from "../runtime/initial";
 import { advanceEnemies, beginWave } from "./waves";
@@ -94,7 +95,7 @@ test("enemies stop to attack a contacted construct and never credit its death as
   state.phase = "battle";
   state.wave = 1;
   state.wands[0].placements = [];
-  const tower = entity("tower", { kind: "building", faction: "player", hp: 4, x: 30, y: 92, remainingMs: 5000 });
+  const tower = entity("tower", { kind: "building", faction: "player", hp: 4, x: 30, y: TERRITORY_FRONT_Y, remainingMs: 5000 });
   state.entities = [entity("enemy", { y: 92, speed: 10 }), tower];
   const result = stepBattle(state, 50, demoContent);
   assert.equal(result.state.territory.shield, state.territory.shield);

@@ -1,4 +1,3 @@
-import { useLayoutEffect, useRef } from "react";
 import { PencilIcon, PencilText, type PencilIconPath } from "@inkra/react";
 import type { GameState } from "../contracts";
 import { demoContent } from "../content/demo";
@@ -10,7 +9,7 @@ import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresenta
 import { PanelBackdrop } from "./PanelBackdrop";
 import "./MagicDetails.css";
 
-type Props = { state: GameState; itemId: string; onClose: () => void };
+type Props = { state: GameState; itemId: string };
 const icons: Record<string, readonly PencilIconPath[]> = {
   等级: [{ d: "M4 19V5m0 14h16M8 15l3-4 3 2 4-6", mode: "stroke" }],
   品质: [{ d: "m12 3 2.5 5.5 6 .6-4.5 4 1.2 6-5.2-3-5.2 3 1.2-6-4.5-4 6-.6Z", mode: "stroke" }],
@@ -21,8 +20,7 @@ const icons: Record<string, readonly PencilIconPath[]> = {
   基础射程: [{ d: "M3 12c2.5-4 5.5-6 9-6s6.5 2 9 6c-2.5 4-5.5 6-9 6s-6.5-2-9-6Zm6 0a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z", mode: "stroke" }],
 };
 
-export function MagicDetails({ state, itemId, onClose }: Props) {
-  const dialog = useRef<HTMLDivElement>(null);
+export function MagicDetails({ state, itemId }: Props) {
   const item = Object.hasOwn(state.items, itemId) ? state.items[itemId] : undefined;
   const spell = item?.kind === "spell" && Object.hasOwn(demoContent.spells, item.definitionId) ? demoContent.spells[item.definitionId] : undefined;
   const arcana = item?.kind === "arcana" && Object.hasOwn(demoContent.arcana, item.definitionId) ? demoContent.arcana[item.definitionId] : undefined;
@@ -40,18 +38,7 @@ export function MagicDetails({ state, itemId, onClose }: Props) {
     ] : []),
   ] : [];
 
-  useLayoutEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const node = dialog.current;
-    node?.focus({ preventScroll: true });
-    return () => {
-      if (node && (document.activeElement === node || node.contains(document.activeElement)) && previous?.isConnected) previous.focus({ preventScroll: true });
-    };
-  }, [itemId]);
-
-  return <div ref={dialog} className="magic-details" role="region" aria-label={definition?.name ?? "魔法详情"} tabIndex={-1} onClick={onClose} onKeyDown={event => {
-    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); }
-  }}>
+  return <div className="magic-details" data-dismiss-detail="" role="region" aria-label={definition?.name ?? "魔法详情"}>
     <div className="magic-details__content">
       <PanelBackdrop>
         {item && definition ? <div className="magic-details__body">

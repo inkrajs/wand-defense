@@ -44,7 +44,7 @@ test("new gear icons use content names and their item asset color", () => {
   }
 });
 
-test("new supply icons retain definition shapes and item appearance uses authoritative asset pigment", () => {
+test("supply artwork fits a square viewport independently of its single inventory cell", () => {
   for (const id of supplyIds) {
     const icon = getSupplyPresentationDefinition(id);
     const content = supplyDefinitions[id];
@@ -53,7 +53,8 @@ test("new supply icons retain definition shapes and item appearance uses authori
     assert.equal(icon.label, content.name);
     assert.equal(icon.color, content.asset.color);
     assert.deepEqual(icon.shape, content.shape);
-    assert.deepEqual(icon.clipGeometry.cells, content.shape);
+    assert.deepEqual(icon.shape, [{ x: 0, y: 0 }]);
+    assert.equal(icon.viewBox.width, icon.viewBox.height);
     assert.ok(icon.paths.length > 0);
     assert.ok(icon.filledPaths.length > 0);
     assert.equal(getGameItemAppearance({ kind: "supply", definitionId: id, grade: "legendary" }).fillColor, content.asset.color);

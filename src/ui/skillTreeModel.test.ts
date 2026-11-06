@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ContentCatalog, Element, GameState, RecipeDefinition, SpellDefinition } from '../contracts';
 import { demoContent } from '../content/demo';
-import { buildSkillTree, getKnownRecipesForDefinition } from './skillTreeModel';
+import { buildSkillTree, buildSkillTreeRoutes, skillTreeRouteGraph, getKnownRecipesForDefinition } from './skillTreeModel';
 
 const knowledge = (spellIds: string[] = [], arcanaIds: string[] = [], recipeIds: string[] = []): GameState['knowledge'] => ({spellIds, arcanaIds, recipeIds, sequenceIds: []});
 const spell = (id: string, element: Element): SpellDefinition => ({...demoContent.spells.spark, id, name: id, element});
@@ -296,4 +296,37 @@ test('anonymous external boundaries do not expand unrelated cycles or disclose h
   const all = buildSkillTree(content, known, 'all');
   assert.equal(all.nodes.length, 3); assert.equal(all.edges.length, 3);
   assert.ok(all.nodes.every(node => !node.boundary));
+});
+
+
+test('route navigation preserves every discovered output and its ingredient branches', () => {
+  const known = knowledge(Object.keys(demoContent.spells), Object.keys(demoContent.arcana), demoContent.recipes.map(recipe => recipe.id));
+  for (const element of ['fire', 'water', 'arcana'] as const) {
+    const tree = buildSkillTree(demoContent, known, element);
+    const routes = buildSkillTreeRoutes(tree, demoContent, element);
+    assert.ok(routes.main.length <= 3);
+    for (const output of tree.nodes.filter(node => !node.boundary && node.recipes?.length)) {
+      assert.ok(routes.routes.some(route => route.id === output.id));
+      const view = skillTreeRouteGraph(tree, routes, output.id);
+      for (const ingredient of output.recipes!.flatMap(recipe => recipe.inputs)) {
+        assert.ok(view.nodes.some(node => node.id === ingredient));
+        assert.ok(view.edges.some(edge => edge.source === ingredient && edge.target === output.id));
+      }
+    }
+    const main = skillTreeRouteGraph(tree, routes, 'main');
+    assert.ok(routes.atomic.every(id => main.nodes.some(node => node.id === id)));
+    assert.ok(main.edges.every(edge => tree.edges.some(original => original.id === edge.id)));
+    const atomic = skillTreeRouteGraph(tree, routes, 'atomic');
+    assert.ok(atomic.nodes.every(node => node.atomic && node.known && !node.boundary));
+  }
+});
+
+test('route navigation does not reveal undiscovered names or recipes', () => {
+  const known = knowledge(['spark'], ['amplify'], ['fireball-recipe']);
+  const tree = buildSkillTree(demoContent, known, 'fire');
+  const routes = buildSkillTreeRoutes(tree, demoContent, 'fire');
+  assert.ok(routes.routes.some(route => route.name === '未知'));
+  assert.ok(!JSON.stringify(routes).includes('火球'));
+  const view = skillTreeRouteGraph(tree, routes, routes.routes[0].id);
+  assert.ok(!JSON.stringify(view).includes('fireball'));
 });

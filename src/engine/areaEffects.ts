@@ -1,3 +1,4 @@
+import { TERRITORY_FRONT_Y } from "../content/battlefieldCoordinates";
 import type { AreaFinish, AreaSpec, AttackRollStats, CombatEntity, Element, GameState, OnHitSpec, ProjectileImpact } from "../contracts";
 import { getMonsterSize } from "../content/monsters";
 import { getCharacterAnchors } from "../content/characterAnchors";
@@ -541,7 +542,7 @@ function pullEnemies(state: GameState, area: AreaEntity, dtMs: number): void {
     if (distance <= 1e-8 || distance > radius) continue;
     const moved = Math.min(distance, maxPull);
     enemy.x += dx / distance * moved;
-    enemy.y += dy / distance * moved;
+    enemy.y = Math.min(TERRITORY_FRONT_Y, enemy.y + dy / distance * moved);
   }
 }
 

@@ -1,4 +1,4 @@
-.skill-tree { container-type: inline-size; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 48px minmax(0, 1fr); gap: 8px; width: 100%; height: 100%; min-width: 0; min-height: 0; }
+.skill-tree { container-type: inline-size; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 48px auto minmax(0, 1fr); gap: 8px; width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .skill-tree__tabs { width: max-content; max-width: 100%; column-gap: 8px; }
 .skill-tree__tabs > .inkra-tabs__list { flex: 0 1 auto; display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .skill-tree__tabs .inkra-tabs__trigger { flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; padding: 6px; }
@@ -35,3 +35,8 @@
 .skill-tree__recipe-hit { position: absolute; z-index: 1; padding: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; }
 .skill-tree__recipe-hit:focus-visible { outline: 2px solid var(--inkra-ink); outline-offset: -3px; }
 .skill-tree__recipe-tooltip { display: grid; gap: 4px; max-width: min(260px, 80vw); }
+
+ .skill-tree__routes { display: flex; align-items: center; flex-wrap: nowrap; overflow-x: auto; gap: 6px; min-width: 0; scrollbar-width: thin; }
+.skill-tree__routes > .inkra-button, .skill-tree__route-select { flex: 0 0 auto; min-width: 44px; min-height: 44px; white-space: nowrap; }
+.skill-tree__route-select { width: auto; max-width: min(200px, 50vw); }
+.skill-tree__route-options { max-height: min(60dvh, 480px); }

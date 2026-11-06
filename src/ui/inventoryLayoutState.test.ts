@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { InventoryItem } from "@inkra/react/inventory-grid";
 import type { GameEvent } from "../contracts";
+import { createGameRuntime } from "../runtime";
+import { readRun, saveRun } from "../runtime/session";
 import { carryMergeLayout, hasMeasuredInventoryWidth, projectInventoryLayout, rememberInventoryPosition, type InventoryLayoutState } from "./inventoryLayoutState";
-import { INVENTORY_PAGE_ROWS, type DockItem } from "./inventoryAdapter";
+import { INVENTORY_PAGE_ROWS, makeSupplyGridItem, type DockItem } from "./inventoryAdapter";
 
 function item(id: string): DockItem {
   return { id, label: id, kind: "spell", definitionId: id, grade: "common", cells: [{ x: 0, y: 0 }], position: { x: 0, y: 0 }, rotatable: true } satisfies DockItem & InventoryItem;
@@ -117,4 +119,39 @@ test("changing to three-row pages preserves legal manual positions and relocates
   const repeated = projectInventoryLayout(items, 6, mobile.state, 3, 3);
   assert.deepEqual(repeated.state.positions, mobile.state.positions);
   assert.deepEqual(projectInventoryLayout(items, 6, desktop), projectInventoryLayout(items, 6, desktop, 5, 5));
+});
+
+test("old supplies restore as fixed single cells and reflow conflicting or invalid positions without losing instances", () => {
+  const checkpoint = createGameRuntime().checkpoint();
+  checkpoint.state.territory.hp = 40;
+  const supplies = {
+    first: { id: "first", definitionId: "restoration-elixir", level: 2, grade: "rare" },
+    repeat: { id: "repeat", definitionId: "restoration-elixir", level: 1, grade: "common" },
+    shield: { id: "shield", definitionId: "aegis-essence", level: 3, grade: "epic" },
+    mana: { id: "mana", definitionId: "mana-potion", level: 1, grade: "common" },
+  } as const;
+  checkpoint.state.supplies = supplies;
+  const data = new Map<string, string>();
+  const storage = { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); } };
+  assert.equal(saveRun(storage, checkpoint), true);
+  const saved = readRun(storage);
+  assert.equal(saved.status, "loaded");
+  const runtime = createGameRuntime(undefined, saved.checkpoint);
+  const restored = runtime.getState().supplies!;
+  assert.deepEqual(restored, supplies);
+  const items = Object.values(restored).map(supply => makeSupplyGridItem(supply, { x: 0, y: 0 }));
+  const previous: InventoryLayoutState = { columns: 6, activeIds: Object.keys(supplies), extentRows: 3, itemBudget: 4, positions: {
+    first: { x: 1, y: 1, rotation: 90 }, repeat: { x: 1, y: 1, rotation: 180 },
+    shield: { x: 5, y: 0, rotation: 0 }, mana: { x: 0, y: 1_000_000_000, rotation: 0 },
+  } };
+  const { packed, state } = projectInventoryLayout(items, 2, previous, 3, 3);
+  assert.deepEqual(state.positions.first, { x: 1, y: 1, rotation: 0 });
+  assert.equal(packed.unplaced.length, 0);
+  assert.equal(new Set(packed.items.map(({position: {x, y}}) => `${x},${y}`)).size, items.length);
+  assert.ok(packed.items.every(entry => entry.cells.length === 1 && entry.rotatable === false && entry.rotation === 0));
+  const moved = rememberInventoryPosition(state, "first", { x: 1, y: 2, rotation: 0 });
+  assert.deepEqual(projectInventoryLayout(items, 2, moved, 3, 3).state.positions.first, { x: 1, y: 2, rotation: 0 });
+  assert.equal(runtime.dispatch({ id: "use-restored-supply", type: "useItem", itemId: "first" }).status, "executed");
+  const { first: _consumed, ...remaining } = supplies;
+  assert.deepEqual(runtime.getState().supplies, remaining);
 });

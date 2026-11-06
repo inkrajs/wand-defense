@@ -1,4 +1,4 @@
-import { memo, useRef } from "react";
+import { memo, useLayoutEffect, useRef } from "react";
 import { PencilSurface, PencilText } from "@inkra/react";
 import { Progress } from "@inkra/react/display";
 import { getExperienceProgress } from "../content/progression";
@@ -9,6 +9,7 @@ import { demoContent } from "../content/demo";
 import { getCharacterStats } from "../content/characters";
 import { getCharacterAnchors } from "../content/characterAnchors";
 import { getMonsterSize } from "../content/monsters";
+import { TERRITORY_FRONT_Y } from "../content/battlefieldCoordinates";
 import type { CombatEntity, Command, CommandResult, GameState } from "../contracts";
 import "./Battlefield.css";
 import { AssetImage, resolveEntityAsset } from "./assets";
@@ -49,11 +50,11 @@ const UnitHealth = memo(function UnitHealth({ health, label, id }: { health: num
   return <Progress className="battlefield__unit-health" value={health} max={100} aria-label={`${label}生命`} seed={`health-${id}`} size="sm" {...strokeOptions("var(--inkra-danger-foreground)")} {...(localProgress ? { thickness: 4 } : {})} />;
 });
 
-const BattlefieldUnit = memo(function BattlefieldUnit({ entity, attackBob, resolution }: { entity: CombatEntity; attackBob?: ActiveMonsterBob; resolution: number }) {
+const BattlefieldUnit = memo(function BattlefieldUnit({ entity, attackBob, resolution, moving }: { entity: CombatEntity; attackBob?: ActiveMonsterBob; resolution: number; moving?: boolean }) {
   const x = Number.isFinite(entity.x) ? entity.x : 50;
   const y = Number.isFinite(entity.y) ? entity.y : 0;
   const left = entity.kind === "enemy" || entity.kind === "summon" || entity.kind === "building" ? x : Math.max(2, Math.min(98, x));
-  const top = entity.kind === "enemy" || entity.kind === "summon" || entity.kind === "building" ? y : Math.max(3, Math.min(88, y));
+  const top = entity.kind === "enemy" ? Math.min(TERRITORY_FRONT_Y, y) : entity.kind === "summon" || entity.kind === "building" ? y : Math.max(3, Math.min(88, y));
   const health = ratio(entity.hp, entity.maxHp) * 100;
   const asset = resolveEntityAsset(entity);
   const pixels = entity.kind === "enemy" ? getMonsterSize(entity).pixels : entity.kind === "summon" || entity.kind === "building" ? 36 : 32;
@@ -73,25 +74,38 @@ const BattlefieldUnit = memo(function BattlefieldUnit({ entity, attackBob, resol
         <MagicEffectArt resolution={resolution} className="battlefield__status-spark battlefield__status-spark--one" kind="ember" seed="enemy-status-burn-a" width={Math.max(10, pixels * .38)} height={Math.max(12, pixels * .46)} color="var(--inkra-warning-pigment)" />
         <MagicEffectArt resolution={resolution} className="battlefield__status-spark battlefield__status-spark--two" kind="ember" seed="enemy-status-burn-b" width={Math.max(8, pixels * .3)} height={Math.max(10, pixels * .38)} color="var(--inkra-danger-pigment)" />
       </>}
-      <span className={`battlefield__unit-mark-icon${slowed ? " is-slowed" : ""}`}>{entity.kind === "enemy" && getMonsterPresentationIcon(entity.definitionId, entity.id) ? <MonsterPresentationIcon definitionId={entity.definitionId} entityId={entity.id} size={pixels} /> : (entity.kind === "summon" || entity.kind === "building") && hasConstructPresentationIcon(entity.definitionId) ? <ConstructPresentationIcon definitionId={entity.definitionId} entityId={entity.id} size={pixels} /> : <AssetImage asset={asset} />}</span>
+      <span className={`battlefield__unit-mark-icon${slowed ? " is-slowed" : ""}`} data-moving={moving || undefined}>{entity.kind === "enemy" && getMonsterPresentationIcon(entity.definitionId, entity.id) ? <MonsterPresentationIcon definitionId={entity.definitionId} entityId={entity.id} size={pixels} /> : (entity.kind === "summon" || entity.kind === "building") && hasConstructPresentationIcon(entity.definitionId) ? <ConstructPresentationIcon definitionId={entity.definitionId} entityId={entity.id} size={pixels} /> : <AssetImage asset={asset} />}</span>
     </span>
     <UnitHealth health={health} label={label} id={entity.id} />
   </div>;
-}, (a, b) => a.attackBob?.eventSeq === b.attackBob?.eventSeq && a.resolution === b.resolution && a.entity.id === b.entity.id && a.entity.kind === b.entity.kind && a.entity.faction === b.entity.faction && a.entity.definitionId === b.entity.definitionId && a.entity.bodySize === b.entity.bodySize && a.entity.x === b.entity.x && a.entity.y === b.entity.y && a.entity.hp === b.entity.hp && a.entity.maxHp === b.entity.maxHp && ((a.entity.kind !== "summon" && a.entity.kind !== "building") || Math.ceil((a.entity.remainingMs ?? 0) / 1000) === Math.ceil((b.entity.remainingMs ?? 0) / 1000)) && visibleStatusKey(a.entity) === visibleStatusKey(b.entity));
+}, (a, b) => a.moving === b.moving && a.attackBob?.eventSeq === b.attackBob?.eventSeq && a.resolution === b.resolution && a.entity.id === b.entity.id && a.entity.kind === b.entity.kind && a.entity.faction === b.entity.faction && a.entity.definitionId === b.entity.definitionId && a.entity.bodySize === b.entity.bodySize && a.entity.x === b.entity.x && a.entity.y === b.entity.y && a.entity.hp === b.entity.hp && a.entity.maxHp === b.entity.maxHp && ((a.entity.kind !== "summon" && a.entity.kind !== "building") || Math.ceil((a.entity.remainingMs ?? 0) / 1000) === Math.ceil((b.entity.remainingMs ?? 0) / 1000)) && visibleStatusKey(a.entity) === visibleStatusKey(b.entity));
 
 /** Read-only battlefield projection. World coordinates are expressed on a 0–100 field. */
 type Props = { state: GameState; flashes: CastFlashLookup; activeCharacterId: string; hideActiveMini?: boolean; onCharacterSelect: (characterId: string) => void; dispatch: (command: Command) => CommandResult };
 
 export function Battlefield({ state, flashes, activeCharacterId, hideActiveMini = false, onCharacterSelect, dispatch }: Props) {
   const fieldRef = useRef<HTMLDivElement>(null);
+  const previousEnemies = useRef<{ runId: string; positions: Map<string, { x: number; y: number }> }>({ runId: state.id, positions: new Map() });
+  const previousPositions = previousEnemies.current.runId === state.id ? previousEnemies.current.positions : undefined;
+  useLayoutEffect(() => {
+    const positions = new Map<string, { x: number; y: number }>();
+    for (const entity of state.entities) if (entity.kind === "enemy") positions.set(entity.id, { x: entity.x, y: entity.y });
+    previousEnemies.current = { runId: state.id, positions };
+  }, [state.id, state.entities]);
   const monsterAttackBob = useMonsterAttackBobs(state);
   const { settings } = useGraphicsSettings();
   const anchors = new Map(getCharacterAnchors(state.characters).map(anchor => [anchor.characterId, anchor]));
   return (
     <section className={`battlefield battlefield--${state.phase}`} data-progress-mode={localProgress ? "local" : "fallback"} aria-label="战场">
-      <div ref={fieldRef} className={`battlefield__field${state.paused ? " is-paused" : ""}`} data-has-ground-loot={Boolean(state.groundLoot?.length) || undefined} role="group" aria-label={`第 ${state.wave} 波战场，${state.entities.length} 个单位，领地生命 ${state.territory.hp} / ${state.territory.maxHp}`}>
+      <div className={`battlefield__field${state.paused ? " is-paused" : ""}`} data-has-ground-loot={Boolean(state.groundLoot?.length) || undefined} role="group" style={{ "--enemy-sway-duration": `${Math.max(240, Math.round(960 / state.speed))}ms` } as React.CSSProperties} aria-label={`第 ${state.wave} 波战场，${state.entities.length} 个单位，领地生命 ${state.territory.hp} / ${state.territory.maxHp}`}>
+        <div ref={fieldRef} className="battlefield__world">
         <BloodDecals state={state} />
-        {state.entities.filter(entity => entity.kind !== "projectile" && entity.kind !== "beam" && entity.kind !== "area" && entity.kind !== "chain").map(entity => <BattlefieldUnit key={entity.id} entity={entity} resolution={settings.effectResolution} attackBob={entity.kind === "enemy" ? monsterAttackBob(entity.id) : undefined} />)}
+        {state.entities.filter(entity => entity.kind !== "projectile" && entity.kind !== "beam" && entity.kind !== "area" && entity.kind !== "chain").map(entity => {
+          const previous = entity.kind === "enemy" ? previousPositions?.get(entity.id) : undefined;
+          const moving = Boolean(previous && state.phase === "battle" && !state.paused && !state.backpackOpen
+            && (Math.abs(previous.x - entity.x) > 1e-6 || Math.abs(previous.y - entity.y) > 1e-6));
+          return <BattlefieldUnit key={entity.id} entity={entity} moving={moving} resolution={settings.effectResolution} attackBob={entity.kind === "enemy" ? monsterAttackBob(entity.id) : undefined} />;
+        })}
 
         <AreaEffects state={state} />
         <ChainEffects state={state} />
@@ -99,6 +113,7 @@ export function Battlefield({ state, flashes, activeCharacterId, hideActiveMini 
         <CombatEffects state={state} />
         <BeamEffects state={state} />
         <GroundLootLayer state={state} dispatch={dispatch} fieldRef={fieldRef} />
+        </div>
         <div className="battlefield__heroes" aria-label="守城角色">
           {state.characters.map((character) => {
             const effective = getCharacterStats(state, character.id)?.final;

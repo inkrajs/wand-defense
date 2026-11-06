@@ -1,6 +1,6 @@
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Inkra from "@inkra/react";
-import { Button, DependencyGraph, PencilIcon, PencilLine, PencilSurface, PencilText, Tabs, Tooltip, type DependencyGraphRef, type DependencyGraphNode, type PencilIconPath } from "@inkra/react";
+import { Button, DependencyGraph, PencilIcon, PencilLine, PencilSurface, PencilText, Select, Tabs, Tooltip, type DependencyGraphRef, type DependencyGraphNode, type PencilIconPath } from "@inkra/react";
 import type { Element, GameState, RecipeDefinition } from "../contracts";
 import { findRecipeExample } from "../loadout/recipe-layout";
 import { rotateShape } from "../loadout/geometry";
@@ -12,7 +12,7 @@ import { GameTabsList } from "./GameTabsList";
 import { GamePencilShape } from "./GamePencilShape";
 import { getMagicPresentationIcon, MagicPresentationIcon } from "./magicPresentationIcons";
 import { SkillTreeElementIcon } from "./SkillTreeElementIcon";
-import { buildSkillTree, getKnownRecipesForDefinition, type SkillTreeNode } from "./skillTreeModel";
+import { buildSkillTree, buildSkillTreeRoutes, skillTreeRouteGraph, getKnownRecipesForDefinition, type SkillTreeNode } from "./skillTreeModel";
 import "./SkillTree.css";
 
 const elements: readonly Element[] = ["fire", "water", "wood", "metal", "earth", "lightning", "wind", "light", "dark", "undead"];
@@ -105,6 +105,7 @@ function sameKnowledge(previous: SkillTreeProps, next: SkillTreeProps) {
 
 export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) {
   const [element, setElement] = useState<Element | "arcana">("fire");
+  const [route, setRoute] = useState<string>("main");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailPath, setDetailPath] = useState<string[]>([]);
   const graphArea = useRef<HTMLDivElement>(null);
@@ -114,13 +115,16 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
   const models = useMemo(() => new Map<Element | "arcana", ReturnType<typeof buildSkillTree>>(), [
     knowledge.spellIds, knowledge.arcanaIds, knowledge.recipeIds,
   ]);
-  const model = useMemo(() => {
+  const fullModel = useMemo(() => {
     const existing = models.get(element);
     if (existing) return existing;
     const next = buildSkillTree(demoContent, knowledge, element);
     models.set(element, next);
     return next;
   }, [knowledge, element, models]);
+  const routeView = useMemo(() => buildSkillTreeRoutes(fullModel, demoContent, element), [fullModel, element]);
+  const model = useMemo(() => skillTreeRouteGraph(fullModel, routeView, route), [fullModel, routeView, route]);
+  const changeRoute = (value: string) => { lastFocus.current = null; setRoute(value); setSelectedId(null); setDetailPath([]); };
   const nodes = useMemo<GraphNode[]>(() => model.nodes.map(node => ({
     id: node.id, label: node.known ? node.name : "未知", icon: nodeIcon(node), data: node,
   })), [model]);
@@ -174,7 +178,9 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
       const id = docked && detailId ? detailId : (!initial && model.nodes.some(node => node.id === previous.id) ? previous.id : originId);
       const zoom = initial ? 1 : current.zoom;
       const fitsWholeTree = graphBounds.width * zoom <= width && graphBounds.height * zoom <= height;
-      const success = await graph.fitView({nodes: fitsWholeTree ? undefined : [{id}], minZoom: zoom, maxZoom: zoom});
+      const initialRoots = route === "main" ? routeView.routes.filter(entry => routeView.main.includes(entry.id)).map(entry => ({id: entry.path[0]})) : [];
+      const focusNodes = initial && initialRoots.length ? initialRoots : [{id}];
+      const success = await graph.fitView({nodes: fitsWholeTree ? undefined : focusNodes, minZoom: zoom, maxZoom: zoom});
       if (disposed) return;
       if (success) lastFocus.current = {element, detailId, id, width, height, viewport: graph.getViewport()};
       else if (++attempts < 12) schedule();
@@ -188,7 +194,7 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
     observer.observe(area);
     schedule();
     return () => { disposed = true; observer.disconnect(); cancelAnimationFrame(frame); };
-  }, [element, originId, detailId, model, graphBounds]);
+  }, [element, originId, detailId, model, graphBounds, route, routeView]);
   const recipes = useMemo(() => definitionId
     ? getKnownRecipesForDefinition(demoContent, knowledge, definitionId) : [], [definitionId, knowledge]);
   const spell = definitionId && Object.hasOwn(demoContent.spells, definitionId) ? demoContent.spells[definitionId] : undefined;
@@ -198,12 +204,23 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
   }, [definitionId, definition]);
 
   return <Tabs.Root className="skill-tree" value={element} onValueChange={value => {
-    if (value === "arcana" || elements.includes(value as Element)) { lastFocus.current = null; setElement(value as Element | "arcana"); setSelectedId(null); setDetailPath([]); }
+    if (value === "arcana" || elements.includes(value as Element)) { lastFocus.current = null; setElement(value as Element | "arcana"); setRoute("main"); setSelectedId(null); setDetailPath([]); }
   }}>
     <GameTabsList className="skill-tree__tabs" aria-label="技能树分类" overflow="scroll" labelVisibility="hidden">
       <Tabs.Trigger value="arcana" aria-label="奥术" startIcon={<span style={{color:"var(--inkra-selection-pigment)"}}><SkillTreeElementIcon element="arcana" /></span>} />
       {elements.map(entry => <Tabs.Trigger key={entry} value={entry} aria-label={`${elementAppearances[entry].name}系`} startIcon={<span style={{ color: elementAppearances[entry].pigment }}><SkillTreeElementIcon element={entry} /></span>} />)}
     </GameTabsList>
+    <div className="skill-tree__routes" aria-label="路线导航">
+      <Button type="button" variant={route === "main" ? "outline" : "ghost"} aria-pressed={route === "main"} onClick={() => changeRoute("main")}>主线</Button>
+      <Button type="button" variant={route === "atomic" ? "outline" : "ghost"} aria-pressed={route === "atomic"} onClick={() => changeRoute("atomic")}>原子</Button>
+      {routeView.main.map(id => { const entry = routeView.routes.find(candidate => candidate.id === id)!; return <Button key={id} type="button" variant={route === id ? "outline" : "ghost"} aria-pressed={route === id} onClick={() => changeRoute(id)}>{entry.name}</Button>; })}
+      <Select.Root value={route === "main" || route === "atomic" ? "" : route} onValueChange={changeRoute}>
+        <Select.Trigger className="skill-tree__route-select" aria-label="选择路线"><Select.Value placeholder="更多路线" /></Select.Trigger>
+        <Select.Portal><Select.Content className="skill-tree__route-options"><Select.Viewport>
+          {routeView.routes.map((entry, index) => <Select.Item key={entry.id} value={entry.id}><Select.ItemText>{entry.name === "未知" ? `未知 ${index + 1}` : entry.name}</Select.ItemText><Select.ItemIndicator /></Select.Item>)}
+        </Select.Viewport></Select.Content></Select.Portal>
+      </Select.Root>
+    </div>
     <Tabs.Content value={element} className="skill-tree__content" data-detail-open={Boolean(detailId) || undefined} onKeyDown={event => {
       if (event.key === "Escape" && selectedId !== null && !event.defaultPrevented) {
         event.preventDefault();

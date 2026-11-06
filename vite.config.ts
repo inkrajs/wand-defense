@@ -10,15 +10,24 @@ export default defineConfig(({mode}) => {
   const inspectId = previewEnv.WAND_DEFENSE_PREVIEW_INSPECT;
   const installed = resolve("node_modules/@inkra/react");
   const localPackage = lstatSync(installed).isSymbolicLink() ? realpathSync(installed) : undefined;
+  const inventoryGridModule = resolve(realpathSync(installed), "dist/inventory-grid/index.js");
   return {
     base: mode === "production" ? "/wand-defense/" : "/",
     define: {"import.meta.env.INKRA_LOCAL":JSON.stringify(Boolean(localPackage))},
     resolve: { dedupe: ["react","react-dom"] },
-    optimizeDeps: localPackage ? {exclude:["@inkra/react"]} : undefined,
+    // Keep InventoryGrid visible to the compatibility transform in dev as well as build.
+    optimizeDeps: {exclude:["@inkra/react", "@inkra/react/inventory-grid"]},
     server: { port: 5173, strictPort: true, watch:{ignored:["**/.local/**","**/vendor/**"]},
       ...(localPackage ? {fs:{allow:[process.cwd(),dirname(dirname(localPackage))]}} : {}) },
     build: { target: "es2022" },
-    plugins: [react(),{name:"pwa-resource-manifest",apply:"build",generateBundle(_options,bundle) {
+    plugins: [{name:"inventory-immediate-touch",enforce:"pre",transform(code,id) {
+      if (id.split("?", 1)[0] !== inventoryGridModule) return;
+      // Inkra 0.15's deployed InventoryGrid has no public touch activation option.
+      // Use the same movement threshold as its mouse sensor until that option exists.
+      const delayed = "activationConstraint: { delay: 180, tolerance: 8 }";
+      if (code.split(delayed).length !== 2) this.error("Unsupported Inkra InventoryGrid touch sensor; review the game compatibility transform.");
+      return {code:code.replace(delayed,"activationConstraint: { distance: 6 }"),map:null};
+    }},react(),{name:"pwa-resource-manifest",apply:"build",generateBundle(_options,bundle) {
       const files=Object.keys(bundle).filter(file=>/^assets\//.test(file)&&/\.(?:js|css|woff2?|png|webp|svg)$/.test(file));
       const optional=files.filter(file=>/ui-hand-xiaolai-extended-/.test(file));
       this.emitFile({type:"asset",fileName:"pwa-assets.json",source:JSON.stringify({assets:files.filter(file=>!optional.includes(file)),optional})});

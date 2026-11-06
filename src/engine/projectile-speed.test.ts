@@ -27,10 +27,9 @@ test("base plus equipped projectile speed shortens real flight independently of 
   const normal=shot("spark",0,0),fast=shot("spark",50,50);
   const normalBullet=normal.launch.state.entities.find(e=>e.kind==="projectile")!;
   const fastBullet=fast.launch.state.entities.find(e=>e.kind==="projectile")!;
-  assert.equal(normalBullet.speed,72);assert.equal(normalBullet.moveSpeed,72);
-  assert.equal(fastBullet.speed,144);assert.equal(fastBullet.moveSpeed,144);
-  // Expanded body/bolt contact reaches this stationary target one slice earlier.
-  assert.equal(normal.flightMs,250);assert.equal(fast.flightMs,150);
+  assert.equal(normalBullet.speed,48);assert.equal(normalBullet.moveSpeed,48);
+  assert.equal(fastBullet.speed,96);assert.equal(fastBullet.moveSpeed,96);
+  assert.equal(normal.flightMs,400);assert.equal(fast.flightMs,200);
   assert.equal(normal.launch.state.wands[0].cooldowns["spark-1"],700);
   assert.equal(fast.launch.state.wands[0].cooldowns["spark-1"],700);
   assert.equal(normal.launch.state.characters[0].mana,96);assert.equal(fast.launch.state.characters[0].mana,96);

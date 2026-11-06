@@ -1,5 +1,6 @@
 .construct-deployment__choices { position: absolute; z-index: 6; top: calc(var(--game-hud-inset) + 48px); left: var(--game-hud-inset); display: flex; flex-wrap: wrap; gap: 4px; max-width: min(75%, 420px); }
-.construct-deployment__field { position: absolute; z-index: 20; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: crosshair; }
+/* The placement cursor and click coordinates must use the same frame as units. */
+.construct-deployment__field { position: absolute; z-index: 20; left: 0; top: 0; width: 100%; height: var(--battlefield-world-height); padding: 0; border: 0; background: transparent; cursor: crosshair; }
 .construct-deployment__field:focus-visible { outline: 2px solid var(--inkra-ink); outline-offset: -2px; }
 .construct-deployment__cursor { position: absolute; translate: -50% -50%; color: var(--inkra-ink); font-size: 28px; pointer-events: none; }
 .construct-deployment__prompt { position: absolute; z-index: 21; top: calc(var(--game-hud-inset) + 48px); left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 12px; padding: 4px 8px; background: var(--inkra-paper); }

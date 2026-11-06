@@ -60,7 +60,7 @@ export function makeSupplyGridItem(supply: SupplyInstance, position: { x: number
     label: definition?.name ?? supply.definitionId,
     cells: definition?.shape?.length ? definition.shape : [{ x: 0, y: 0 }],
     position,
-    rotatable: true,
+    rotatable: false,
     kind: "supply",
     supplyId: supply.id,
     definitionId: supply.definitionId,
@@ -106,7 +106,7 @@ export function packInventory(items: DockItem[], columns: number, rows = INVENTO
   const savedBottom = items.reduce((bottom, item) => {
     const position = saved[item.id];
     if (!position || position.y < 0 || position.y >= naturalBound) return bottom;
-    const cells = rotateInventoryCells(item.cells, position.rotation);
+    const cells = rotateInventoryCells(item.cells, item.rotatable === false ? 0 : position.rotation);
     if (!cells.length) return bottom;
     return Math.max(bottom, position.y + Math.max(...cells.map(cell => cell.y)) + 1);
   }, baseRows);
@@ -140,7 +140,8 @@ export function packInventory(items: DockItem[], columns: number, rows = INVENTO
   };
   for (const item of items) {
     const position = saved[item.id];
-    if (position && position.y < naturalBound && fits(cellsAt(item, position.x, position.y, position.rotation))) add(item, position.x, position.y, position.rotation);
+    const rotation = item.rotatable === false ? 0 : position?.rotation ?? 0;
+    if (position && position.y < naturalBound && fits(cellsAt(item, position.x, position.y, rotation))) add(item, position.x, position.y, rotation);
     else remaining.push(item);
   }
   const unplaced: DockItem[] = [];

@@ -1,5 +1,6 @@
 import type { CombatEntity, GameState } from "../contracts";
 import { getCharacterAnchor, getCharacterAnchors } from "../content/characterAnchors";
+import { TERRITORY_FRONT_Y } from "../content/battlefieldCoordinates";
 import { integrateMotion } from "./motion";
 import { getMonsterSize, getUnlockedMinionDefinitions } from "../content/monsters";
 import { applyResolvedDamage } from "./damage";
@@ -21,8 +22,6 @@ export interface WaveSpec {
 const MAX_WAVE_ENEMIES = 60;
 const FIELD_MIN = 0;
 const FIELD_MAX = 100;
-const CHARACTER_ANCHOR_Y = 84;
-const TERRITORY_Y = 92;
 
 /** Flatten any ordered encounter configuration into the same authoritative spawn schedule. */
 export function buildWaveSpec(wave:number, encounters:readonly WaveEncounter[]):WaveSpec {
@@ -106,6 +105,8 @@ export function advanceEnemies(
     .map(entity => ({ entity, radius: getMonsterSize(entity).hitRadius }));
   for (const enemy of state.entities) {
     if (enemy.kind !== "enemy" || enemy.hp <= 0) continue;
+    // Resume legacy enemies from the front, even if they are stationary or engaged.
+    enemy.y = Math.min(enemy.y, TERRITORY_FRONT_Y);
     const regeneration = Number.isFinite(enemy.regenerationPerSecond) ? Math.max(0, enemy.regenerationPerSecond!) : 0;
     if (regeneration > 0) enemy.hp = Math.min(enemy.maxHp, enemy.hp + regeneration * dt / 1000);
     enemy.attackRemainingMs = Math.max(0, enemy.attackRemainingMs - dt);
@@ -129,14 +130,14 @@ export function advanceEnemies(
       const step = Math.min(remaining, motion.distance);
       enemy.x = clamp(enemy.x + (dx / remaining) * step, FIELD_MIN, FIELD_MAX);
       // Off-screen arrivals keep their real position until they walk across y=0.
-      enemy.y = clamp(enemy.y + (dy / remaining) * step, Math.min(FIELD_MIN, enemy.y), FIELD_MAX);
+      enemy.y = clamp(enemy.y + (dy / remaining) * step, Math.min(FIELD_MIN, enemy.y), TERRITORY_FRONT_Y);
     }
     const contacted = nearestDefender(enemy, defenders);
     if (contacted) {
       attackDefender(enemy, contacted, emit);
       continue;
     }
-    if (enemy.y >= TERRITORY_Y && enemy.attackRemainingMs <= 0) {
+    if (enemy.y >= TERRITORY_FRONT_Y && enemy.attackRemainingMs <= 0) {
       const damage = Math.max(0, enemy.damage);
       const shield = Math.max(0, state.territory.shield ?? 0);
       const shieldAbsorbed = Math.min(shield, damage);
@@ -223,7 +224,7 @@ function spawnEnemy(
   const baseHp = 18 + (state.wave - 1) * 3;
   const tierMultiplier = tier === "apex" ? 16 : tier === "major" ? 7 : tier === "minor" ? 3 : 1;
   const spawn = isBoss ? undefined : minionDefinition?.spawn;
-  const speed = isBoss ? 7 : (10 + Math.min(state.wave - 1,10) * 0.5) * (spawn?.speedMultiplier ?? 1);
+  const speed = isBoss ? 7 : (8.5 + Math.min(state.wave - 1,10) * 0.65) * (spawn?.speedMultiplier ?? 1);
   const definitionId = isBoss ? `boss-${tier}` : minionDefinition?.id ?? "enemy-basic";
   const hpMultiplier = spawn?.hpMultiplier ?? 1;
   const damageMultiplier = spawn?.damageMultiplier ?? 1;
@@ -263,7 +264,7 @@ function getEnemyMovementTarget(state: GameState, enemy: CombatEntity): { x: num
     // defender instead of camping forever outside every starter spell's range.
     // Derive this from live anchors so existing saves need no migration or RNG.
     let x = enemy.x;
-    if (enemy.y >= TERRITORY_Y) {
+    if (enemy.y >= TERRITORY_FRONT_Y) {
       let nearestDistance = Infinity;
       for (const anchor of getCharacterAnchors(state.characters)) {
         const distance = Math.abs(anchor.x - enemy.x);
@@ -273,13 +274,13 @@ function getEnemyMovementTarget(state: GameState, enemy: CombatEntity): { x: num
         }
       }
     }
-    return { x, y: TERRITORY_Y };
+    return { x, y: TERRITORY_FRONT_Y };
   }
 
   if (state.characters.length === 0) {
     enemy.movementMode = "straight";
     delete enemy.targetCharacterId;
-    return { x: enemy.x, y: TERRITORY_Y };
+    return { x: enemy.x, y: TERRITORY_FRONT_Y };
   }
 
   let anchor = enemy.targetCharacterId
@@ -290,12 +291,10 @@ function getEnemyMovementTarget(state: GameState, enemy: CombatEntity): { x: num
     enemy.targetCharacterId = fallback.id;
     anchor = getCharacterAnchor(state.characters, fallback.id);
   }
-  if (!anchor) return { x: enemy.x, y: TERRITORY_Y };
+  if (!anchor) return { x: enemy.x, y: TERRITORY_FRONT_Y };
 
-  // Clamp the route at the character line, then continue down its lane to the territory.
-  return enemy.y < CHARACTER_ANCHOR_Y
-    ? { x: anchor.x, y: CHARACTER_ANCHOR_Y }
-    : { x: anchor.x, y: TERRITORY_Y };
+  // Follow the selected character’s lane to the front without crossing it.
+  return { x: anchor.x, y: TERRITORY_FRONT_Y };
 }
 
 function nextRandom(state: GameState): number {

@@ -35,7 +35,7 @@ test("eight supplies retain the original effects and add restoration, percentage
   for (const definition of Object.values(supplyDefinitions)) {
     assert.equal(definition.level, 1);
     assert.equal(definition.grade, "common");
-    assert.ok(definition.shape.length >= 1 && definition.shape.length <= 3);
+    assert.deepEqual(definition.shape, [{ x: 0, y: 0 }]);
     assert.equal(definition.asset.key, `item.${definition.id}`);
     assert.ok(definition.asset.label.length > 0);
     assert.doesNotMatch(definition.asset.label, /\d/);

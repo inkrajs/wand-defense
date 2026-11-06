@@ -1,3 +1,4 @@
+import { TERRITORY_FRONT_Y } from "../content/battlefieldCoordinates";
 import type { BurnStatus, CombatEntity, EnemyStatus, GameState, OnHitSpec } from "../contracts";
 import { demoContent } from "../content/demo";
 import { applyPeriodicDamage, applyResolvedDamage, boundedCombatValue, COMBAT_ROLL_LIMITS } from "./damage";
@@ -218,7 +219,7 @@ function applyKnockback(target: CombatEntity, source: CombatEntity, distance: nu
   const beforeX = target.x;
   const beforeY = target.y;
   target.x = clamp(target.x + direction.x * distance, 0, 100);
-  target.y = Math.min(100, target.y + direction.y * distance);
+  target.y = Math.min(TERRITORY_FRONT_Y, target.y + direction.y * distance);
   emit("knockback", {
     targetId: target.id, statusType: "knockback", ...sourceEventData(source),
     distance: Math.hypot(target.x - beforeX, target.y - beforeY), x: target.x, y: target.y,

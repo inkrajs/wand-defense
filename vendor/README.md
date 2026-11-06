@@ -15,3 +15,9 @@ CI runs `node scripts/use-deploy-inkra.mjs` after `npm ci`. Normal local develop
 keeps its existing linked package; this script is an explicit deployment setup.
 After the compatible components are published, remove this snapshot and use the
 published package through the regular lockfile.
+
+The game also applies a narrow Vite-time compatibility transform to this version's
+`InventoryGrid`: touch dragging activates after 6px of movement rather than a
+180ms hold. It does not change the snapshot or extracted package. The transform
+checks the expected implementation and fails the build if it changes. Remove it
+when the component exposes a public touch activation option.

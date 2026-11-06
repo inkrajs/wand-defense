@@ -1,3 +1,4 @@
+import { TERRITORY_FRONT_Y } from "../content/battlefieldCoordinates";
 import type { CharacterInstance, ContentCatalog, GameEvent, GameState, Transition } from "../contracts";
 import { compileWand } from "../loadout";
 import { experienceThreshold } from "../content/progression";
@@ -63,6 +64,7 @@ function settleDeaths(state: GameState, emit: Emit, pendingKills: PendingKills, 
       if (entity.deathBurst) releaseConstructDeathBurst(state, entity, emit);
       continue;
     }
+    entity.y = Math.min(entity.y, TERRITORY_FRONT_Y);
     const xp = Math.max(1, Math.round(entity.maxHp / 8));
     state.xp += xp;
     const cause = pendingKills.get(entity.id);

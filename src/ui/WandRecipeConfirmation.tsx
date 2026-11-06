@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Button, PencilText } from '@inkra/react';
-import type { Command, CommandResult, GameState, WandInstance } from '../contracts';
+import type { Command, CommandResult, GameState } from '../contracts';
 import { demoContent } from '../content/demo';
 import { gradeDefinitions } from '../content/grades';
-import { getWandRecipeOptions, type WandRecipeOption } from '../loadout/recipe-options';
+import { getWandRecipeGroups, getWandRecipeOptions, type WandRecipeOption } from '../loadout/recipe-options';
 import { MagicPresentationIcon, getMagicPresentationIcon } from './magicPresentationIcons';
 import { PanelBackdrop } from './PanelBackdrop';
 import './MagicDetails.css';
@@ -11,24 +11,16 @@ import './WandRecipeConfirmation.css';
 
 type RecipeChoice = WandRecipeOption & { wandId: string };
 
-export function getWandRecipeChoices(state: GameState, itemId: string): RecipeChoice[] {
+const sameMaterials = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every(id => b.includes(id));
+
+export function getWandRecipeChoices(state: GameState, itemId: string, preferredItemIds?: readonly string[]): RecipeChoice[] {
   const wand = state.wands.find(entry => entry.placements.some(placement => placement.itemId === itemId));
   if (!wand) return [];
-  return getWandRecipeOptions(state, wand.id, demoContent, itemId)
-    .map(option => ({ ...option, wandId: wand.id }));
-}
-
-export function getWandRecipeMaterialIds(state: GameState, wands: readonly WandInstance[]): Set<string> {
-  const ids = new Set<string>();
-  for (const wand of wands) {
-    const options = getWandRecipeOptions(state, wand.id, demoContent);
-    if (!options.length) continue;
-    for (const option of options) for (const id of option.itemIds) ids.add(id);
-    for (const { itemId } of wand.placements) {
-      if (!ids.has(itemId) && getWandRecipeOptions(state, wand.id, demoContent, itemId).length) ids.add(itemId);
-    }
-  }
-  return ids;
+  const options = getWandRecipeOptions(state, wand.id, demoContent, itemId);
+  const preferred = preferredItemIds?.includes(itemId)
+    ? getWandRecipeGroups(state, wand.id, demoContent).filter(option => sameMaterials(option.itemIds, preferredItemIds)) : [];
+  return options.map(option => ({ ...(preferred.find(group => group.recipeId === option.recipeId) ?? option), wandId: wand.id }))
+    .sort((a, b) => Number(preferred.some(group => group.recipeId === b.recipeId)) - Number(preferred.some(group => group.recipeId === a.recipeId)));
 }
 
 function name(definitionId: string) {
@@ -42,21 +34,20 @@ function RecipeMagic({ definitionId, details }: { definitionId: string; details?
   </span>;
 }
 
-export function WandRecipeConfirmation({ state, itemId, dispatch, onClose }: {
-  state: GameState; itemId: string; dispatch: (command: Command) => CommandResult; onClose: () => void;
+export function WandRecipeConfirmation({ state, itemId, preferredItemIds, dispatch, onClose }: {
+  state: GameState; itemId: string; preferredItemIds?: readonly string[]; dispatch: (command: Command) => CommandResult; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDivElement>(null);
   // Keep the presented instances fixed so a layout change can never substitute an ingredient.
-  const [choices] = useState(() => getWandRecipeChoices(state, itemId).map(option => ({
+  const [choices] = useState(() => getWandRecipeChoices(state, itemId, preferredItemIds).map(option => ({
     ...option, materials: option.itemIds.map(id => ({ ...state.items[id] })),
   })));
   const [selected, select] = useState(0);
   const [error, setError] = useState(false);
   const [pending, setPending] = useState(false);
   const choice = choices[selected];
-  const stillValid = choice && getWandRecipeChoices(state, itemId).some(option => option.wandId === choice.wandId
-    && option.recipeId === choice.recipeId && option.itemIds.length === choice.itemIds.length
-    && option.itemIds.every(id => choice.itemIds.includes(id)));
+  const stillValid = choice && getWandRecipeGroups(state, choice.wandId, demoContent).some(option =>
+    option.recipeId === choice.recipeId && sameMaterials(option.itemIds, choice.itemIds));
 
   useLayoutEffect(() => {
     const node = dialog.current;

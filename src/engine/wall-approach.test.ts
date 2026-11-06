@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { CombatEntity } from '../contracts';
+import { TERRITORY_FRONT_Y } from '../content/battlefieldCoordinates';
 import { getCharacterAnchor } from '../content/characterAnchors';
 import { demoContent } from '../content/demo';
 import { createInitialState } from '../runtime/initial';
@@ -31,7 +32,7 @@ test('left and right wall attackers advance continuously while still attacking t
   });
   assert.equal(state.entities[0].x, 0.5);
   assert.equal(state.entities[1].x, 99.5);
-  assert.ok(state.entities.every(entity => entity.y === 92));
+  assert.ok(state.entities.every(entity => entity.y === TERRITORY_FRONT_Y));
   assert.deepEqual(attacks, ['left', 'right']);
   assert.equal(state.territory.shield, 46);
   assert.equal(state.rngState, seed, 'approach consumes no random draws');

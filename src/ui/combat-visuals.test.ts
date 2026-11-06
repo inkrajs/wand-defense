@@ -3,7 +3,28 @@ import test from "node:test";
 import { createInitialState } from "../runtime/initial";
 import { stepBattle } from "../engine";
 import { demoContent } from "../content/demo";
-import { collectCastVisuals, projectileVisual } from "./combatVisuals";
+import { collectCastVisuals, projectileScreenPosition, projectileVisual } from "./combatVisuals";
+
+test("ordinary character projectiles start at the hero and fly forward toward enemies in front of the defenses", () => {
+  const projectile = { id:"p", definitionId:"spark", kind:"projectile" as const, faction:"player" as const,
+    x:50, y:84, originX:50, originY:84, targetX:52, targetY:80, sourceCharacterId:"hero",
+    hp:1, maxHp:1, damage:1, speed:1, range:30, cooldownMs:0, attackRemainingMs:0 };
+  const layout = { width:393, height:658, sources:{hero:{x:196.5,y:625}} };
+  const points = [84, 83, 82, 81, 80, 79].map(y => {
+    const current = {...projectile, x:50 + (84 - y) * 2 / 4, y};
+    return projectileScreenPosition(current, projectileVisual(current)!, layout);
+  });
+  assert.deepEqual(points[0], layout.sources.hero);
+  for (let i = 1; i < points.length; i++) assert.ok(points[i].y < points[i - 1].y);
+  assert.ok(Math.abs(points[4].y - 80 / 100 * layout.height) < 1e-8);
+
+  const upward = {...projectile, targetX:50, targetY:60};
+  assert.equal(projectileScreenPosition(upward, projectileVisual(upward)!, layout).y, 625);
+  const triggered = {...upward, fixedOrigin:true};
+  assert.equal(projectileScreenPosition(triggered, projectileVisual(triggered)!, layout).y, 84 / 100 * layout.height);
+  const summoned = {...upward, sourceEntityId:"summon"};
+  assert.equal(projectileScreenPosition(summoned, projectileVisual(summoned)!, layout).y, 84 / 100 * layout.height);
+});
 
 test("a killing hit retains its position for presentation after the target is removed", () => {
   const state = createInitialState();

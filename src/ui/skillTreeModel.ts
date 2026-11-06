@@ -127,3 +127,64 @@ export function buildSkillTree(content: ContentCatalog, knowledge: GameState['kn
   }
   return {nodes: [...orderedNodes.filter(node => !node.boundary), ...orderedNodes.filter(node => node.boundary)], edges: [...edges.values()]};
 }
+
+export interface SkillTreeRouteView {
+  /** A route per discovered output, including opaque unknown outputs. */
+  routes: { id: string; name: string; path: string[] }[];
+  main: string[];
+  atomic: string[];
+}
+
+/** Derive compact paths from the already filtered graph, never from undiscovered recipes. */
+export function buildSkillTreeRoutes(tree: ReturnType<typeof buildSkillTree>, content: ContentCatalog, element: Exclude<SkillTreeFilter, 'all'>): SkillTreeRouteView {
+  const byId = new Map(tree.nodes.map(node => [node.id, node]));
+  const belongs = (node: SkillTreeNode) => {
+    if (!node.known || !node.definitionId || node.boundary) return false;
+    if (element === 'arcana') return node.kind === 'arcana';
+    const spell = content.spells[node.definitionId];
+    return !!spell && (spell.element === element || !!spell.fusionElements?.includes(element));
+  };
+  const pathCache = new Map<string, string[]>();
+  const pathTo = (id: string, seen = new Set<string>()): string[] => {
+    if (seen.has(id)) return [];
+    const cached = pathCache.get(id);
+    if (cached && !cached.some(part => seen.has(part))) return cached;
+    const node = byId.get(id);
+    if (!node) return [];
+    const nextSeen = new Set(seen); nextSeen.add(id);
+    const predecessors = [...new Set((node.recipes ?? []).flatMap(recipe => recipe.inputs))]
+      .map(input => byId.get(input)).filter((input): input is SkillTreeNode => !!input && belongs(input));
+    const paths = predecessors.map(input => pathTo(input.id, nextSeen));
+    paths.sort((a, b) => b.length - a.length);
+    const path = [...(paths[0] ?? []), id];
+    pathCache.set(id, path);
+    return path;
+  };
+  const targets = tree.nodes.filter(node => !node.boundary && (node.recipes?.length || (node.known && !node.atomic)));
+  const routes = targets.map(node => ({id: node.id, name: node.name, path: pathTo(node.id)}));
+  const preferred = routes.filter(route => { const node = byId.get(route.id); return !!node && belongs(node); });
+  const candidates = preferred.length ? preferred : routes;
+  const remaining = [...candidates], main: string[] = [], covered = new Set<string>();
+  while (remaining.length && main.length < 3) {
+    remaining.sort((a, b) => {
+      const score = (route: typeof a) => route.path.filter(id => !covered.has(id)).length * 100 + route.path.length;
+      return score(b) - score(a);
+    });
+    const route = remaining.shift()!;
+    if (main.length && !route.path.some(id => !covered.has(id))) continue;
+    main.push(route.id); route.path.forEach(id => covered.add(id));
+  }
+  return {routes, main, atomic: tree.nodes.filter(node => node.atomic && belongs(node)).map(node => node.id)};
+}
+
+/** Keep each displayed output's complete discovered ingredient set as side branches. */
+export function skillTreeRouteGraph(tree: ReturnType<typeof buildSkillTree>, routes: SkillTreeRouteView, selection: 'main' | 'atomic' | string): ReturnType<typeof buildSkillTree> {
+  if (selection === 'atomic' || (selection === 'main' && !routes.main.length)) return {nodes: tree.nodes.filter(node => routes.atomic.includes(node.id)), edges: []};
+  const selected = selection === 'main' ? routes.main : [selection];
+  const pathIds = new Set(routes.routes.filter(route => selected.includes(route.id)).flatMap(route => route.path));
+  const visible = new Set([...pathIds, ...(selection === 'main' ? routes.atomic : [])]);
+  for (const node of tree.nodes) if (pathIds.has(node.id)) {
+    for (const recipe of node.recipes ?? []) for (const input of recipe.inputs) visible.add(input);
+  }
+  return {nodes: tree.nodes.filter(node => visible.has(node.id)), edges: tree.edges.filter(edge => pathIds.has(edge.target) && visible.has(edge.source))};
+}

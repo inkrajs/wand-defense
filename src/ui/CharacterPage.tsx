@@ -17,7 +17,7 @@ import { WandPreview } from "./WandMiniatures";
 import "./CharacterPage.css";
 
 export type CharacterPageTab = CharacterTab;
-type Props = { state: GameState; dispatch: (command: Command) => CommandResult; activeCharacterId: string; showLoadout?: boolean; loadoutCategory?: "items" | "equipment"; tab?: CharacterPageTab; onTabChange?: (tab: CharacterPageTab) => void };
+type Props = { state: GameState; dispatch: (command: Command) => CommandResult; activeCharacterId: string; showLoadout?: boolean; loadoutCategory?: "items" | "equipment"; tab?: CharacterPageTab; onTabChange?: (tab: CharacterPageTab) => void; onInspectItem?: (itemId: string) => void };
 
 const pathwayNames: Record<string, string> = { fire: "火之途径", wood: "木之途径", metal: "金之途径", water: "水之途径", earth: "土之途径", light: "光之途径", dark: "暗之途径", lightning: "雷之途径", wind: "风之途径" };
 
@@ -70,7 +70,7 @@ function resourceRunValue(sources: { run: { maxMana: number | null; manaRegen: n
 }
 const wandPaths = [{ d: "m5 19 14-14M5 5l2 2m2-5 1 3m5 11 3 1m-1-5 3 2", mode: "stroke" as const }];
 
-export function CharacterPage({ state, dispatch: _dispatch, activeCharacterId, showLoadout = false, loadoutCategory, tab: controlledTab, onTabChange }: Props) {
+export function CharacterPage({ state, dispatch: _dispatch, activeCharacterId, showLoadout = false, loadoutCategory, tab: controlledTab, onTabChange, onInspectItem }: Props) {
   const [localTab, setLocalTab] = useState<CharacterPageTab>("overview");
   const tab = controlledTab ?? localTab;
   const handleTabChange = (value: string) => {
@@ -159,15 +159,15 @@ export function CharacterPage({ state, dispatch: _dispatch, activeCharacterId, s
           <Tabs.Content className="character-page__panel character-page__equipment-panel" value="equipment">
       <section className="character-page__equipment" aria-label="角色与装备位">
         <div className="character-page__gear-grid">
-          <GearSlot className="character-page__slot--head" icon={headPaths} label="头部" slot="head" state={state} characterId={character.id} loadout={gearLoadout} />
-          <GearSlot className="character-page__slot--wand-one" icon={wandPaths} label="法杖位一" item={equippedWands[0]} state={state} loadout={wandLoadout} />
+          <GearSlot className="character-page__slot--head" icon={headPaths} label="头部" slot="head" state={state} characterId={character.id} loadout={gearLoadout} onInspectItem={onInspectItem} />
+          <GearSlot className="character-page__slot--wand-one" icon={wandPaths} label="法杖位一" item={equippedWands[0]} state={state} loadout={wandLoadout} onInspectItem={onInspectItem} />
           <div className="character-page__portrait">
             <CharacterPresentationIcon pathwayId={characterPathwayId} characterName={character.name} seed={`portrait-${character.id}`} size={88} />
           </div>
-          <GearSlot className="character-page__slot--body" icon={bodyPaths} label="身体" slot="body" state={state} characterId={character.id} loadout={gearLoadout} />
-          <GearSlot className="character-page__slot--wand-two" icon={wandPaths} label="法杖位二" item={equippedWands[1]} state={state} loadout={wandLoadout} />
-          <GearSlot className="character-page__slot--feet" icon={feetPaths} label="足部" slot="feet" state={state} characterId={character.id} loadout={gearLoadout} />
-          <GearSlot className="character-page__slot--accessory" icon={accessoryPaths} label="饰品" slot="accessory" state={state} characterId={character.id} loadout={gearLoadout} />
+          <GearSlot className="character-page__slot--body" icon={bodyPaths} label="身体" slot="body" state={state} characterId={character.id} loadout={gearLoadout} onInspectItem={onInspectItem} />
+          <GearSlot className="character-page__slot--wand-two" icon={wandPaths} label="法杖位二" item={equippedWands[1]} state={state} loadout={wandLoadout} onInspectItem={onInspectItem} />
+          <GearSlot className="character-page__slot--feet" icon={feetPaths} label="足部" slot="feet" state={state} characterId={character.id} loadout={gearLoadout} onInspectItem={onInspectItem} />
+          <GearSlot className="character-page__slot--accessory" icon={accessoryPaths} label="饰品" slot="accessory" state={state} characterId={character.id} loadout={gearLoadout} onInspectItem={onInspectItem} />
         </div>
       </section>
 
@@ -266,7 +266,7 @@ function AttributeRow({ label, ariaLabel, icon, values, calculation, range, sour
   </Tooltip.Root>;
 }
 
-function GearSlot({ className, icon, label, slot, item, state, characterId, loadout = false }: { className: string; icon: readonly { d: string; mode?: "stroke" }[]; label: string; slot?: GearSlot; item?: WandInstance; state: GameState; characterId?: string; loadout?: boolean }) {
+function GearSlot({ className, icon, label, slot, item, state, characterId, loadout = false, onInspectItem }: { className: string; icon: readonly { d: string; mode?: "stroke" }[]; label: string; slot?: GearSlot; item?: WandInstance; state: GameState; characterId?: string; loadout?: boolean; onInspectItem?: (itemId: string) => void }) {
   const gearId = slot && characterId ? state.characters.find((character) => character.id === characterId)?.gearIds?.[slot] : undefined;
   const candidate = gearId ? state.gear?.[gearId] : undefined;
   const equippedGear: GearInstance | undefined = candidate && candidate.id === gearId && candidate.characterId === characterId && candidate.slot === slot ? candidate : undefined;
@@ -276,7 +276,9 @@ function GearSlot({ className, icon, label, slot, item, state, characterId, load
   const hasGearPreview = Boolean(equippedGear && definition);
   const accessibleDescription = item ? `${label}：${item.name}，${item.width}×${item.height}，等级 ${item.level}，${gradeDefinitions[item.grade].name}` : equippedGear ? `${label}：${equippedGear.name}，${gradeDefinitions[equippedGear.grade].name}，等级 ${equippedGear.level}` : `${label}：空装备位`;
   const grade = item?.grade ?? equippedGear?.grade;
-  return <PencilSurface as="div" style={grade ? { "--inkra-accent-strong": gradeDefinitions[grade].color } as React.CSSProperties : undefined} className={`character-page__gear-slot ${className}${loadout ? " is-loadout" : ""}`} variant="outline" seed={`gear-slot-${className}`} radius={8} role={loadout ? "group" : "img"} aria-label={accessibleDescription} data-character-wand-slot={loadout && !slot ? label : undefined} data-character-gear-slot={slot}>
+  const itemId = item?.id ?? equippedGear?.id;
+  const inspect = !loadout && itemId && onInspectItem ? () => onInspectItem(itemId) : undefined;
+  return <PencilSurface as={inspect ? "button" : "div"} {...(inspect ? { type: "button", onClick: inspect } : { role: loadout ? "group" : "img" })} style={grade ? { "--inkra-accent-strong": gradeDefinitions[grade].color } as React.CSSProperties : undefined} className={`character-page__gear-slot ${className}${loadout ? " is-loadout" : ""}`} variant="outline" seed={`gear-slot-${className}`} radius={8} aria-label={accessibleDescription} data-character-wand-slot={loadout && !slot ? label : undefined} data-character-gear-slot={slot}>
     {item ? <span className="character-page__gear-slot-preview" aria-hidden="true"><WandPreview state={state} wand={item} size={44} /></span> : hasGearPreview && equippedGear && definition ? <span className="character-page__gear-slot-preview character-page__gear-art" aria-hidden="true" style={{ color: definition.asset.color }}>{hasGearPresentation && presentationId ? <GearPresentationIcon definitionId={presentationId} size={36} seed={`character-gear-${equippedGear.id}`} /> : <AssetImage asset={resolveAsset(definition.asset, { label: equippedGear.name, icon: equippedGear.name.slice(0, 1) || "◇" })} />}</span> : <PencilIcon paths={icon} sourceSize={24} size={32} className="character-page__gear-slot-icon" decorative />}
     {slot && equippedGear && <span className="character-page__gear-quality" aria-hidden="true" style={{ color: gradeDefinitions[equippedGear.grade].color }}><PencilIcon paths={gearQualityPaths} size={12} sourceSize={24} decorative /></span>}
   </PencilSurface>;

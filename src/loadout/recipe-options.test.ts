@@ -4,7 +4,7 @@ import type { ContentCatalog, GameState } from '../contracts';
 import { demoContent } from '../content/demo';
 import { createFixtureState } from '../runtime/mock';
 import { applyLoadoutCommand } from './transactions';
-import { getWandRecipeOptions } from './recipe-options';
+import { getWandRecipeGroups, getWandRecipeOptions } from './recipe-options';
 import { compileWand } from './compile';
 import { canMergeItems } from './merge-items';
 
@@ -136,6 +136,22 @@ test('an inspected material finds its own legal group even when another pair is 
   state = place(state, 'second-right', 'glimmer', 5, 0);
   state = place(state, 'isolated', 'glimmer', 9, 5);
   const wandId = state.wands[0].id;
+  const groups = getWandRecipeGroups(state, wandId, content);
+  assert.deepEqual(groups, [
+    {recipeId: horizontal, output: 'ward', itemIds: ['corner', 'right']},
+    {recipeId: horizontal, output: 'ward', itemIds: ['second-left', 'second-right']},
+    {recipeId: vertical, output: 'solar-ray', itemIds: ['corner', 'below']},
+  ]);
+  assert.deepEqual(getWandRecipeGroups(state, wandId, content), groups);
+  assert.deepEqual(getWandRecipeGroups(state, 'another-wand', content), []);
+  for (const [index, group] of groups.entries()) {
+    const merge = applyLoadoutCommand(state, {id: `group-${index}`, type: 'mergeRecipe', wandId, recipeId: group.recipeId, itemIds: group.itemIds}, content);
+    assert.equal(merge.result.status, 'executed');
+  }
+  const restricted = {...state, knowledge: {...state.knowledge, recipeIds: [horizontal]}};
+  const broken = {...content, recipes: [{...content.recipes.find(recipe => recipe.id === horizontal)!, output: 'missing-output'}, ...content.recipes]};
+  assert.deepEqual(getWandRecipeGroups(restricted, wandId, content), groups.slice(0, 2));
+  assert.deepEqual(getWandRecipeGroups(restricted, wandId, broken), []);
   const inspect = (id: string) => getWandRecipeOptions(state, wandId, content, id);
   assert.deepEqual(inspect('corner').map(option => option.recipeId), [horizontal, vertical]);
   assert.deepEqual(inspect('below').map(option => option.recipeId), [vertical]);

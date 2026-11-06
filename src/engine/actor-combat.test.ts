@@ -85,7 +85,7 @@ test("actor attack, range and casting frequency alter real launch and contact ti
   assert.equal(state.events.filter(e=>e.type==="spellCast").length,2);
   assert.equal(state.characters[0].mana,92);
   assert.equal(state.entities[0].hp,500);
-  state=stepBattle(state,150,demoContent).state;
+  state=stepBattle(state,350,demoContent).state;
   assert.ok(Math.abs(state.entities.find(e=>e.id==="target")!.hp-483.5)<1e-8);
 });
 
