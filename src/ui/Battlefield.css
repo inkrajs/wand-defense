@@ -13,8 +13,16 @@
   from { opacity: .64; transform: translateY(1px) scale(.92) rotate(-5deg); }
   to { opacity: 1; transform: translateY(-2px) scale(1.06) rotate(6deg); }
 }
-.battlefield__unit-mark[data-attacked="true"] { animation: battlefield-enemy-attack-bob 420ms ease-out 1 both; transform-origin: center bottom; }
+.battlefield__unit-mark[data-attacked] { animation: battlefield-enemy-attack-bob 420ms ease-out 1 both; transform-origin: center bottom; }
 @keyframes battlefield-enemy-attack-bob {
+  0%, 100% { transform: translateY(0) scale(1); }
+  28% { transform: translateY(-4px) scale(.96, 1.03); }
+  58% { transform: translateY(1px) scale(1.02, .97); }
+  78% { transform: translateY(-1px) scale(.99, 1.01); }
+}
+/* Restart overlapping attack animations without remounting the painted icon. */
+.battlefield__unit-mark[data-attacked="b"] { animation-name: battlefield-enemy-attack-bob-alternate; }
+@keyframes battlefield-enemy-attack-bob-alternate {
   0%, 100% { transform: translateY(0) scale(1); }
   28% { transform: translateY(-4px) scale(.96, 1.03); }
   58% { transform: translateY(1px) scale(1.02, .97); }
@@ -48,10 +56,10 @@
 @media (max-width: 560px) { .battlefield__unit:not(.battlefield__unit--enemy) .battlefield__unit-mark { width: 28px; height: 28px; } .battlefield__hero { --hero-diameter: var(--game-hero-size, 56px); } }
 @media (prefers-reduced-motion: reduce) {
   .battlefield *, .battlefield *::before, .battlefield *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
-  .battlefield__unit-mark[data-attacked="true"] { animation: none !important; }
+  .battlefield__unit-mark[data-attacked] { animation: none !important; }
   .battlefield__status-spark { animation: none !important; }
 }
-html[data-game-reduce-motion="true"] .battlefield__unit-mark[data-attacked="true"] { animation: none !important; }
+html[data-game-reduce-motion="true"] .battlefield__unit-mark[data-attacked] { animation: none !important; }
 html[data-game-reduce-motion="true"] .battlefield__status-spark { animation: none !important; }
 
 .battlefield[data-progress-mode="local"] { --game-vitals-height: 20px; }

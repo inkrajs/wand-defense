@@ -8,7 +8,7 @@ export type MonsterAttackCursor = { runId: Id; nextSeq: number };
 export type MonsterAttackPulse = { entityId: Id; eventSeq: number };
 export type MonsterAttackBatch = { nextSeq: number; pulses: MonsterAttackPulse[] };
 export type RunMonsterAttackBatch = { cursor: MonsterAttackCursor; pulses: MonsterAttackPulse[]; runChanged: boolean };
-type ActiveMonsterBob = { eventSeq: number; expiresAt: number };
+export type ActiveMonsterBob = { eventSeq: number; expiresAt: number; variant: "a" | "b" };
 type MonsterBobState = { runId: Id; active: ReadonlyMap<Id, ActiveMonsterBob> };
 
 /** Collect only newly emitted, authoritative territory attacks from live enemy entities. */
@@ -40,7 +40,7 @@ export function collectRunMonsterAttacks(state: GameState, cursor: MonsterAttack
 }
 
 /** Starts at the current event head, so retained history never replays on mount or run change. */
-export function useMonsterAttackBobs(state: GameState): (entityId: Id) => number | undefined {
+export function useMonsterAttackBobs(state: GameState): (entityId: Id) => ActiveMonsterBob | undefined {
   const cursor = useRef<MonsterAttackCursor>({ runId: state.id, nextSeq: state.nextEventSeq });
   const [bobState, setBobState] = useState<MonsterBobState>(() => ({ runId: state.id, active: new Map() }));
 
@@ -58,8 +58,9 @@ export function useMonsterAttackBobs(state: GameState): (entityId: Id) => number
       const next = new Map([...((previous.runId === state.id) ? previous.active : [])]
         .filter(([, active]) => active.expiresAt > now));
       for (const pulse of batch.pulses) {
+        const variant = next.get(pulse.entityId)?.variant === "a" ? "b" : "a";
         next.delete(pulse.entityId);
-        next.set(pulse.entityId, { eventSeq: pulse.eventSeq, expiresAt: deadline });
+        next.set(pulse.entityId, { eventSeq: pulse.eventSeq, expiresAt: deadline, variant });
       }
       while (next.size > MAX_ACTIVE_MONSTER_BOBS) {
         const oldest = next.keys().next().value;
@@ -86,6 +87,6 @@ export function useMonsterAttackBobs(state: GameState): (entityId: Id) => number
   return useMemo(() => (entityId: Id) => {
     if (bobState.runId !== state.id) return undefined;
     const active = bobState.active.get(entityId);
-    return active && active.expiresAt > Date.now() ? active.eventSeq : undefined;
+    return active && active.expiresAt > Date.now() ? active : undefined;
   }, [bobState, state.id]);
 }

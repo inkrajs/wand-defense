@@ -22,7 +22,7 @@ import { BloodDecals } from "./BloodDecals";
 import { BeamEffects } from "./BeamEffects";
 import { MagicEffectArt } from "./MagicEffectArt";
 import { localProgress, ringOptions, strokeOptions } from "./progressOptions";
-import { useMonsterAttackBobs } from "./monsterAnimation";
+import { useMonsterAttackBobs, type ActiveMonsterBob } from "./monsterAnimation";
 import { useGraphicsSettings } from "./graphicsSettings";
 
 function ratio(value: number, maximum: number) {
@@ -48,7 +48,7 @@ const UnitHealth = memo(function UnitHealth({ health, label, id }: { health: num
   return <Progress className="battlefield__unit-health" value={health} max={100} aria-label={`${label}生命`} seed={`health-${id}`} size="sm" {...strokeOptions("var(--inkra-danger-foreground)")} {...(localProgress ? { thickness: 4 } : {})} />;
 });
 
-const BattlefieldUnit = memo(function BattlefieldUnit({ entity, attackEventSeq, resolution }: { entity: CombatEntity; attackEventSeq?: number; resolution: number }) {
+const BattlefieldUnit = memo(function BattlefieldUnit({ entity, attackBob, resolution }: { entity: CombatEntity; attackBob?: ActiveMonsterBob; resolution: number }) {
   const x = Number.isFinite(entity.x) ? entity.x : 50;
   const y = Number.isFinite(entity.y) ? entity.y : 0;
   const left = entity.kind === "enemy" || entity.kind === "summon" || entity.kind === "building" ? x : Math.max(2, Math.min(98, x));
@@ -66,7 +66,7 @@ const BattlefieldUnit = memo(function BattlefieldUnit({ entity, attackEventSeq, 
     data-status-slow={slowed || undefined} data-status-burn={burning || undefined}
     style={{ left: `${left}%`, top: `${top}%`, "--unit-monster-size": `${pixels}px`, "--unit-health-width": `${entity.kind === "enemy" ? Math.max(34, pixels * 1.25) : 34}px` } as React.CSSProperties}
     aria-label={`${label}${statusLabel ? `，${statusLabel}中` : ""}，生命 ${entity.hp} / ${entity.maxHp}${remainingSeconds === undefined ? "" : `，剩余 ${remainingSeconds} 秒`}`}>
-    <span key={attackEventSeq ?? "idle"} className="battlefield__unit-mark" data-attacked={attackEventSeq === undefined ? undefined : "true"} aria-hidden="true">
+    <span className="battlefield__unit-mark" data-attacked={attackBob?.variant} aria-hidden="true">
       {slowed && <MagicEffectArt resolution={resolution} className="battlefield__status-frost" kind="field" seed="enemy-status-slow" width={pixels * 1.42} height={pixels * 1.42} color="var(--inkra-info-pigment)" />}
       {burning && <>
         <MagicEffectArt resolution={resolution} className="battlefield__status-spark battlefield__status-spark--one" kind="ember" seed="enemy-status-burn-a" width={Math.max(10, pixels * .38)} height={Math.max(12, pixels * .46)} color="var(--inkra-warning-pigment)" />
@@ -76,7 +76,7 @@ const BattlefieldUnit = memo(function BattlefieldUnit({ entity, attackEventSeq, 
     </span>
     <UnitHealth health={health} label={label} id={entity.id} />
   </div>;
-}, (a, b) => a.attackEventSeq === b.attackEventSeq && a.resolution === b.resolution && a.entity.id === b.entity.id && a.entity.kind === b.entity.kind && a.entity.faction === b.entity.faction && a.entity.definitionId === b.entity.definitionId && a.entity.bodySize === b.entity.bodySize && a.entity.x === b.entity.x && a.entity.y === b.entity.y && a.entity.hp === b.entity.hp && a.entity.maxHp === b.entity.maxHp && ((a.entity.kind !== "summon" && a.entity.kind !== "building") || Math.ceil((a.entity.remainingMs ?? 0) / 1000) === Math.ceil((b.entity.remainingMs ?? 0) / 1000)) && visibleStatusKey(a.entity) === visibleStatusKey(b.entity));
+}, (a, b) => a.attackBob?.eventSeq === b.attackBob?.eventSeq && a.resolution === b.resolution && a.entity.id === b.entity.id && a.entity.kind === b.entity.kind && a.entity.faction === b.entity.faction && a.entity.definitionId === b.entity.definitionId && a.entity.bodySize === b.entity.bodySize && a.entity.x === b.entity.x && a.entity.y === b.entity.y && a.entity.hp === b.entity.hp && a.entity.maxHp === b.entity.maxHp && ((a.entity.kind !== "summon" && a.entity.kind !== "building") || Math.ceil((a.entity.remainingMs ?? 0) / 1000) === Math.ceil((b.entity.remainingMs ?? 0) / 1000)) && visibleStatusKey(a.entity) === visibleStatusKey(b.entity));
 
 /** Read-only battlefield projection. World coordinates are expressed on a 0–100 field. */
 type Props = { state: GameState; flashes: CastFlashLookup; activeCharacterId: string; hideActiveMini?: boolean; onCharacterSelect: (characterId: string) => void };
@@ -89,7 +89,7 @@ export function Battlefield({ state, flashes, activeCharacterId, hideActiveMini 
     <section className={`battlefield battlefield--${state.phase}`} data-progress-mode={localProgress ? "local" : "fallback"} aria-label="战场">
       <div className={`battlefield__field${state.paused ? " is-paused" : ""}`} role="group" aria-label={`第 ${state.wave} 波战场，${state.entities.length} 个单位，领地生命 ${state.territory.hp} / ${state.territory.maxHp}`}>
         <BloodDecals state={state} />
-        {state.entities.filter(entity => entity.kind !== "projectile" && entity.kind !== "beam" && entity.kind !== "area" && entity.kind !== "chain").map(entity => <BattlefieldUnit key={entity.id} entity={entity} resolution={settings.effectResolution} attackEventSeq={entity.kind === "enemy" ? monsterAttackBob(entity.id) : undefined} />)}
+        {state.entities.filter(entity => entity.kind !== "projectile" && entity.kind !== "beam" && entity.kind !== "area" && entity.kind !== "chain").map(entity => <BattlefieldUnit key={entity.id} entity={entity} resolution={settings.effectResolution} attackBob={entity.kind === "enemy" ? monsterAttackBob(entity.id) : undefined} />)}
 
         <AreaEffects state={state} />
         <ChainEffects state={state} />
