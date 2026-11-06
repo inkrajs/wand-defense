@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Button, DependencyGraph, PencilIcon, PencilLine, PencilSurface, PencilText, Tabs, Tooltip, type DependencyGraphRef, type DependencyGraphNode, type DependencyGraphNodeRenderState, type PencilIconPath } from "@inkra/react";
+import { Button, DependencyGraph, PencilIcon, PencilLine, PencilSurface, PencilText, Tabs, Tooltip, type DependencyGraphRef, type DependencyGraphNode, type PencilIconPath } from "@inkra/react";
 import type { Element, GameState, RecipeDefinition } from "../contracts";
 import { findRecipeExample } from "../loadout/recipe-layout";
 import { rotateShape } from "../loadout/geometry";
@@ -35,14 +35,6 @@ function MagicIcon({ definitionId, size = 32 }: { definitionId: string; size?: n
 function nodeIcon(node: SkillTreeNode) {
   return node.known && node.definitionId ? <MagicIcon definitionId={node.definitionId} size={34} />
     : <PencilIcon paths={unknownPaths} sourceSize={24} size={30} seed="skill-tree-unknown" decorative />;
-}
-
-function renderSkillNode(node: GraphNode, { selected, activate }: DependencyGraphNodeRenderState) {
-  const label = node.data?.known ? node.data.name : "未知";
-  return <button type="button" className="skill-tree__node-button" tabIndex={-1}
-    aria-label={label} aria-pressed={selected} title={label} onClick={activate}>
-    {node.icon}
-  </button>;
 }
 
 function RecipePreview({ recipe, onSelect }: { recipe: RecipeDefinition; onSelect: (definitionId: string) => void }) {
@@ -136,26 +128,28 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
   const nodes = useMemo<GraphNode[]>(() => model.nodes.map(node => ({
     id: node.id, label: node.known ? node.name : "未知", icon: nodeIcon(node), data: node,
   })), [model]);
-  // Keep large trees readable on phones and the arcana progression readable on desktop.
-  // The fit control still shows every node, including standalone arcana.
-  const focusInitial = narrow || element === "arcana";
+  // Avoid mounting the whole graph for the initial fit. Its built-in culling
+  // can stay active from the first render with an explicit focus target.
+  const focusedElement = useRef<Element | "arcana" | null>(null);
   useEffect(() => {
-    if (!focusInitial || viewport === "pending" || !model.nodes.length) return;
-    const origin = model.nodes.find(node => node.atomic && node.known && node.definitionId
-      && (element === "arcana" ? node.kind === "arcana" : demoContent.spells[node.definitionId]?.element === element)) ?? model.nodes[0];
+    if (focusedElement.current === element || viewport === "pending" || !model.nodes.length) return;
+    const origin = model.nodes.find(node => node.atomic && node.known && !node.boundary)
+      ?? model.nodes.find(node => node.known && !node.boundary) ?? model.nodes[0];
     const progression = element === "arcana" && !narrow
       ? ["arcana:double", "arcana:quadruple", "arcana:sextuple"].filter(id => model.nodes.some(node => node.id === id && node.known))
       : [];
-    const ids = progression.length ? progression : [origin.id];
+    const nodes = (progression.length ? progression : [origin.id]).map(id => ({id}));
     let cancelled = false, frame = 0, attempts = 0;
     const fit = () => {
-      void graphRef.current?.fitView({nodes: ids.map(id=>({id})), minZoom: narrow ? .85 : .65, maxZoom: 1, padding: .2}).then(success => {
-        if (!cancelled && !success && ++attempts < 12) frame = requestAnimationFrame(fit);
+      void graphRef.current?.fitView({nodes, minZoom: narrow ? .85 : .65, maxZoom: 1, padding: .2}).then(success => {
+        if (cancelled) return;
+        if (success) focusedElement.current = element;
+        else if (++attempts < 12) frame = requestAnimationFrame(fit);
       });
     };
     frame = requestAnimationFrame(fit);
     return () => {cancelled=true;cancelAnimationFrame(frame);};
-  }, [model, focusInitial, element, viewport]);
+  }, [model, element, viewport, narrow]);
   const selectNode = useCallback((id: string | null) => {
     setSelectedId(id);
     setDetailPath(path => path.length ? [] : path);
@@ -172,19 +166,24 @@ export const SkillTree = memo(function SkillTree({ knowledge }: SkillTreeProps) 
   }, [definitionId, definition]);
 
   return <Tabs.Root ref={root} className="skill-tree" value={element} onValueChange={value => {
-    if (value === "arcana" || elements.includes(value as Element)) { setElement(value as Element | "arcana"); setSelectedId(null); setDetailPath([]); }
+    if (value === "arcana" || elements.includes(value as Element)) { focusedElement.current = null; setElement(value as Element | "arcana"); setSelectedId(null); setDetailPath([]); }
   }}>
     <GameTabsList className="skill-tree__tabs" aria-label="技能树分类" overflow="scroll" labelVisibility="hidden">
       <Tabs.Trigger value="arcana" aria-label="奥术" startIcon={<span style={{color:"var(--inkra-selection-pigment)"}}><SkillTreeElementIcon element="arcana" /></span>} />
       {elements.map(entry => <Tabs.Trigger key={entry} value={entry} aria-label={`${elementAppearances[entry].name}系`} startIcon={<span style={{ color: elementAppearances[entry].pigment }}><SkillTreeElementIcon element={entry} /></span>} />)}
     </GameTabsList>
-    <Tabs.Content value={element} className="skill-tree__content">
+    <Tabs.Content value={element} className="skill-tree__content" onKeyDown={event => {
+      if (event.key === "Escape" && selectedId !== null && !event.defaultPrevented) {
+        event.preventDefault();
+        selectNode(null);
+      }
+    }}>
       <DependencyGraph.Root ref={graphRef} className="skill-tree__graph" aria-label={element === "arcana" ? "奥术技能树" : `${elementAppearances[element].name}系技能树`}
         nodes={nodes} edges={model.edges} direction="LR" nodeWidth={80} nodeHeight={80} rankGap={52} nodeGap={12} nodeVariant="icon"
-        selectedId={selectedId} onSelectedIdChange={selectNode} highlight="both" renderNode={renderSkillNode}
+        selectedId={selectedId} onSelectedIdChange={selectNode} highlight="both"
         onClick={event => { if (event.target instanceof Element && event.target.classList.contains("react-flow__pane")) {setSelectedId(null); setDetailPath([]);} }}
         style={graphStyle}
-        fitView={!focusInitial} hideAttribution minZoom={0.18} maxZoom={1.5} panOnDrag zoomOnPinch onlyRenderVisibleElements emptyState={<PencilText as="p">尚未发现</PencilText>}
+        fitView={false} hideAttribution minZoom={0.06} maxZoom={1.5} panOnDrag zoomOnPinch onlyRenderVisibleElements emptyState={<PencilText as="p">尚未发现</PencilText>}
         controls={graphControls} />
       {definitionId && definition && <PencilSurface as="aside" className="skill-tree__detail" variant="outline" seed={`skill-tree-detail-${definitionId}`} aria-label={`${definition.name}详情`}>
         <Button className="skill-tree__detail-close" type="button" size="icon" variant="ghost" aria-label="关闭详情" onClick={() => {setSelectedId(null); setDetailPath([]);}}><PencilIcon paths={closePaths} sourceSize={24} size={24} decorative /></Button>
